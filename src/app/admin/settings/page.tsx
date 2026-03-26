@@ -163,9 +163,5 @@ function SettingsContent() {
 }
 
 export default function AdminSettingsPage() {
-  return (
-    <AuthProvider>
-      <SettingsContent />
-    </AuthProvider>
-  );
+  return <SettingsContent />;
 }

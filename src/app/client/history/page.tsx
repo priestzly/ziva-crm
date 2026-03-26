@@ -150,9 +150,5 @@ function ClientHistoryContent() {
 }
 
 export default function ClientHistoryPage() {
-  return (
-    <AuthProvider>
-      <ClientHistoryContent />
-    </AuthProvider>
-  );
+  return <ClientHistoryContent />;
 }

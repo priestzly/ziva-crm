@@ -190,9 +190,5 @@ function ClientContent() {
 }
 
 export default function ClientDashboard() {
-  return (
-    <AuthProvider>
-      <ClientContent />
-    </AuthProvider>
-  );
+  return <ClientContent />;
 }

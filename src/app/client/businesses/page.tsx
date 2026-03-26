@@ -147,9 +147,5 @@ function ClientBusinessesContent() {
 }
 
 export default function ClientBusinessesPage() {
-  return (
-    <AuthProvider>
-      <ClientBusinessesContent />
-    </AuthProvider>
-  );
+  return <ClientBusinessesContent />;
 }

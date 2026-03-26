@@ -302,9 +302,5 @@ function MallsContent() {
 }
 
 export default function AdminMalls() {
-  return (
-    <AuthProvider>
-      <MallsContent />
-    </AuthProvider>
-  );
+  return <MallsContent />;
 }

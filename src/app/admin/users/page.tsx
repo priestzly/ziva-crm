@@ -247,9 +247,5 @@ function UsersContent() {
 }
 
 export default function AdminUsersPage() {
-  return (
-    <AuthProvider>
-      <UsersContent />
-    </AuthProvider>
-  );
+  return <UsersContent />;
 }

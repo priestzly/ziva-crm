@@ -226,9 +226,5 @@ function DetailContent() {
 }
 
 export default function BusinessDetailPage() {
-  return (
-    <AuthProvider>
-      <DetailContent />
-    </AuthProvider>
-  );
+  return <DetailContent />;
 }

@@ -248,9 +248,5 @@ function BusinessesContent() {
 }
 
 export default function AdminBusinessesPage() {
-  return (
-    <AuthProvider>
-      <BusinessesContent />
-    </AuthProvider>
-  );
+  return <BusinessesContent />;
 }

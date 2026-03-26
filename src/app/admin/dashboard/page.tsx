@@ -363,9 +363,5 @@ function DashboardContent() {
 }
 
 export default function AdminDashboard() {
-  return (
-    <AuthProvider>
-      <DashboardContent />
-    </AuthProvider>
-  );
+  return <DashboardContent />;
 }
