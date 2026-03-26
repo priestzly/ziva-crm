@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type Mall } from '@/lib/supabase';
 import { 
   Building2, Search, Loader2, Store, ChevronRight, 
@@ -147,5 +148,9 @@ function ClientBusinessesContent() {
 }
 
 export default function ClientBusinessesPage() {
-  return <ClientBusinessesContent />;
+  return (
+    <RouteGuard requiredRole="client">
+      <ClientBusinessesContent />
+    </RouteGuard>
+  );
 }

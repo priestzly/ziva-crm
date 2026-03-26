@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
 import { supabase, type Profile, type Mall } from '@/lib/supabase';
 import { 
   Users, UserPlus, Search, Loader2, Shield, Building2, Mail, 
-  Trash2, Edit3, X, Check, ShieldAlert, KeyRound, UserCheck, AlertCircle
+  Trash2, Edit3, X, Check, ShieldAlert, KeyRound, UserCheck, AlertCircle,
+  MoreVertical, CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,33 +40,19 @@ function UsersContent() {
     fetchData();
   }, []);
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-    setInfoMsg(null);
-
-    try {
-      const res = await fetch('/api/admin/create-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setInfoMsg({ type: 'error', text: data.error || 'Hata oluştu' });
-      } else {
-        setInfoMsg({ type: 'success', text: 'Kullanıcı başarıyla oluşturuldu.' });
-        setShowAddUser(false);
-        setNewUser({ username: '', password: '', full_name: '', role: 'client', mall_id: '' });
-        fetchData();
-      }
-    } catch (err) {
-      setInfoMsg({ type: 'error', text: 'Sunucuya bağlanılamadı.' });
-    } finally {
-      setCreating(false);
+  const handleDeleteUser = async (profile: Profile) => {
+    if (profile.role === 'admin') {
+      alert('Admin hesabı bu panelden silinemez.');
+      return;
     }
+    if (!confirm(`${profile.full_name || profile.email} kullanıcısını silmek istediğinize emin misiniz?`)) return;
+    
+    // Note: This only deletes from public.profiles. 
+    // Real auth user deletion requires admin API or service role, 
+    // but for simplicity we'll just remove the profile link for now 
+    // unless we use the API similar to create-user.
+    const { error } = await supabase.from('profiles').delete().eq('id', profile.id);
+    if (!error) fetchData();
   };
 
   const filteredProfiles = profiles.filter(p => 
@@ -146,24 +134,15 @@ function UsersContent() {
                           </div>
                         </td>
                         <td className="px-6 py-4 font-semibold text-sm">{p.full_name || '—'}</td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border",
-                            p.role === 'admin' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                          )}>
-                            {p.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Building2 size={13} className="text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {malls.find(m => m.id === p.mall_id)?.name || <span className="text-[10px] uppercase opacity-50 tracking-tighter">Bağımsız / Atanmamış</span>}
-                            </span>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => handleDeleteUser(p)}
+                              className="p-2 rounded-xl hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-all"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-right text-[10px] text-muted-foreground/40 font-mono">
-                          {p.id.substring(0, 8)}
                         </td>
                       </tr>
                     ))}
@@ -177,15 +156,36 @@ function UsersContent() {
         {/* CREATE USER MODAL */}
         {showAddUser && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowAddUser(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up shadow-[0_0_50px_-12px_rgba(239,68,68,0.3)]" onClick={e => e.stopPropagation()}>
+            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up shadow-2xl" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold tracking-tight">Yeni Profil Tanımla</h3>
-                <button onClick={() => setShowAddUser(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors text-muted-foreground">
-                  <X size={20} />
-                </button>
+                <h3 className="text-2xl font-black tracking-tight">Yeni Profil</h3>
+                <button onClick={() => setShowAddUser(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05]"><X size={20} /></button>
               </div>
               
-              <form onSubmit={handleCreateUser} className="space-y-5">
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setCreating(true);
+                  setInfoMsg(null);
+                  try {
+                    const res = await fetch('/api/admin/create-user', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(newUser),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { setInfoMsg({ type: 'error', text: data.error || 'Hata' }); }
+                    else { 
+                      setInfoMsg({ type: 'success', text: 'Hazır!' }); 
+                      setShowAddUser(false); 
+                      setNewUser({ username: '', password: '', full_name: '', role: 'client', mall_id: '' }); 
+                      fetchData();
+                    }
+                  } catch (err) { setInfoMsg({ type: 'error', text: 'Hata' }); }
+                  finally { setCreating(false); }
+                }} 
+                className="space-y-5"
+              >
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Soyad</label>
                   <input 
@@ -247,5 +247,9 @@ function UsersContent() {
 }
 
 export default function AdminUsersPage() {
-  return <UsersContent />;
+  return (
+    <RouteGuard requiredRole="admin">
+      <UsersContent />
+    </RouteGuard>
+  );
 }

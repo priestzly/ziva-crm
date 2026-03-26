@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
 import { 
   Settings, User, Lock, Bell, Shield, Palette,
   Save, LogOut, Loader2, Sparkles, ChevronRight
@@ -163,5 +164,9 @@ function SettingsContent() {
 }
 
 export default function AdminSettingsPage() {
-  return <SettingsContent />;
+  return (
+    <RouteGuard requiredRole="admin">
+      <SettingsContent />
+    </RouteGuard>
+  );
 }

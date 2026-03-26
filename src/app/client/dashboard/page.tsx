@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type MaintenanceRecord, type Mall } from '@/lib/supabase';
 import { 
   Building2, ClipboardCheck, Search, ChevronRight, Calendar,
-  ImageIcon, Loader2, Users, MapPin
+  ImageIcon, Loader2, Users, MapPin, Zap, TrendingUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -190,5 +191,9 @@ function ClientContent() {
 }
 
 export default function ClientDashboard() {
-  return <ClientContent />;
+  return (
+    <RouteGuard requiredRole="client">
+      <ClientContent />
+    </RouteGuard>
+  );
 }

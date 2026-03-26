@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type Mall } from '@/lib/supabase';
 import { 
   Building2, PlusCircle, Search, Loader2, X, Trash2, Edit3, 
-  Store, Filter, ChevronRight, LayoutGrid, CheckCircle2
+  Store, Filter, ChevronRight, LayoutGrid, CheckCircle2,
+  Calendar, Clock, Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -248,5 +250,9 @@ function BusinessesContent() {
 }
 
 export default function AdminBusinessesPage() {
-  return <BusinessesContent />;
+  return (
+    <RouteGuard requiredRole="admin">
+      <BusinessesContent />
+    </RouteGuard>
+  );
 }

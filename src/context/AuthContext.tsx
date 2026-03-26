@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, type Profile } from '@/lib/supabase';
-import type { User } from '@supabase/supabase-js';
+import type { User, Session } from '@supabase/supabase-js';
 
 type AuthContextType = {
   user: User | null;
@@ -26,8 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -35,54 +36,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.warn('Profile fetch attempt failed, retrying...', error.message);
+        // Retry once
+        await new Promise(r => setTimeout(r, 800));
+        const { data: retryData } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        if (retryData) {
+          setProfile(retryData);
+          return retryData;
+        }
+        return null;
+      }
+      
       setProfile(data);
+      return data;
     } catch (err) {
-      console.error('Profile fetch failed:', err);
-      // Retry once after 1 second if it failed
-      setTimeout(async () => {
-        const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-        if (data) setProfile(data);
-      }, 1500);
+      console.error('Profile fetch error:', err);
+      return null;
     }
   }, []);
 
-  const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
-  };
+  const handleSession = useCallback(async (session: Session | null) => {
+    if (session?.user) {
+      setUser(session.user);
+      await fetchProfile(session.user.id);
+    } else {
+      setUser(null);
+      setProfile(null);
+    }
+    setLoading(false);
+  }, [fetchProfile]);
 
   useEffect(() => {
-    // Check initial session
-    const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    };
+    if (initialized.current) return;
+    initialized.current = true;
 
-    initAuth();
+    // 1. İlk yüklenme: mevcut oturumu kontrol et
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session);
+    });
 
-    // Listen for auth changes
+    // 2. Auth değişikliklerini dinle (örn: login, logout, token yenileme)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        
-        if (currentUser) {
-          await fetchProfile(currentUser.id);
-        } else {
-          setProfile(null);
-        }
-        
-        // Force loading false after state change
-        setLoading(false);
+      async (_event, session) => {
+        // Sadece gerçek değişikliklerde çalış, ilk yüklemede değil
+        await handleSession(session);
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  }, [handleSession]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -93,6 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+  };
+
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user.id);
   };
 
   return (

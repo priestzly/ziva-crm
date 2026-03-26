@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
 import { supabase, type Mall, type Business } from '@/lib/supabase';
 import { 
   Building2, PlusCircle, Search, Loader2, X, Trash2, Edit3, Users, ChevronDown,
@@ -302,5 +303,5 @@ function MallsContent() {
 }
 
 export default function AdminMalls() {
-  return <MallsContent />;
+  return <RouteGuard requiredRole="admin"><MallsContent /></RouteGuard>;
 }

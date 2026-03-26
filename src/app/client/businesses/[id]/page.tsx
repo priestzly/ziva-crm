@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type MaintenanceRecord, type MaintenancePhoto } from '@/lib/supabase';
 import { 
   ArrowLeft, Calendar, User, ClipboardList, Eye, X,
@@ -226,5 +227,9 @@ function DetailContent() {
 }
 
 export default function BusinessDetailPage() {
-  return <DetailContent />;
+  return (
+    <RouteGuard requiredRole="client">
+      <DetailContent />
+    </RouteGuard>
+  );
 }
