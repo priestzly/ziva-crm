@@ -19,9 +19,10 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
 
   const adminLinks = [
     { name: 'Genel Bakış', href: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'AVM Yönetimi', href: '/admin/malls', icon: Building2 },
-    { name: 'Tüm İşletmeler', href: '/admin/businesses', icon: Store },
-    { name: 'Kullanıcılar', href: '/admin/users', icon: Users },
+    {name: 'AVM Yönetimi', href: '/admin/malls', icon: Building2 },
+    {name: 'Tüm İşletmeler', href: '/admin/businesses', icon: Store },
+    {name: 'Operasyon Arşivi', href: '/admin/history', icon: ClipboardList },
+    {name: 'Kullanıcılar', href: '/admin/users', icon: Users },
     { name: 'Ayarlar', href: '/admin/settings', icon: Settings },
   ];
 

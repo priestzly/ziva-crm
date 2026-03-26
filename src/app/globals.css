@@ -1,38 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --background: 225 15% 4%;
+  --background: 220 20% 4%;
   --foreground: 210 20% 98%;
   
-  --card: 225 12% 8%;
+  --card: 222 15% 7%;
   --card-foreground: 210 20% 98%;
   
-  --popover: 225 12% 8%;
+  --popover: 222 15% 7%;
   --popover-foreground: 210 20% 98%;
   
-  --primary: 6 90% 60%;
+  --primary: 6 90% 55%;
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 225 10% 12%;
+  --secondary: 222 10% 10%;
   --secondary-foreground: 210 20% 98%;
   
-  --muted: 225 10% 12%;
-  --muted-foreground: 215 14% 60%;
+  --muted: 222 10% 14%;
+  --muted-foreground: 215 15% 65%;
   
-  --accent: 225 10% 14%;
+  --accent: 220 10% 18%;
   --accent-foreground: 210 20% 98%;
   
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
   
-  --border: 225 10% 16%;
-  --input: 225 10% 14%;
-  --ring: 6 90% 60%;
+  --border: 222 10% 18%;
+  --input: 222 10% 12%;
+  --ring: 6 90% 55%;
   
-  --radius: 0.5rem; /* sharper, more professional corners */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --radius: 0.75rem;
 }
 
 @theme {
@@ -56,8 +53,8 @@
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 8px);
 }
 
 @layer base {

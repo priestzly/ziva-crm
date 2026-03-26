@@ -10,7 +10,7 @@ import {
   Calendar, Flame, Users, X, Loader2, Upload,
   Edit3, Trash2, CheckCircle2, Store, Activity,
   ArrowUpRight, Zap, BarChart3, Clock, ShieldCheck,
-  UserCircle, Settings, FileText, Wrench
+  UserCircle, Settings, FileText, Wrench, ChevronRight, Printer
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -80,7 +80,7 @@ function DashboardContent() {
     const [bizRes, mallsRes, recRes] = await Promise.all([
       supabase.from('businesses').select('*'),
       supabase.from('malls').select('*'),
-      supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(50),
+      supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(5),
     ]);
     setBusinesses(bizRes.data || []);
     setMalls(mallsRes.data || []);
@@ -242,6 +242,9 @@ function DashboardContent() {
                   <FileText size={18} className="text-muted-foreground" />
                   Saha Servis Kayıtları & İş Emirleri
                 </h3>
+                <Link href="/admin/history" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                  Arşivin Tamamını Gör <ChevronRight size={14} />
+                </Link>
               </div>
             </div>
             
@@ -336,6 +339,13 @@ function DashboardContent() {
                               className="px-3 py-1.5 rounded-md hover:bg-[hsl(var(--muted))] text-xs font-medium text-muted-foreground transition-colors"
                             >
                               Düzenle
+                            </button>
+                            <button 
+                              onClick={() => window.open(`/admin/history?id=${rec.id}`, '_blank')}
+                              className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                              title="Detaylı PDF Raporu"
+                            >
+                              <Printer size={14} />
                             </button>
                             <button 
                               onClick={() => handleDeleteRecord(rec.id)}
