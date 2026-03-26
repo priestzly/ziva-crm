@@ -7,11 +7,43 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type MaintenanceRecord, type MaintenancePhoto } from '@/lib/supabase';
 import { 
   ArrowLeft, Calendar, User, ClipboardList, Eye, X,
-  ShieldCheck, Flame, Loader2, ImageIcon, Download
+  ShieldCheck, Loader2, ImageIcon, Download, UserCircle, Wrench
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useParams } from 'next/navigation';
+
+export interface ParsedDescription {
+  text: string;
+  technician: string;
+  materials: string;
+  status: string;
+  cost: string;
+}
+
+const parseDescription = (desc: string): ParsedDescription => {
+  try {
+    const parsed = JSON.parse(desc);
+    return {
+      text: parsed.text || '',
+      technician: parsed.technician || '',
+      materials: parsed.materials || '',
+      status: parsed.status || 'Tamamlandı',
+      cost: parsed.cost || ''
+    };
+  } catch (e) {
+    return { text: desc, technician: '', materials: '', status: 'Tamamlandı', cost: '' };
+  }
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'Tamamlandı': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+    case 'Devam Ediyor': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+    case 'İptal / Ertelendi': return 'bg-red-500/10 text-red-500 border-red-500/20';
+    default: return 'bg-[hsl(var(--muted))] text-muted-foreground border-[hsl(var(--border))]';
+  }
+};
 
 function DetailContent() {
   const params = useParams();
@@ -54,6 +86,7 @@ function DetailContent() {
 
   useEffect(() => {
     if (bizId) fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bizId]);
 
   useEffect(() => {
@@ -63,21 +96,16 @@ function DetailContent() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_photos' }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(sub); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bizId]);
-
-  const serviceTypeColor: Record<string, string> = {
-    maintenance: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    fire_system: 'bg-red-500/10 text-red-400 border-red-500/20',
-    chimney: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    repair: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex">
         <Sidebar role="client" />
-        <main className="flex-1 lg:ml-72 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <main className="flex-1 lg:ml-72 flex flex-col items-center justify-center bg-[hsl(var(--background))]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
+          <p className="text-sm font-semibold text-muted-foreground">İşletme Detayları Yükleniyor...</p>
         </main>
       </div>
     );
@@ -86,106 +114,132 @@ function DetailContent() {
   return (
     <div className="min-h-screen flex">
       <Sidebar role="client" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500">
+      <main className="flex-1 lg:ml-72 transition-all duration-500 bg-[hsl(var(--background))]">
         <Topbar title="İşletme Detayları" subtitle={business?.name} />
 
-        <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
-          {/* Back */}
-          <Link href="/client/dashboard" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-red-400 transition-colors font-medium group">
-            <div className="p-1.5 rounded-lg glass group-hover:border-red-500/20 transition-all">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
+          {/* Back Button */}
+          <Link href="/client/dashboard" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors font-medium w-fit">
+            <div className="p-1.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
               <ArrowLeft size={14} />
             </div>
-            Panele Dön
+            Geri Dön
           </Link>
 
           {/* Header Card */}
-          <div className="glass rounded-2xl p-6 relative overflow-hidden animate-fade-in">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-red-500/[0.06] via-orange-500/[0.03] to-transparent rounded-bl-full pointer-events-none" />
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <ShieldCheck size={12} />
-                  Sistem Aktif
-                </div>
-                <h1 className="text-3xl font-bold tracking-tight">{business?.name}</h1>
+          <div className="glass rounded-xl p-6 md:p-8 flex flex-col md:flex-row md:items-end justify-between gap-6 border-l-4 border-l-primary">
+            <div className="space-y-4">
+              <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-semibold w-fit">
+                <ShieldCheck size={14} />
+                İşletme Aktif
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1">{business?.name}</h1>
                 <p className="text-sm text-muted-foreground">{business?.category || 'Kategori belirtilmemiş'}</p>
               </div>
-              <div className="flex gap-4">
-                <div className="glass p-4 rounded-xl text-center min-w-[100px]">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1">Toplam Kayıt</p>
-                  <p className="text-xl font-bold">{records.length}</p>
-                </div>
-                <div className="glass p-4 rounded-xl text-center min-w-[100px]">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1">Son Bakım</p>
-                  <p className="text-sm font-bold">{records[0] ? new Date(records[0].created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '—'}</p>
-                </div>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] p-4 rounded-lg text-center flex-1 md:min-w-[120px]">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Geçmiş Kayıt</p>
+                <p className="text-2xl font-bold leading-none">{records.length}</p>
+              </div>
+              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] p-4 rounded-lg text-center flex-1 md:min-w-[120px]">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Son Ziyaret</p>
+                <p className="text-base font-bold leading-none mt-1">
+                  {records[0] ? new Date(records[0].created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : 'Kayıt Yok'}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Records Timeline */}
+          {/* Records Timeline / Ticket Feed */}
           <div className="space-y-4">
-            <h2 className="text-base font-bold flex items-center gap-2">
-              <ClipboardList size={18} className="text-red-400" />
-              Servis Geçmişi
+            <h2 className="text-base font-semibold flex items-center gap-2 mb-4">
+              <ClipboardList size={18} className="text-muted-foreground" />
+              Saha Servis Raporları
             </h2>
 
             {records.length === 0 ? (
-              <div className="glass rounded-2xl flex flex-col items-center justify-center py-20 gap-3">
-                <ClipboardList className="w-10 h-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Henüz bakım kaydı bulunmuyor</p>
+              <div className="glass rounded-xl flex flex-col items-center justify-center py-24 gap-3">
+                <ClipboardList className="w-12 h-12 text-muted-foreground/30" />
+                <p className="text-sm font-semibold text-muted-foreground mt-2">Bu işletme için saha operasyon kaydı bulunamadı.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {records.map((rec, i) => {
                   const recPhotos = photos[rec.id] || [];
+                  const parsed = parseDescription(rec.description);
+
                   return (
-                    <div key={rec.id} className="glass card-hover rounded-2xl p-6 animate-fade-in" style={{ animationDelay: `${i * 0.06}s` }}>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div key={rec.id} className="glass rounded-xl border border-[hsl(var(--border))] p-5 sm:p-6 shadow-sm animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
+                      
+                      {/* Ticket Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-5 border-b border-[hsl(var(--border))]">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500/15 to-orange-500/10 border border-red-500/10 flex items-center justify-center">
-                            <Flame size={16} className="text-red-400" />
+                          <div className="w-10 h-10 shrink-0 rounded bg-[hsl(var(--muted))] flex items-center justify-center border border-[hsl(var(--border))]">
+                            <Wrench size={18} className="text-muted-foreground" />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={cn(
-                                "text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border", 
-                                serviceTypeColor[rec.service_type || ''] || "bg-white/[0.03] text-muted-foreground border-white/[0.06]"
-                              )}>
-                                {rec.service_type || 'Bakım'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
-                              <Calendar size={11} /> {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </p>
+                            <p className="text-[10px] font-semibold text-muted-foreground tracking-wider uppercase mb-0.5">İşlem / Kayıt No: TKT-{rec.id.substring(0, 6).toUpperCase()}</p>
+                            <h4 className="font-semibold text-sm">{rec.service_type || 'Genel Bakım'}</h4>
                           </div>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/40">
-                          #{rec.id.substring(0, 8)}
-                        </span>
+                        <div className="flex items-center gap-3">
+                           <span className={cn("text-[10px] font-bold px-2 py-1 rounded border", getStatusColor(parsed.status))}>
+                            {parsed.status}
+                          </span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-[hsl(var(--muted))] px-2.5 py-1.5 rounded-md">
+                            <Calendar size={12} /> {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="pl-0 sm:pl-[52px]">
-                        <p className="text-sm text-foreground/90 leading-relaxed mb-5 border-l-2 border-red-500/20 pl-4 py-1 italic">
-                          "{rec.description}"
-                        </p>
+                      {/* Ticket Body */}
+                      <div className="space-y-4">
+                        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] p-4 rounded-lg">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Saha Rapor Özeti</p>
+                          <p className="text-sm text-foreground/90 leading-relaxed">
+                            {parsed.text || 'Açıklama belirtilmemiş.'}
+                          </p>
+                        </div>
+                        
+                        {(parsed.materials || parsed.technician) && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {parsed.materials && (
+                              <div>
+                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Kullanılan Parçalar</p>
+                                <p className="text-sm text-muted-foreground bg-[hsl(var(--muted))] px-3 py-2 rounded-md">{parsed.materials}</p>
+                              </div>
+                            )}
+                            {parsed.technician && (
+                              <div>
+                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Müdahale Eden Personel</p>
+                                <p className="text-sm flex items-center gap-1.5 text-muted-foreground bg-[hsl(var(--muted))] px-3 py-2 rounded-md font-medium">
+                                  <UserCircle size={16} /> {parsed.technician}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
-                        {/* Photos */}
+                        {/* Photos section */}
                         {recPhotos.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                              <ImageIcon size={12} /> {recPhotos.length} Fotoğraf
+                          <div className="pt-4 mt-2 border-t border-[hsl(var(--border))]">
+                            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-3">
+                              <ImageIcon size={14} /> Görsel Kanıtlar / Ekler ({recPhotos.length})
                             </p>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                              {recPhotos.map((photo, j) => (
+                            <div className="flex flex-wrap gap-2">
+                              {recPhotos.map((photo) => (
                                 <div 
                                   key={photo.id}
-                                  className="aspect-square rounded-xl overflow-hidden cursor-zoom-in group/img border border-white/[0.06] relative"
+                                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden cursor-zoom-in group border border-[hsl(var(--border))] relative"
                                   onClick={() => setSelectedPhoto(photo.photo_url)}
                                 >
-                                  <img src={photo.photo_url} alt="Bakım" className="w-full h-full object-cover group-hover/img:scale-110 transition-transform duration-500" />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end justify-center pb-2">
-                                    <span className="text-white text-[10px] font-bold flex items-center gap-1"><Eye size={10} /> Büyüt</span>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={photo.photo_url} alt="Saha Görseli" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                  <div className="absolute inset-0 bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Eye size={16} className="text-foreground" />
                                   </div>
                                 </div>
                               ))}
@@ -201,22 +255,23 @@ function DetailContent() {
           </div>
         </div>
 
-        {/* Lightbox */}
+        {/* Lightbox Modal */}
         {selectedPhoto && (
           <div 
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4 min-h-[100dvh]"
             onClick={() => setSelectedPhoto(null)}
           >
             <button 
-              className="absolute top-6 right-6 glass p-2.5 rounded-xl hover:bg-white/10 transition-colors z-10"
+              className="absolute top-4 sm:top-6 right-4 sm:right-6 bg-[hsl(var(--muted))] border border-[hsl(var(--border))] p-2.5 rounded-lg hover:bg-[hsl(var(--card))] transition-colors z-10"
               onClick={() => setSelectedPhoto(null)}
             >
-              <X size={18} />
+              <X size={20} className="text-foreground" />
             </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={selectedPhoto} 
-              className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl animate-fade-in object-contain" 
-              alt="Fotoğraf"
+              className="max-w-full max-h-[85vh] rounded-xl shadow-2xl animate-scale-up object-contain border border-[hsl(var(--border))]" 
+              alt="Büyütülmüş Görsel"
               onClick={e => e.stopPropagation()}
             />
           </div>

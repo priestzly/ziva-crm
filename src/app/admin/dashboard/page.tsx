@@ -9,12 +9,38 @@ import {
   Building2, ClipboardCheck, TrendingUp, PlusCircle, Search,
   Calendar, Flame, Users, X, Loader2, Upload,
   Edit3, Trash2, CheckCircle2, Store, Activity,
-  ArrowUpRight, Zap, BarChart3, Clock
+  ArrowUpRight, Zap, BarChart3, Clock, ShieldCheck,
+  UserCircle, Settings, FileText, Wrench
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+
+export interface ParsedDescription {
+  text: string;
+  technician: string;
+  materials: string;
+  status: string;
+  cost: string;
+}
+
+const parseDescription = (desc: string): ParsedDescription => {
+  try {
+    const parsed = JSON.parse(desc);
+    return {
+      text: parsed.text || '',
+      technician: parsed.technician || '',
+      materials: parsed.materials || '',
+      status: parsed.status || 'Tamamlandı',
+      cost: parsed.cost || ''
+    };
+  } catch (e) {
+    return { text: desc, technician: '', materials: '', status: 'Bilinmiyor', cost: '' };
+  }
+};
 
 function DashboardContent() {
   const { profile } = useAuth();
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [malls, setMalls] = useState<Mall[]>([]);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,45 +48,50 @@ function DashboardContent() {
   // Modals
   const [showAddMall, setShowAddMall] = useState(false);
   const [showAddRecord, setShowAddRecord] = useState(false);
+  const [showEditRecord, setShowEditRecord] = useState(false);
+
+  // Forms
   const [mallForm, setMallForm] = useState({ name: '', address: '', contact_person: '' });
   const [saving, setSaving] = useState(false);
-
-  // Edit Record
+  
+  const [recordForm, setRecordForm] = useState({ 
+    business_id: '', 
+    service_type: '', 
+    text: '', 
+    technician: '', 
+    materials: '', 
+    status: 'Tamamlandı',
+    cost: ''
+  });
+  
+  const [editRecordForm, setEditRecordForm] = useState({ 
+    service_type: '', 
+    text: '', 
+    technician: '', 
+    materials: '', 
+    status: 'Tamamlandı',
+    cost: ''
+  });
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
-  const [showEditRecord, setShowEditRecord] = useState(false);
-  const [editRecordForm, setEditRecordForm] = useState({ description: '', service_type: '' });
-
-  // Record form
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [recordForm, setRecordForm] = useState({ business_id: '', description: '', service_type: '' });
   const [recordPhotos, setRecordPhotos] = useState<File[]>([]);
 
   const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [mallsRes, recsRes, bizRes] = await Promise.all([
-        supabase.from('malls').select('*').order('created_at', { ascending: false }),
-        supabase.from('maintenance_records').select('*, businesses(name, mall_id)').order('created_at', { ascending: false }).limit(20),
-        supabase.from('businesses').select('*').order('name')
-      ]);
-      setMalls(mallsRes.data || []);
-      setRecords(recsRes.data || []);
-      setBusinesses(bizRes.data || []);
-    } catch (err) {
-      console.error('Fetch Error:', err);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    const [bizRes, mallsRes, recRes] = await Promise.all([
+      supabase.from('businesses').select('*'),
+      supabase.from('malls').select('*'),
+      supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(50),
+    ]);
+    setBusinesses(bizRes.data || []);
+    setMalls(mallsRes.data || []);
+    setRecords(recRes.data || []);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchData();
-    const mallSub = supabase.channel('dash-malls')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData())
-      .subscribe();
-    const recSub = supabase.channel('dash-records')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData())
-      .subscribe();
+    const mallSub = supabase.channel('mall-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData()).subscribe();
+    const recSub = supabase.channel('rec-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData()).subscribe();
     return () => {
       supabase.removeChannel(mallSub);
       supabase.removeChannel(recSub);
@@ -80,9 +111,18 @@ function DashboardContent() {
     e.preventDefault();
     if (!recordForm.business_id) return;
     setSaving(true);
+
+    const packedDescription = JSON.stringify({
+      text: recordForm.text,
+      technician: recordForm.technician,
+      materials: recordForm.materials,
+      status: recordForm.status,
+      cost: recordForm.cost
+    });
+
     const { data: rec } = await supabase.from('maintenance_records').insert([{
       business_id: recordForm.business_id,
-      description: recordForm.description,
+      description: packedDescription,
       service_type: recordForm.service_type || 'Genel Bakım',
       admin_id: profile?.id,
     }]).select().single();
@@ -97,7 +137,7 @@ function DashboardContent() {
         }
       }));
     }
-    setRecordForm({ business_id: '', description: '', service_type: '' });
+    setRecordForm({ business_id: '', service_type: '', text: '', technician: '', materials: '', status: 'Tamamlandı', cost: '' });
     setRecordPhotos([]);
     setShowAddRecord(false);
     setSaving(false);
@@ -107,8 +147,17 @@ function DashboardContent() {
     e.preventDefault();
     if (!editingRecord) return;
     setSaving(true);
+
+    const packedDescription = JSON.stringify({
+      text: editRecordForm.text,
+      technician: editRecordForm.technician,
+      materials: editRecordForm.materials,
+      status: editRecordForm.status,
+      cost: editRecordForm.cost
+    });
+
     await supabase.from('maintenance_records').update({
-      description: editRecordForm.description,
+      description: packedDescription,
       service_type: editRecordForm.service_type
     }).eq('id', editingRecord.id);
     setShowEditRecord(false);
@@ -117,7 +166,7 @@ function DashboardContent() {
   };
 
   const handleDeleteRecord = async (id: string) => {
-    if (!confirm('Bu bakım kaydını silmek istediğinizden emin misiniz?')) return;
+    if (!confirm('Bu operasyon kaydını kalıcı olarak silmek istediğinize emin misiniz?')) return;
     await supabase.from('maintenance_records').delete().eq('id', id);
   };
 
@@ -125,196 +174,341 @@ function DashboardContent() {
   const last7Count = records.filter(r => Date.now() - new Date(r.created_at).getTime() < 7 * 86400000).length;
 
   const stats = [
-    { label: 'Toplam AVM', value: malls.length, icon: Building2, color: 'from-violet-500 to-purple-600', iconBg: 'bg-violet-500/10 text-violet-400', trend: '+2 bu ay' },
-    { label: 'İşletme Sayısı', value: businesses.length, icon: Store, color: 'from-cyan-500 to-blue-600', iconBg: 'bg-cyan-500/10 text-cyan-400', trend: 'Aktif' },
-    { label: 'Bu Ay Servis', value: thisMonthCount, icon: Activity, color: 'from-amber-500 to-orange-600', iconBg: 'bg-amber-500/10 text-amber-400', trend: `${last7Count} son 7 gün` },
-    { label: 'Toplam Kayıt', value: records.length, icon: BarChart3, color: 'from-emerald-500 to-teal-600', iconBg: 'bg-emerald-500/10 text-emerald-400', trend: 'Güncelleniyor' },
+    { label: 'Toplam Müşteri Kompleksi', value: malls.length, icon: Building2, color: 'text-violet-500', trend: 'Sisteme Kayıtlı' },
+    { label: 'Aktif İşletme / Dükkan', value: businesses.length, icon: Store, color: 'text-cyan-500', trend: 'Operasyonel' },
+    { label: 'Bu Ay Servis İşlemi', value: thisMonthCount, icon: Activity, color: 'text-amber-500', trend: `${last7Count} son 7 gün içinde` },
+    { label: 'Oluşturulan İş Emri', value: records.length, icon: BarChart3, color: 'text-emerald-500', trend: 'Tüm zamanlar' },
   ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Tamamlandı': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+      case 'Devam Ediyor': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case 'İptal / Ertelendi': return 'bg-red-500/10 text-red-500 border-red-500/20';
+      default: return 'bg-[hsl(var(--muted))] text-muted-foreground border-[hsl(var(--border))]';
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
       <Sidebar role="admin" />
       <main className="flex-1 lg:ml-72 transition-all duration-500">
-        <Topbar title="Komuta Merkezi" subtitle={`Hoş geldin, ${profile?.full_name || 'Admin'}`} />
+        <Topbar title="Operasyon Komuta Merkezi" subtitle={`Yönetici: ${profile?.full_name || 'Admin'}`} />
 
-        <div className="p-6 lg:p-8 space-y-8 max-w-[1400px] mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
           {/* Welcome Banner */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-500/10 via-orange-500/5 to-transparent glass p-8 border border-white/[0.04]">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-red-500/[0.08] via-orange-500/[0.04] to-transparent rounded-bl-full pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-purple-500/[0.04] to-transparent rounded-tr-full pointer-events-none" />
-            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest mb-4">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 status-active" /> Sistem Aktif
-                </div>
-                <h1 className="text-3xl font-black tracking-tight mb-1">Ziva Yangın <span className="gradient-text-fire">CRM</span></h1>
-                <p className="text-muted-foreground text-sm max-w-md">Bakım kayıtlarını yönetin, işletmeleri takip edin ve müşterilerinize premium hizmet sunun.</p>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setShowAddMall(true)} className="btn-primary h-12 px-6 rounded-2xl text-sm flex items-center gap-2 font-bold active:scale-95 transition-transform">
-                  <Building2 size={18} /> AVM Ekle
-                </button>
-                <button onClick={() => setShowAddRecord(true)} className="glass h-12 px-6 rounded-2xl text-sm flex items-center gap-2 font-bold hover:bg-white/[0.06] transition-all border border-white/[0.06] active:scale-95">
-                  <Zap size={18} className="text-amber-400" /> Kayıt Ekle
-                </button>
-              </div>
+          <div className="glass rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border-l-4 border-l-primary">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight mb-2">Saha Operasyonları</h1>
+              <p className="text-muted-foreground text-sm max-w-lg">
+                Gerçek zamanlı servis biletlerini (iş emirleri) izleyin, yeni operasyonlar oluşturun ve tüm müşteri kayıtlarını profesyonel bir standartla yönetin.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+              <button onClick={() => setShowAddMall(true)} className="glass h-11 px-5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-[hsl(var(--muted))] transition-colors w-full sm:w-auto">
+                <Building2 size={16} /> Yeni AVM
+              </button>
+              <button onClick={() => setShowAddRecord(true)} className="btn-primary h-11 px-6 rounded-lg text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm">
+                <PlusCircle size={16} /> İş Emri Oluştur
+              </button>
             </div>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((stat, i) => {
               const Icon = stat.icon;
               return (
-                <div key={i} className="glass rounded-2xl p-5 card-hover gradient-border animate-fade-in group" style={{ animationDelay: `${i * 0.08}s` }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={cn("p-2.5 rounded-xl", stat.iconBg)}>
-                      <Icon size={18} />
+                <div key={i} className="glass rounded-xl p-5 flex flex-col" style={{ animationDelay: `${i * 0.05}s` }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={cn("p-2 rounded-md bg-[hsl(var(--muted))]", stat.color)}>
+                      <Icon size={16} />
                     </div>
-                    <ArrowUpRight size={14} className="text-muted-foreground/30 group-hover:text-red-400/50 transition-colors" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">{stat.label}</span>
                   </div>
-                  <p className="text-3xl font-black tracking-tight animate-count">{loading ? '—' : stat.value}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-widest">{stat.label}</p>
-                  <p className="text-[9px] text-muted-foreground/50 mt-2 italic">{stat.trend}</p>
+                  <p className="text-3xl font-semibold tracking-tight">{loading ? '—' : stat.value}</p>
+                  <div className="mt-3 pt-3 border-t border-[hsl(var(--border))]">
+                    <p className="text-[10px] text-muted-foreground">{stat.trend}</p>
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Records Timeline */}
-          <div className="glass rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-white/[0.04] flex items-center justify-between">
+          {/* Records Timeline (Advanced Service Tickets) */}
+          <div className="glass rounded-xl overflow-hidden shadow-sm flex flex-col h-full border border-[hsl(var(--border))]">
+            <div className="p-5 border-b border-[hsl(var(--border))] flex items-center justify-between bg-[hsl(var(--card))]">
               <div>
-                <h3 className="text-lg font-bold flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-red-500/10 text-red-400"><Clock size={16} /></div>
-                  Son İşlem Akışı
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <FileText size={18} className="text-muted-foreground" />
+                  Saha Servis Kayıtları & İş Emirleri
                 </h3>
-                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-widest font-semibold">Gerçek zamanlı güncelleniyor</p>
               </div>
             </div>
             
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : records.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-4">
-                <div className="w-20 h-20 rounded-3xl bg-white/[0.02] border border-dashed border-white/[0.08] flex items-center justify-center">
-                  <ClipboardCheck className="w-8 h-8 text-muted-foreground/20" />
+            <div className="flex-1 bg-[hsl(var(--background))] p-4 lg:p-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-                <div className="text-center">
-                  <p className="font-bold text-muted-foreground">Henüz kayıt yok</p>
-                  <p className="text-xs text-muted-foreground/50 mt-1">İlk bakım kaydınızı ekleyerek başlayın</p>
+              ) : records.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--muted))] flex items-center justify-center">
+                    <ClipboardCheck className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold text-sm">İşlem Bulunamadı</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Saha ekibi tarafından girilmiş detaylı bir iş emri yok.</p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/[0.03]">
-                {records.map((rec, i) => (
-                  <div key={rec.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/[0.015] transition-all group animate-fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-                    <div className="flex items-center gap-5">
-                      {/* Timeline dot */}
-                      <div className="relative flex flex-col items-center">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-red-500 to-orange-500 shadow-lg shadow-red-500/20 group-hover:scale-125 transition-transform" />
-                        {i < records.length - 1 && <div className="w-px h-8 bg-gradient-to-b from-red-500/20 to-transparent absolute top-4" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold truncate max-w-[250px] sm:max-w-lg group-hover:text-red-400 transition-colors">{rec.description}</p>
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] text-muted-foreground">
-                            {(rec as any).businesses?.name || '—'}
-                          </span>
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-red-400/60">
-                            {rec.service_type || 'Bakım'}
-                          </span>
-                          <span className="text-[9px] text-muted-foreground/40 font-mono hidden sm:block">
-                            {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  {records.map((rec, i) => {
+                    const parsed = parseDescription(rec.description);
+                    return (
+                      <div key={rec.id} className="glass rounded-lg border border-[hsl(var(--border))] p-5 shadow-sm hover:border-[hsl(var(--primary)/0.3)] transition-colors group flex flex-col justify-between">
+                        {/* Ticket Header */}
+                        <div className="flex items-start justify-between mb-4 border-b border-[hsl(var(--border))] pb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded bg-[hsl(var(--muted))] flex items-center justify-center">
+                              <Wrench size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold">TKT-{rec.id.substring(0, 6).toUpperCase()}</p>
+                              <p className="text-[11px] text-muted-foreground">{new Date(rec.created_at).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                            </div>
+                          </div>
+                          <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-md border", getStatusColor(parsed.status))}>
+                            {parsed.status}
                           </span>
                         </div>
+
+                        {/* Ticket Body */}
+                        <div className="flex-1 space-y-3 mb-4">
+                          <div>
+                            <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Hedef İşletme</p>
+                            <p className="text-sm font-medium">{(rec as any).businesses?.name || 'Bilinmeyen İşletme'}</p>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">İşlem Türü</p>
+                              <p className="text-xs">{rec.service_type || 'Belirtilmedi'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Atanan Teknisyen</p>
+                              <p className="text-xs flex items-center gap-1">
+                                <UserCircle size={12} className="text-muted-foreground" /> 
+                                {parsed.technician || 'Atanmadı'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Saha Notları</p>
+                            <p className="text-xs leading-relaxed text-foreground bg-[hsl(var(--card))] p-3 rounded-md border border-[hsl(var(--border))]">
+                              {parsed.text || 'Açıklama girilmemiş.'}
+                            </p>
+                          </div>
+
+                          {parsed.materials && (
+                            <div>
+                              <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Kullanılan Donanım / Parça</p>
+                              <p className="text-xs text-muted-foreground">{parsed.materials}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Ticket Footer */}
+                        <div className="pt-3 border-t border-[hsl(var(--border))] flex items-center justify-between">
+                          <div className="text-xs font-medium">
+                            {parsed.cost && <span className="text-[11px] text-muted-foreground">Maliyet/Tutar: <span className="text-foreground font-semibold">{parsed.cost}</span></span>}
+                          </div>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => { 
+                                setEditingRecord(rec); 
+                                setEditRecordForm({ 
+                                  service_type: rec.service_type || '', 
+                                  text: parsed.text, technician: parsed.technician, materials: parsed.materials, status: parsed.status, cost: parsed.cost 
+                                }); 
+                                setShowEditRecord(true); 
+                              }}
+                              className="px-3 py-1.5 rounded-md hover:bg-[hsl(var(--muted))] text-xs font-medium text-muted-foreground transition-colors"
+                            >
+                              Düzenle
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteRecord(rec.id)}
+                              className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button 
-                        onClick={() => { setEditingRecord(rec); setEditRecordForm({ description: rec.description, service_type: rec.service_type || '' }); setShowEditRecord(true); }}
-                        className="p-2.5 rounded-xl hover:bg-white/[0.06] text-muted-foreground hover:text-amber-400 transition-all"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteRecord(rec.id)}
-                        className="p-2.5 rounded-xl hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-all"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* === MODALS === */}
         {showAddMall && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowAddMall(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 min-h-[100dvh]" onClick={() => setShowAddMall(false)}>
+            <div className="glass-strong rounded-2xl p-6 md:p-8 w-full max-w-md animate-scale-up shadow-lg" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-black tracking-tight">Yeni AVM</h3>
-                <button onClick={() => setShowAddMall(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05]"><X size={20} /></button>
+                <h3 className="text-xl font-semibold">Yeni AVM Tanımla</h3>
+                <button onClick={() => setShowAddMall(false)} className="p-2 rounded-lg hover:bg-[hsl(var(--muted))]"><X size={18} /></button>
               </div>
-              <form onSubmit={handleAddMall} className="space-y-5">
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">AVM Adı *</label><input value={mallForm.name} onChange={e => setMallForm({...mallForm, name: e.target.value})} required className="w-full input-premium mt-2 py-3" placeholder="Akasya AVM" /></div>
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Adres</label><input value={mallForm.address} onChange={e => setMallForm({...mallForm, address: e.target.value})} className="w-full input-premium mt-2 py-3" placeholder="Üsküdar, İstanbul" /></div>
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Yetkili</label><input value={mallForm.contact_person} onChange={e => setMallForm({...mallForm, contact_person: e.target.value})} className="w-full input-premium mt-2 py-3" placeholder="Ali Yılmaz" /></div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 text-base mt-2">{saving ? <Loader2 size={20} className="animate-spin" /> : <><Building2 size={20} /> Kaydet</>}</button>
+              <form onSubmit={handleAddMall} className="space-y-4">
+                <div><label className="text-xs font-semibold text-muted-foreground mb-1.5 block">AVM Adı *</label><input value={mallForm.name} onChange={e => setMallForm({...mallForm, name: e.target.value})} required className="w-full input-premium py-2.5" placeholder="Örn: Akasya AVM" /></div>
+                <div><label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Lokasyon / Adres</label><input value={mallForm.address} onChange={e => setMallForm({...mallForm, address: e.target.value})} className="w-full input-premium py-2.5" placeholder="Şehir, İlçe vs." /></div>
+                <div><label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Sorumlu Kişi</label><input value={mallForm.contact_person} onChange={e => setMallForm({...mallForm, contact_person: e.target.value})} className="w-full input-premium py-2.5" placeholder="İsim Soyisim" /></div>
+                <button type="submit" disabled={saving} className="w-full btn-primary h-12 rounded-lg font-medium flex items-center justify-center gap-2 mt-6">
+                  {saving ? <Loader2 size={18} className="animate-spin" /> : 'Kaydet'}
+                </button>
               </form>
             </div>
           </div>
         )}
 
+        {/* ADVANCED ADD RECORD MODAL */}
         {showAddRecord && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowAddRecord(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-lg animate-scale-up shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-black tracking-tight">Yeni Bakım Kaydı</h3>
-                <button onClick={() => setShowAddRecord(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05]"><X size={20} /></button>
-              </div>
-              <form onSubmit={handleAddRecord} className="space-y-5">
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">İşletme *</label>
-                  <select value={recordForm.business_id} onChange={e => setRecordForm({...recordForm, business_id: e.target.value})} required className="w-full input-premium mt-2 py-3">
-                    <option value="">Seçin</option>{businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">İşlem Türü</label>
-                  <input list="svc" value={recordForm.service_type} onChange={e => setRecordForm({...recordForm, service_type: e.target.value})} className="w-full input-premium mt-2 py-3" placeholder="Baca Temizliği..." />
-                  <datalist id="svc"><option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" /><option value="Baca Temizliği" /><option value="Arıza Onarımı" /><option value="Periyodik Kontrol" /></datalist>
-                </div>
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Açıklama *</label>
-                  <textarea value={recordForm.description} onChange={e => setRecordForm({...recordForm, description: e.target.value})} required rows={3} className="w-full input-premium mt-2 resize-none" placeholder="Detaylı açıklama..." />
-                </div>
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto" onClick={() => setShowAddRecord(false)}>
+            <div className="glass-strong rounded-2xl p-6 md:p-8 w-full max-w-2xl animate-scale-up shadow-lg my-8" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[hsl(var(--border))]">
                 <div>
-                  <label className="flex flex-col items-center justify-center gap-3 w-full py-8 rounded-2xl border-2 border-dashed border-white/[0.06] hover:border-red-500/30 cursor-pointer transition-all bg-white/[0.01] hover:bg-white/[0.03]">
-                    <Upload size={28} className="text-muted-foreground/40" />
-                    <span className="text-sm font-medium text-muted-foreground">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Seçildi` : 'Fotoğraf Yükle'}</span>
+                  <h3 className="text-xl font-semibold">Yeni İş Emri (Servis Kaydı)</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Sisteme detaylı bir operasyon fişi ekleyin.</p>
+                </div>
+                <button onClick={() => setShowAddRecord(false)} className="p-2 rounded-lg hover:bg-[hsl(var(--muted))]"><X size={18} /></button>
+              </div>
+              <form onSubmit={handleAddRecord} className="space-y-6">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Hedef İşletme *</label>
+                    <select value={recordForm.business_id} onChange={e => setRecordForm({...recordForm, business_id: e.target.value})} required className="w-full input-premium py-2.5 cursor-pointer">
+                      <option value="">Seçim Yapın</option>{businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Türü</label>
+                    <input list="svc" value={recordForm.service_type} onChange={e => setRecordForm({...recordForm, service_type: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: Genel Bakım" />
+                    <datalist id="svc">
+                      <option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" />
+                      <option value="Baca Temizliği" /><option value="Arıza Tespiti & Onarım" />
+                    </datalist>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
+                    <div className="relative">
+                      <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input value={recordForm.technician} onChange={e => setRecordForm({...recordForm, technician: e.target.value})} className="w-full input-premium py-2.5 pl-9" placeholder="Personel seçin/yazın" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Durumu</label>
+                    <select value={recordForm.status} onChange={e => setRecordForm({...recordForm, status: e.target.value})} className="w-full input-premium py-2.5 cursor-pointer">
+                      <option value="Tamamlandı">Tamamlandı</option>
+                      <option value="Devam Ediyor">Devam Ediyor</option>
+                      <option value="İptal / Ertelendi">İptal / Ertelendi</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Saha Notları (Detaylı Açıklama) *</label>
+                  <textarea value={recordForm.text} onChange={e => setRecordForm({...recordForm, text: e.target.value})} required rows={3} className="w-full input-premium py-2.5 resize-none" placeholder="Yapılan işlemi detaylı şekilde özetleyin..." />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar / Donanım</label>
+                    <input value={recordForm.materials} onChange={e => setRecordForm({...recordForm, materials: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: 2 Adet Yangın Tüpü" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet / Fatura Tutarı (Opsiyonel)</label>
+                    <input value={recordForm.cost} onChange={e => setRecordForm({...recordForm, cost: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: 2500 TL" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Saha Fotoğrafları / Evrak Yükle</label>
+                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed border-[hsl(var(--border))] hover:border-primary/50 cursor-pointer transition-colors bg-[hsl(var(--card))]">
+                    <Upload size={24} className="text-muted-foreground/50" />
+                    <span className="text-sm font-medium text-muted-foreground">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Seçildi` : 'Tıkla veya Sürükle'}</span>
                     <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
                   </label>
                 </div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 text-base">{saving ? <Loader2 size={20} className="animate-spin" /> : <><CheckCircle2 size={20} /> Kaydı Tamamla</>}</button>
+                
+                <div className="pt-4 border-t border-[hsl(var(--border))] flex justify-end gap-3">
+                  <button type="button" onClick={() => setShowAddRecord(false)} className="px-5 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-[hsl(var(--muted))] transition-colors">
+                    İptal
+                  </button>
+                  <button type="submit" disabled={saving} className="btn-primary px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 text-sm">
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'İş Emrini Kaydet'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
         )}
 
+        {/* ADVANCED EDIT RECORD MODAL (Same layout logic as above) */}
         {showEditRecord && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowEditRecord(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-black tracking-tight">Kaydı Düzenle</h3>
-                <button onClick={() => setShowEditRecord(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05]"><X size={20} /></button>
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto" onClick={() => setShowEditRecord(false)}>
+            <div className="glass-strong rounded-2xl p-6 md:p-8 w-full max-w-2xl animate-scale-up shadow-lg my-8" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[hsl(var(--border))]">
+                <h3 className="text-xl font-semibold">İş Emrini Düzenle</h3>
+                <button onClick={() => setShowEditRecord(false)} className="p-2 rounded-lg hover:bg-[hsl(var(--muted))]"><X size={18} /></button>
               </div>
-              <form onSubmit={handleUpdateRecord} className="space-y-5">
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">İşlem Türü</label><input value={editRecordForm.service_type} onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} className="w-full input-premium mt-2 py-3" /></div>
-                <div><label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Açıklama</label><textarea value={editRecordForm.description} onChange={e => setEditRecordForm({...editRecordForm, description: e.target.value})} rows={4} className="w-full input-premium mt-2 resize-none" /></div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2">{saving ? <Loader2 size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /> Güncelle</>}</button>
+              <form onSubmit={handleUpdateRecord} className="space-y-6">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Türü</label>
+                    <input list="svc2" value={editRecordForm.service_type} onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} className="w-full input-premium py-2.5" />
+                    <datalist id="svc2">
+                      <option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" />
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Durumu</label>
+                    <select value={editRecordForm.status} onChange={e => setEditRecordForm({...editRecordForm, status: e.target.value})} className="w-full input-premium py-2.5 cursor-pointer">
+                      <option value="Tamamlandı">Tamamlandı</option>
+                      <option value="Devam Ediyor">Devam Ediyor</option>
+                      <option value="İptal / Ertelendi">İptal / Ertelendi</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
+                    <input value={editRecordForm.technician} onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} className="w-full input-premium py-2.5" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar</label>
+                    <input value={editRecordForm.materials} onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} className="w-full input-premium py-2.5" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Açıklama / Saha Notları</label>
+                  <textarea value={editRecordForm.text} onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} rows={3} className="w-full input-premium py-2.5 resize-none" />
+                </div>
+
+                <div className="pt-4 border-t border-[hsl(var(--border))] flex justify-end gap-3">
+                  <button type="submit" disabled={saving} className="btn-primary px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 text-sm">
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'Güncelle'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

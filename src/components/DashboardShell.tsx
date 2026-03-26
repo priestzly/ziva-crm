@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Building2, ClipboardList, Settings, LogOut, Flame,
-  Menu, X, Bell, Users, Shield, Store
+  Menu, X, Bell, Users, Shield, Store, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+
+import { CommandPalette } from './CommandPalette';
 
 export function Sidebar({ role }: { role: 'admin' | 'client' }) {
   const pathname = usePathname();
@@ -33,6 +35,7 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
 
   return (
     <>
+      <CommandPalette />
       {/* Mobile Toggle */}
       <button 
         className="lg:hidden fixed top-4 left-4 z-[60] p-2.5 glass rounded-xl text-foreground"
@@ -139,6 +142,11 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-3">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-[10px] font-bold text-muted-foreground/60 transition-all hover:border-primary/30 group cursor-pointer" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}>
+          <Search size={14} className="group-hover:text-primary transition-colors" />
+          ARAMA YAPIN
+          <span className="ml-2 font-mono bg-white/10 px-1 py-0.5 rounded opacity-40 group-hover:opacity-100 transition-all">CTRL K</span>
+        </div>
         <button className="relative p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors">
           <Bell size={18} className="text-muted-foreground" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-[hsl(225,15%,9%)]" />

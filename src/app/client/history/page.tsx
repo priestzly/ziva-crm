@@ -4,21 +4,52 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
-import { supabase, type MaintenanceRecord, type Business } from '@/lib/supabase';
+import { supabase, type MaintenanceRecord } from '@/lib/supabase';
 import { 
   ClipboardList, Search, Loader2, Calendar, Store, 
-  ExternalLink, ChevronRight, Clock, Activity, MapPin, 
-  LayoutGrid, List, CheckCircle2, Zap
+  ChevronRight, Clock, Activity, MapPin, 
+  LayoutList, ShieldCheck, UserCircle, Wrench, Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+
+export interface ParsedDescription {
+  text: string;
+  technician: string;
+  materials: string;
+  status: string;
+  cost: string;
+}
+
+const parseDescription = (desc: string): ParsedDescription => {
+  try {
+    const parsed = JSON.parse(desc);
+    return {
+      text: parsed.text || '',
+      technician: parsed.technician || '',
+      materials: parsed.materials || '',
+      status: parsed.status || 'Tamamlandı',
+      cost: parsed.cost || ''
+    };
+  } catch (e) {
+    return { text: desc, technician: '', materials: '', status: 'Tamamlandı', cost: '' };
+  }
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'Tamamlandı': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+    case 'Devam Ediyor': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+    case 'İptal / Ertelendi': return 'bg-red-500/10 text-red-500 border-red-500/20';
+    default: return 'bg-[hsl(var(--muted))] text-muted-foreground border-[hsl(var(--border))]';
+  }
+};
 
 function ClientHistoryContent() {
   const { profile } = useAuth();
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewType, setViewType] = useState<'timeline' | 'table'>('timeline');
 
   const fetchData = useCallback(async () => {
     if (!profile || !profile.mall_id) {
@@ -27,7 +58,6 @@ function ClientHistoryContent() {
     }
     setLoading(true);
 
-    // 1. Get all businesses in this mall
     const { data: bizData } = await supabase
       .from('businesses')
       .select('id')
@@ -36,7 +66,6 @@ function ClientHistoryContent() {
     const bizIds = bizData?.map(b => b.id) || [];
 
     if (bizIds.length > 0) {
-      // 2. Get all records for those businesses
       const { data: recData } = await supabase
         .from('maintenance_records')
         .select('*, businesses(name, category)')
@@ -53,176 +82,163 @@ function ClientHistoryContent() {
     fetchData();
   }, [fetchData]);
 
-  const filteredRecords = records.filter(r => 
-    r.description.toLowerCase().includes(search.toLowerCase()) ||
-    (r as any).businesses?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    r.service_type?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredRecords = records.filter(r => {
+    const parsed = parseDescription(r.description);
+    return parsed.text.toLowerCase().includes(search.toLowerCase()) ||
+           (r as any).businesses?.name?.toLowerCase().includes(search.toLowerCase()) ||
+           r.service_type?.toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <div className="min-h-screen flex">
       <Sidebar role="client" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500">
-        <Topbar title="Servis Geçmişi" subtitle="AVM genelindeki tüm bakım ve onarım kayıtları" />
+      <main className="flex-1 lg:ml-72 transition-all duration-500 bg-[hsl(var(--background))]">
+        <Topbar title="Servis Geçmişi" subtitle="AVM genelindeki tüm servis ve iş emri kayıtları" />
 
-        <div className="p-6 lg:p-8 space-y-6 max-w-[1200px] mx-auto">
-          {/* Stats Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="glass rounded-3xl p-6 border border-white/[0.04] relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-red-500/[0.05] to-transparent rounded-bl-full" />
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-[0.2em] mb-3 flex items-center gap-2">
-                <Clock size={14} className="text-red-400" /> Toplam İşlem
-              </p>
-              <p className="text-3xl font-black text-white group-hover:scale-110 transition-transform origin-left duration-500">{records.length}</p>
-            </div>
-            <div className="glass rounded-3xl p-6 border border-white/[0.04] relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-500/[0.05] to-transparent rounded-bl-full" />
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-[0.2em] mb-3 flex items-center gap-2">
-                <Calendar size={14} className="text-emerald-400" /> Son 30 Gün
-              </p>
-              <p className="text-3xl font-black text-white group-hover:scale-110 transition-transform origin-left duration-500">
-                {records.filter(r => Date.now() - new Date(r.created_at).getTime() < 30 * 86400000).length}
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1200px] mx-auto">
+          {/* Header & Stats Banner */}
+          <div className="glass rounded-xl p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 border-l-4 border-l-primary">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-2">Tüm Operasyonlar</h1>
+              <p className="text-sm text-muted-foreground max-w-lg">
+                Gerçekleşen servis kayıtlarını, parça değişimlerini ve iş emirlerini kronolojik olarak buradan takip edebilirsiniz.
               </p>
             </div>
-            <div className="glass rounded-3xl p-6 border border-white/[0.04] relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-500/[0.05] to-transparent rounded-bl-full" />
-              <p className="text-[10px] text-muted-foreground uppercase font-black tracking-[0.2em] mb-3 flex items-center gap-2">
-                <Activity size={14} className="text-blue-400" /> Aktif İşletme
-              </p>
-              <p className="text-3xl font-black text-white group-hover:scale-110 transition-transform origin-left duration-500">
-                {new Set(records.map(r => r.business_id)).size}
-              </p>
+            
+            <div className="flex flex-wrap gap-4 lg:gap-6 w-full lg:w-auto mt-2 lg:mt-0">
+              <div className="flex items-center gap-3 bg-[hsl(var(--muted))] px-4 py-2.5 rounded-lg border border-[hsl(var(--border))]">
+                <ShieldCheck className="text-emerald-500" size={20} />
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Toplam Kayıt</p>
+                  <p className="text-lg font-bold leading-none mt-0.5">{records.length}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-[hsl(var(--muted))] px-4 py-2.5 rounded-lg border border-[hsl(var(--border))]">
+                <Store className="text-blue-500" size={20} />
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Aktif Lokasyon</p>
+                  <p className="text-lg font-bold leading-none mt-0.5">{new Set(records.map(r => r.business_id)).size}</p>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white/[0.02] p-2 rounded-2xl border border-white/[0.04]">
-            <div className="relative flex-1 w-full">
+          <div className="glass rounded-xl p-2">
+            <div className="relative w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
                 type="text" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="İşlem veya dükkan ismi ile ara..."
-                className="w-full input-premium pl-11 py-2.5 bg-transparent border-0 focus:ring-0"
+                placeholder="İşlem detayı, dükkan adı veya servis türü ile ara..."
+                className="w-full bg-transparent border-none focus:ring-0 pl-11 py-3 text-sm outline-none"
               />
-            </div>
-            <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl">
-              <button 
-                onClick={() => setViewType('timeline')}
-                className={cn("p-2 rounded-lg transition-all", viewType === 'timeline' ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "text-muted-foreground hover:text-white")}
-              >
-                <List size={18} />
-              </button>
-              <button 
-                onClick={() => setViewType('table')}
-                className={cn("p-2 rounded-lg transition-all", viewType === 'table' ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "text-muted-foreground hover:text-white")}
-              >
-                <LayoutGrid size={18} />
-              </button>
             </div>
           </div>
 
-          {/* Records View */}
+          {/* Ticket List View */}
           <div className="min-h-[400px]">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="w-10 h-10 animate-spin text-red-500" />
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Kayıtlar Hazırlanıyor...</p>
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                <p className="text-xs font-semibold text-muted-foreground">Kayıtlar Yükleniyor...</p>
               </div>
             ) : filteredRecords.length === 0 ? (
-              <div className="glass rounded-3xl py-32 flex flex-col items-center justify-center text-center px-6 border-2 border-dashed border-white/[0.05]">
-                <div className="w-20 h-20 rounded-full bg-white/[0.02] flex items-center justify-center mb-6">
-                  <ClipboardList className="w-10 h-10 text-muted-foreground/20" />
+              <div className="glass rounded-xl py-24 flex flex-col items-center justify-center text-center px-6">
+                <div className="w-16 h-16 rounded-full bg-[hsl(var(--card))] border border-[hsl(var(--border))] flex items-center justify-center mb-4">
+                  <ClipboardList className="w-8 h-8 text-muted-foreground/40" />
                 </div>
-                <h3 className="text-xl font-bold">Kayıt Bulunamadı</h3>
-                <p className="text-sm text-muted-foreground max-w-xs mt-2 font-medium">Bu kriterlere uygun herhangi bir servis kaydı mevcut değil.</p>
-              </div>
-            ) : viewType === 'timeline' ? (
-              <div className="space-y-4 animate-fade-in px-4">
-                {filteredRecords.map((rec, i) => (
-                  <div key={rec.id} className="relative pl-8 pb-4 group">
-                    {/* Vertical Line */}
-                    {i < filteredRecords.length - 1 && (
-                      <div className="absolute left-[11px] top-7 bottom-0 w-px bg-gradient-to-b from-red-500/30 to-transparent" />
-                    )}
-                    
-                    {/* Circle Dot */}
-                    <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full glass border border-red-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-                    </div>
-
-                    <Link href={`/client/businesses/${rec.business_id}`} className="block">
-                      <div className="glass rounded-2xl p-5 border border-white/[0.04] group-hover:border-red-500/30 group-hover:bg-white/[0.03] transition-all duration-300">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div>
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="text-[10px] font-black uppercase tracking-[0.15em] text-red-400 px-2 py-0.5 rounded-md bg-red-500/10">
-                                {rec.service_type || 'Genel Bakım'}
-                              </span>
-                              <span className="text-[10px] font-mono text-muted-foreground italic flex items-center gap-1">
-                                <Clock size={10} /> {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            <h4 className="font-bold text-lg group-hover:text-red-400 transition-colors">{(rec as any).businesses?.name}</h4>
-                            <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed italic">"{rec.description}"</p>
-                          </div>
-                          <div className="flex items-center gap-2 self-end md:self-center">
-                            <span className="text-[10px] font-bold text-muted-foreground px-3 py-1 rounded-full border border-white/[0.1]">Detaylar</span>
-                            <div className="p-2 rounded-xl bg-red-500/10 text-red-400 group-hover:translate-x-1 transition-transform">
-                              <ChevronRight size={16} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-                ))}
+                <h3 className="text-lg font-semibold">Kayıt Bulunamadı</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mt-1">Arama kriterlerinize uygun geçmiş servis kaydı bulunmuyor.</p>
               </div>
             ) : (
-              /* Table View */
-              <div className="glass rounded-3xl overflow-hidden shadow-2xl animate-fade-in">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-[10px] uppercase font-black tracking-widest text-muted-foreground bg-white/[0.02]">
-                        <th className="text-left px-6 py-5">Tarih</th>
-                        <th className="text-left px-6 py-5">İşletme</th>
-                        <th className="text-left px-6 py-5">İşlem</th>
-                        <th className="text-right px-6 py-5">İncele</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/[0.04]">
-                      {filteredRecords.map((rec, i) => (
-                        <tr key={rec.id} className="hover:bg-white/[0.015] transition-colors group">
-                          <td className="px-6 py-4">
-                            <p className="text-xs font-bold">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</p>
-                            <p className="text-[10px] text-muted-foreground font-mono">{new Date(rec.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400">
-                                <Store size={14} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 animate-fade-in">
+                {filteredRecords.map((rec, i) => {
+                  const parsed = parseDescription(rec.description);
+                  return (
+                    <div key={rec.id} className="glass rounded-xl border border-[hsl(var(--border))] p-5 sm:p-6 shadow-sm flex flex-col justify-between group">
+                      
+                      {/* Ticket Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-5 border-b border-[hsl(var(--border))]">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 shrink-0 rounded-lg bg-[hsl(var(--muted))] border border-[hsl(var(--border))] flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                            <Wrench size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Hizmet No: <span className="text-foreground">TKT-{rec.id.substring(0, 6).toUpperCase()}</span></p>
+                            <p className="text-sm font-semibold flex items-center gap-1.5 mt-0.5">
+                              {rec.service_type || 'Genel Bakım'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-md border w-fit", getStatusColor(parsed.status))}>
+                          {parsed.status}
+                        </span>
+                      </div>
+
+                      {/* Ticket Body / Content */}
+                      <div className="space-y-4 flex-1">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Müşteri / İşletme</p>
+                            <p className="text-sm font-semibold flex items-center gap-1.5">
+                              <Building2 size={14} className="text-muted-foreground" />
+                              {(rec as any).businesses?.name || 'Bilinmeyen'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Tarih</p>
+                            <p className="text-sm font-medium flex items-center justify-end gap-1.5">
+                              <Calendar size={14} className="text-muted-foreground" />
+                              {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] p-4 rounded-lg">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Servis Detayı</p>
+                          <p className="text-sm text-foreground/90 leading-relaxed shadow-sm">
+                            {parsed.text || 'Açıklama belirtilmemiş.'}
+                          </p>
+                        </div>
+
+                        {parsed.materials && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Değişen Parça / Kullanılan Malzeme</p>
+                            <p className="text-sm text-muted-foreground">{parsed.materials}</p>
+                          </div>
+                        )}
+                        
+                        {(parsed.technician || parsed.cost) && (
+                          <div className="grid grid-cols-2 gap-4 border-t border-[hsl(var(--border))] pt-4 mt-2">
+                            {parsed.technician && (
+                              <div>
+                                <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Görevli</p>
+                                <p className="text-xs flex items-center gap-1 font-medium"><UserCircle size={12} className="text-muted-foreground"/> {parsed.technician}</p>
                               </div>
-                              <span className="text-sm font-bold">{(rec as any).businesses?.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/[0.04] text-muted-foreground border border-white/[0.06]">
-                              {rec.service_type || 'Bakım'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <Link 
-                              href={`/client/businesses/${rec.business_id}`}
-                              className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-all inline-flex"
-                            >
-                              <ExternalLink size={14} />
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            )}
+                            {parsed.cost && (
+                              <div className="text-right">
+                                <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Tutar</p>
+                                <p className="text-xs font-semibold">{parsed.cost}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action */}
+                      <div className="pt-4 mt-4 text-center">
+                        <Link 
+                          href={`/client/businesses/${rec.business_id}`}
+                          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] hover:bg-[hsl(var(--muted))] transition-colors text-xs font-semibold"
+                        >
+                          İşletme Detayına Git <ChevronRight size={14} />
+                        </Link>
+                      </div>
+
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
