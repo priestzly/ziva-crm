@@ -57,34 +57,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleSession = useCallback(async (session: Session | null) => {
-    if (session?.user) {
-      setUser(session.user);
-      await fetchProfile(session.user.id);
-    } else {
-      setUser(null);
-      setProfile(null);
+    try {
+      if (session?.user) {
+        setUser(session.user);
+        // Wait for profile before finishing loading
+        await fetchProfile(session.user.id);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [fetchProfile]);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
+    let mounted = true;
 
-    // 1. İlk yüklenme: mevcut oturumu kontrol et
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session);
-    });
+    // 1. Check current session immediately
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (mounted) await handleSession(session);
+    };
 
-    // 2. Auth değişikliklerini dinle (örn: login, logout, token yenileme)
+    checkSession();
+
+    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        // Sadece gerçek değişikliklerde çalış, ilk yüklemede değil
-        await handleSession(session);
+      async (event, session) => {
+        if (!mounted) return;
+        
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+        } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          await handleSession(session);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [handleSession]);
 
   const signIn = async (email: string, password: string) => {

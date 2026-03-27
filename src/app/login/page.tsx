@@ -10,42 +10,39 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, profile, user } = useAuth();
   const router = useRouter();
+
+  // Handle redirection centrally based on the reactive profile state
+  React.useEffect(() => {
+    if (user && profile) {
+      if (profile.role === 'admin') {
+        router.replace('/admin/dashboard');
+      } else {
+        router.replace('/client/dashboard');
+      }
+    }
+  }, [user, profile, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    // Eğer kullanıcı @ içermeyen bir kullanıcı adı girdiyse sonuna gizli uzantıyı ekleyelim
     const finalEmail = email.includes('@') ? email : `${email.toLowerCase().trim()}@ziva.internal`;
 
-    const { error } = await signIn(finalEmail, password);
-    
-    if (error) {
-      setError('E-posta veya şifre hatalı.');
-      setLoading(false);
-      return;
-    }
-    
-    // fetch profile to decide where to route
-    const { supabase } = await import('@/lib/supabase');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
+    try {
+      const { error: signInError } = await signIn(finalEmail, password);
       
-      if (profile?.role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/client/dashboard');
+      if (signInError) {
+        setError('E-posta veya şifre hatalı.');
+        setLoading(false);
       }
+      // Redirection is handled by the useEffect above
+    } catch (err) {
+      setError('Bir hata oluştu. Lütfen tekrar deneyin.');
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

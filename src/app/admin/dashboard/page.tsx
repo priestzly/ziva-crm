@@ -89,14 +89,17 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
+    if (!profile) return;
+    
     fetchData();
     const mallSub = supabase.channel('mall-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData()).subscribe();
     const recSub = supabase.channel('rec-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData()).subscribe();
+    
     return () => {
       supabase.removeChannel(mallSub);
       supabase.removeChannel(recSub);
     };
-  }, [fetchData]);
+  }, [fetchData, profile]);
 
   const handleAddMall = async (e: React.FormEvent) => {
     e.preventDefault();

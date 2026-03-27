@@ -15,7 +15,7 @@ import { CommandPalette } from './CommandPalette';
 export function Sidebar({ role }: { role: 'admin' | 'client' }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = React.useState(false);
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, refreshProfile } = useAuth();
 
   const adminLinks = [
     { name: 'Genel Bakış', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -107,9 +107,25 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
             })}
           </nav>
 
-          {/* Bottom User */}
-          <div className="p-4 mt-auto">
-            <div className="glass rounded-2xl p-4 mb-3">
+          {/* Bottom User & Sync */}
+          <div className="p-4 mt-auto space-y-2">
+            <div 
+              onClick={() => { refreshProfile(); }}
+              className="px-4 py-2 rounded-xl bg-[hsl(var(--muted))/40 border border-[hsl(var(--border))] flex items-center justify-between group cursor-pointer hover:bg-white/[0.02] transition-all"
+            >
+               <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Activity size={12} className="text-emerald-500 animate-pulse" />
+                    <div className="absolute inset-0 bg-emerald-500 blur-[4px] opacity-20" />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-foreground">Sistem Senkronize</span>
+               </div>
+               <div className="p-1 rounded bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Zap size={10} className="text-primary" />
+               </div>
+            </div>
+
+            <div className="glass rounded-2xl p-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/20 to-orange-500/20 border border-red-500/20 flex items-center justify-center">
                   <Shield size={16} className="text-red-400" />

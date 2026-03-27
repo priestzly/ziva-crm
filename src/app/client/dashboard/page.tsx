@@ -44,8 +44,10 @@ function ClientContent() {
   }, [profile]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (profile?.mall_id) {
+      fetchData();
+    }
+  }, [fetchData, profile?.mall_id]);
 
   useEffect(() => {
     if (!profile?.mall_id) return;
