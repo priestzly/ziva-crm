@@ -28,18 +28,30 @@ function ClientContent() {
 
     setLoading(true);
 
-    const [mallRes, bizRes, recsRes] = await Promise.all([
-      supabase.from('malls').select('*').eq('id', profile.mall_id).single(),
-      supabase.from('businesses').select('*').eq('mall_id', profile.mall_id).order('name'),
-      supabase.from('maintenance_records').select('*, businesses!inner(name, mall_id)')
-        .eq('businesses.mall_id', profile.mall_id)
-        .order('created_at', { ascending: false })
-        .limit(50),
-    ]);
+    const runQuery = async () => {
+      const [mallRes, bizRes, recsRes] = await Promise.all([
+        supabase.from('malls').select('*').eq('id', profile.mall_id).single(),
+        supabase.from('businesses').select('*').eq('mall_id', profile.mall_id).order('name'),
+        supabase.from('maintenance_records').select('*, businesses!inner(name, mall_id)')
+          .eq('businesses.mall_id', profile.mall_id)
+          .order('created_at', { ascending: false })
+          .limit(50),
+      ]);
+      return { mallRes, bizRes, recsRes };
+    };
 
-    setMall(mallRes.data);
-    setBusinesses(bizRes.data || []);
-    setRecords(recsRes.data || []);
+    let results = await runQuery();
+
+    // Retry once if empty (race condition check)
+    if (!results.bizRes.data?.length && !results.recsRes?.data?.length) {
+      console.log('Client fetch empty - retrying token sync...');
+      await new Promise(r => setTimeout(r, 1000));
+      results = await runQuery();
+    }
+
+    setMall(results.mallRes.data);
+    setBusinesses(results.bizRes.data || []);
+    setRecords(results.recsRes.data || []);
     setLoading(false);
   }, [profile]);
 

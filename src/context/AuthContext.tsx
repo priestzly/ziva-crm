@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (session?.user) {
         setUser(session.user);
-        // Wait for profile before finishing loading
+        console.log('Session detected, fetching profile for:', session.user.email);
         await fetchProfile(session.user.id);
       } else {
         setUser(null);

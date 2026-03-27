@@ -77,21 +77,36 @@ function DashboardContent() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [bizRes, mallsRes, recRes] = await Promise.all([
-      supabase.from('businesses').select('*'),
-      supabase.from('malls').select('*'),
-      supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(5),
-    ]);
-    setBusinesses(bizRes.data || []);
-    setMalls(mallsRes.data || []);
-    setRecords(recRes.data || []);
+    
+    const runQuery = async () => {
+      const [bizRes, mallsRes, recRes] = await Promise.all([
+        supabase.from('businesses').select('*'),
+        supabase.from('malls').select('*'),
+        supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(5),
+      ]);
+      return { bizRes, mallsRes, recRes };
+    };
+
+    let results = await runQuery();
+
+    // If session is new, sometimes RLS blocks the first request on client-side router push.
+    // We retry once after a short delay if everything came back empty.
+    if (!results.bizRes.data?.length && !results.recsRes?.data?.length) {
+      console.warn('Initial fetch empty - possibly token race condition. Retrying in 1s...');
+      await new Promise(r => setTimeout(r, 1000));
+      results = await runQuery();
+    }
+
+    setBusinesses(results.bizRes.data || []);
+    setMalls(results.mallsRes.data || []);
+    setRecords(results.recRes.data || []);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     if (!profile) return;
-    
     fetchData();
+    // (Existing subscriptions...)
     const mallSub = supabase.channel('mall-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData()).subscribe();
     const recSub = supabase.channel('rec-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData()).subscribe();
     
