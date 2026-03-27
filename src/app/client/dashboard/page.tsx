@@ -96,7 +96,7 @@ function ClientContent() {
   return (
     <div className="min-h-screen flex">
       <Sidebar role="client" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500 bg-[hsl(var(--background))]">
+      <main className="flex-1 lg:ml-72 transition-all duration-500 bg-[hsl(var(--background))] w-full overflow-x-hidden pb-20 sm:pb-8">
         <Topbar title={mall?.name || 'Yükleniyor...'} subtitle="AVM Yönetim Ekranı" />
 
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
@@ -113,8 +113,8 @@ function ClientContent() {
             </Link>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
+          {/* Stats Grid - Responsive */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
             {stats.map((stat, i) => {
               const Icon = stat.icon;
               return (
@@ -133,18 +133,18 @@ function ClientContent() {
 
           {/* Main Content Area */}
           <div className="glass rounded-xl overflow-hidden border border-[hsl(var(--border))] flex flex-col h-full shadow-sm">
-            {/* Header & Search */}
-            <div className="p-4 sm:p-5 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-semibold">Tesis Noktaları</h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Kompleks içerisindeki tüm işletmelerin anlık durumu.</p>
+            {/* Header & Search - Optimized for Mobile */}
+            <div className="p-4 sm:p-5 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">Tesis Noktaları</h3>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium italic">AVM kompleksindeki anlık operasyonel durumlar.</p>
               </div>
-              <div className="relative w-full sm:w-72 mt-2 sm:mt-0">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <div className="relative w-full lg:w-72 mt-2 lg:mt-0">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input 
                   type="text" value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="İşletme adı ara..." 
-                  className="input-premium text-sm pl-10 py-2.5 w-full bg-[hsl(var(--background))]"
+                  className="input-premium text-sm pl-11 py-2.5 w-full bg-[hsl(var(--background))]"
                 />
               </div>
             </div>

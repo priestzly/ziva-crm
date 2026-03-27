@@ -210,29 +210,29 @@ function DashboardContent() {
   return (
     <div className="min-h-screen flex">
       <Sidebar role="admin" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500">
+      <main className="flex-1 lg:ml-72 transition-all duration-500 w-full overflow-x-hidden pb-20 sm:pb-8">
         <Topbar title="Operasyon Komuta Merkezi" subtitle={`Yönetici: ${profile?.full_name || 'Admin'}`} />
 
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
-          {/* Welcome Banner */}
-          <div className="glass rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border-l-4 border-l-primary">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight mb-2">Saha Operasyonları</h1>
-              <p className="text-muted-foreground text-sm max-w-lg">
-                Gerçek zamanlı servis biletlerini (iş emirleri) izleyin, yeni operasyonlar oluşturun ve tüm müşteri kayıtlarını profesyonel bir standartla yönetin.
+          {/* Welcome Banner - Responsive */}
+          <div className="glass rounded-xl p-5 sm:p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 border-l-4 border-l-primary shadow-sm">
+            <div className="space-y-1">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase">Saha Operasyonları</h1>
+              <p className="text-muted-foreground text-[11px] sm:text-xs max-w-lg leading-relaxed font-medium">
+                Gerçek zamanlı servis biletlerini izleyin, yeni operasyonlar oluşturun ve tüm müşteri kayıtlarını profesyonel bir standartla yönetin.
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
-              <button onClick={() => setShowAddMall(true)} className="glass h-11 px-5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-[hsl(var(--muted))] transition-colors w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto shrink-0 mt-2 lg:mt-0">
+              <button onClick={() => setShowAddMall(true)} className="glass h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[hsl(var(--muted))] transition-all w-full sm:w-auto active:scale-95">
                 <Building2 size={16} /> Yeni AVM
               </button>
-              <button onClick={() => setShowAddRecord(true)} className="btn-primary h-11 px-6 rounded-lg text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm">
+              <button onClick={() => setShowAddRecord(true)} className="btn-primary h-10 px-5 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 w-full sm:w-auto shadow-lg shadow-primary/20 active:scale-95 transition-all">
                 <PlusCircle size={16} /> İş Emri Oluştur
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {stats.map((stat, i) => {
               const Icon = stat.icon;
               return (

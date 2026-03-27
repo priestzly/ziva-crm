@@ -136,62 +136,62 @@ function ClientHistoryContent() {
   return (
     <div className="min-h-screen flex bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <Sidebar role="client" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500">
+      <main className="flex-1 lg:ml-72 transition-all duration-500 w-full overflow-x-hidden pb-20 sm:pb-8">
         <div className="print:hidden">
             <Topbar title="Operasyon Arşivi" subtitle="AVM geneli saha müdahale ve servis kayıtları" />
         </div>
 
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto print:p-0 print:m-0 print:max-w-none">
           
-          {/* Controls */}
+          {/* Controls - Optimized for Mobile */}
           {!targetId && (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 print:hidden animate-fade-in">
-                <div className="md:col-span-2 relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 print:hidden animate-fade-in px-1">
+                <div className="sm:col-span-2 lg:col-span-2 relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input 
                         type="text" value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="İşlem detayı veya dükkan ara..."
-                        className="w-full input-premium pl-11 py-3"
+                        className="w-full input-premium pl-11 py-2.5 sm:py-3 text-sm"
                     />
                 </div>
                 <select 
                     value={selectedBiz} 
                     onChange={e => setSelectedBiz(e.target.value)}
-                    className="input-premium"
+                    className="input-premium text-sm h-[42px] sm:h-auto"
                 >
                     <option value="all">Tüm Dükkanlar</option>
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
 
-                <div className="flex bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-1 gap-1 shrink-0">
+                <div className="flex bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-1 gap-1 shrink-0 h-[42px] sm:h-auto">
                     <button 
                       onClick={() => setViewMode('grid')}
-                      className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
+                      className={cn("flex-1 flex items-center justify-center rounded-lg transition-all", viewMode === 'grid' ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
                       title="Izgara Görünümü"
                     >
-                      <LayoutGrid size={18} />
+                      <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setViewMode('table')}
-                      className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", viewMode === 'table' ? "bg-primary text-white" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
+                      className={cn("flex-1 flex items-center justify-center rounded-lg transition-all", viewMode === 'table' ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
                       title="Tablo Görünümü"
                     >
-                      <List size={18} />
+                      <List size={16} />
                     </button>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 h-[42px] sm:h-auto">
                   <button 
                       onClick={exportToCSV}
-                      className="flex-1 glass border-[hsl(var(--border))] rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-tight"
+                      className="flex-1 glass border-[hsl(var(--border))] rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-tight"
                   >
-                      <Download size={16} /> CSV
+                      <Download size={14} /> CSV
                   </button>
                   <button 
                       onClick={handlePrint}
-                      className="flex-[2] btn-primary rounded-xl flex items-center justify-center gap-2 text-sm font-black uppercase"
+                      className="flex-[2] btn-primary rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
                   >
-                      <Printer size={18} /> PDF / Yazdır
+                      <Printer size={16} /> PDF
                   </button>
                 </div>
             </div>
@@ -211,28 +211,28 @@ function ClientHistoryContent() {
             </div>
           )}
 
-          {/* Quick Stats Summary - Hidden on Print */}
+          {/* Quick Stats Summary - Responsive Grid */}
           {!targetId && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:hidden animate-fade-in delay-75">
-                <div className="glass p-4 rounded-xl border-l-4 border-l-primary">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Toplam Arşiv</p>
-                    <p className="text-xl font-black">{filteredRecords.length}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 print:hidden animate-fade-in delay-75">
+                <div className="glass p-3 sm:p-4 rounded-xl border-l-4 border-l-primary shadow-sm">
+                    <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase opacity-60 mb-0.5 sm:mb-1">Toplam Arşiv</p>
+                    <p className="text-lg sm:text-xl font-black tabular-nums">{filteredRecords.length}</p>
                 </div>
-                <div className="glass p-4 rounded-xl border-l-4 border-l-emerald-500">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Tamamlanan</p>
-                    <p className="text-xl font-black text-emerald-500">
+                <div className="glass p-3 sm:p-4 rounded-xl border-l-4 border-l-emerald-500 shadow-sm">
+                    <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase opacity-60 mb-0.5 sm:mb-1">Tamamlanan</p>
+                    <p className="text-lg sm:text-xl font-black text-emerald-500 tabular-nums">
                         {filteredRecords.filter(r => parseDescription(r.description).status === 'Tamamlandı').length}
                     </p>
                 </div>
-                <div className="glass p-4 rounded-xl border-l-4 border-l-blue-500">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Devam Eden</p>
-                    <p className="text-xl font-black text-blue-500">
+                <div className="glass p-3 sm:p-4 rounded-xl border-l-4 border-l-blue-500 shadow-sm">
+                    <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase opacity-60 mb-0.5 sm:mb-1">Devam Eden</p>
+                    <p className="text-lg sm:text-xl font-black text-blue-500 tabular-nums">
                         {filteredRecords.filter(r => parseDescription(r.description).status === 'Devam Ediyor').length}
                     </p>
                 </div>
-                <div className="glass p-4 rounded-xl border-l-4 border-l-purple-500">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Aktif İşletme</p>
-                    <p className="text-xl font-black text-purple-500">{businesses.length}</p>
+                <div className="glass p-3 sm:p-4 rounded-xl border-l-4 border-l-purple-500 shadow-sm">
+                    <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase opacity-60 mb-0.5 sm:mb-1">Aktif İşletme</p>
+                    <p className="text-lg sm:text-xl font-black text-purple-500 tabular-nums">{businesses.length}</p>
                 </div>
             </div>
           )}
