@@ -53,6 +53,7 @@ function AdminHistoryContent() {
   const targetId = searchParams.get('id');
 
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedMall, setSelectedMall] = useState<string>('all');
@@ -78,8 +79,19 @@ function AdminHistoryContent() {
 
     setRecords(recData || []);
     setMalls(mallData || []);
+    // Fetch Photos if targeting a specific record
+    if (targetId) {
+      const { data: photoData } = await supabase
+        .from('maintenance_photos')
+        .select('*')
+        .eq('record_id', targetId);
+      setPhotos(photoData || []);
+    } else {
+      setPhotos([]);
+    }
+    
     setLoading(false);
-  }, []);
+  }, [targetId]);
 
   useEffect(() => {
     fetchData();
@@ -270,41 +282,44 @@ function AdminHistoryContent() {
                         <div className="text-right text-[10px] font-black text-slate-400">TARİH: {new Date().toLocaleDateString('tr-TR')}</div>
                       </div>
                     </div>
-                    <div className="overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-primary/20">
-                      <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
-                        <thead className="bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] font-black uppercase tracking-tighter border-b border-[hsl(var(--border))] print:bg-slate-100 print:text-slate-900">
-                          <tr>
-                            <th className="py-4 px-4 border-r border-[hsl(var(--border))] print:border-slate-200">No</th>
-                            <th className="py-4 px-4 border-r border-[hsl(var(--border))] print:border-slate-200">Tarih</th>
-                            <th className="py-4 px-4 border-r border-[hsl(var(--border))] print:border-slate-200">İşletme Bilgisi</th>
-                            <th className="py-4 px-4 border-r border-[hsl(var(--border))] print:border-slate-200">Hizmet Türü</th>
-                            <th className="py-4 px-4 border-r border-[hsl(var(--border))] print:border-slate-200 w-1/3">Operasyon Detayı</th>
-                            <th className="py-4 px-4 border-r border-[hsl(var(--border))] print:border-slate-200 text-right">Maliyet</th>
-                            <th className="py-4 px-4 text-center print:hidden">Detay</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[hsl(var(--border))] print:divide-slate-200 font-medium text-[hsl(var(--foreground))]">
-                          {filteredRecords.map((rec) => {
-                            const p = parseDescription(rec.description);
-                            return (
-                              <tr key={rec.id} className="hover:bg-primary/5 transition-colors group print:hover:bg-transparent">
-                                <td className="py-3 px-4 border-r border-[hsl(var(--border))] print:border-slate-200 font-bold text-muted-foreground group-hover:text-primary transition-colors">#{rec.id.substring(0,6).toUpperCase()}</td>
-                                <td className="py-3 px-4 border-r border-[hsl(var(--border))] print:border-slate-200">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
-                                <td className="py-3 px-4 border-r border-[hsl(var(--border))] print:border-slate-200">
-                                   <div className="font-black uppercase">{(rec as any).businesses?.name}</div>
-                                   <div className="text-[10px] opacity-60">{(rec as any).businesses?.mall?.name}</div>
-                                </td>
-                                <td className="py-3 px-4 border-r border-[hsl(var(--border))] print:border-slate-200 font-black text-primary/70 uppercase">{rec.service_type || 'BAKIM'}</td>
-                                <td className="py-3 px-4 border-r border-[hsl(var(--border))] print:border-slate-200 italic text-[hsl(var(--muted-foreground))] line-clamp-2 max-w-xs">{p.text}</td>
-                                <td className="py-3 px-4 border-r border-[hsl(var(--border))] print:border-slate-200 text-right font-black">{p.cost || '—'}</td>
-                                <td className="py-3 px-4 text-center print:hidden">
-                                   <Link href={`/admin/history?id=${rec.id}`} className="text-primary font-black uppercase text-[10px] hover:underline">Aç Raporu</Link>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    {/* Card-row list — sıfır yatay kaydırma */}
+                    <div className="divide-y divide-[hsl(var(--border))]">
+                      {/* Header */}
+                      <div className="hidden sm:grid grid-cols-[80px_1fr_120px_100px_70px] gap-4 px-5 py-3 bg-[hsl(var(--muted))] text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                        <span>No / Tarih</span>
+                        <span>İşletme & Açıklama</span>
+                        <span>Tür</span>
+                        <span>Durum</span>
+                        <span className="text-right">Rapor</span>
+                      </div>
+                      {filteredRecords.map((rec) => {
+                        const p = parseDescription(rec.description);
+                        return (
+                          <div key={rec.id} className="grid grid-cols-1 sm:grid-cols-[80px_1fr_120px_100px_70px] gap-2 sm:gap-4 px-5 py-4 hover:bg-primary/5 transition-colors group items-center">
+                            <div>
+                              <p className="text-[10px] font-black text-primary/60 group-hover:text-primary transition-colors font-mono">#{rec.id.substring(0,6).toUpperCase()}</p>
+                              <p className="text-[9px] text-muted-foreground mt-0.5">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</p>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black uppercase tracking-tight truncate">{(rec as any).businesses?.name || '—'}</p>
+                              <p className="text-[10px] text-muted-foreground italic line-clamp-1 mt-0.5">{p.text || '—'}</p>
+                            </div>
+                            <div>
+                              <span className="inline-block text-[9px] font-black uppercase bg-primary/8 text-primary px-2 py-0.5 rounded-md">{rec.service_type || 'BAKIM'}</span>
+                            </div>
+                            <div>
+                              <span className={cn('inline-block text-[9px] font-black border uppercase px-2 py-0.5 rounded-md', getStatusColor(p.status))}>
+                                {p.status === 'Tamamlandı' ? '✓' : p.status === 'Devam Ediyor' ? '◑' : '✕'} {p.status}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <Link href={`/admin/history?id=${rec.id}`} className="inline-flex items-center gap-1 text-[10px] font-black text-primary hover:underline">
+                                Aç <ChevronRight size={11} />
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -357,97 +372,146 @@ function AdminHistoryContent() {
                         </div>
                       )}
 
-                      {/* Professional Print Preview */}
-                      <div 
+                      {/* ═══ PREMIUM REPORT DOCUMENT ═══ */}
+                      <div
                         className={cn(
-                          "bg-white text-slate-900 shadow-2xl rounded-sm overflow-hidden relative mx-auto print:m-0 print:border print:border-slate-200 print:shadow-none",
-                          !targetId ? "hidden print:block mb-20" : "block"
+                          'bg-white text-slate-900 relative mx-auto print:m-0 print:shadow-none',
+                          !targetId ? 'hidden print:block mb-20' : 'block'
                         )}
-                        style={{ maxWidth: '850px', minHeight: targetId ? '1100px' : 'auto' }}
+                        style={{ maxWidth: '780px', minHeight: targetId ? '1050px' : 'auto', fontFamily: 'system-ui, sans-serif' }}
                       >
-                         {/* Resmi Belge İçeriği (Her Zaman Beyaz Olmalı Çünkü Kağıt Formatı) */}
-                         <div className="p-10 border-b-2 border-slate-100 flex flex-col sm:flex-row justify-between items-start gap-8 bg-slate-50/50">
-                             <div className="space-y-4">
-                                <div className="flex items-center gap-3">
-                                   <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg">
-                                      <Flame size={24} fill="currentColor" />
-                                   </div>
-                                   <div className="leading-tight">
-                                      <h1 className="text-2xl font-black tracking-tighter text-slate-900 uppercase">ZIVA <span className="text-primary italic">FIRE</span></h1>
-                                      <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-400">Teknik Servis & Güvenlik</p>
-                                   </div>
+                        {/* Accent top bar */}
+                        <div className="h-2 w-full flex">
+                          <div className="flex-1 bg-primary" />
+                          <div className="w-1/4 bg-slate-900" />
+                        </div>
+
+                        {/* Header */}
+                        <div className="px-10 pt-8 pb-6 flex justify-between items-start border-b border-slate-100">
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center text-white shadow-md shadow-primary/30">
+                                <Flame size={22} fill="currentColor" />
+                              </div>
+                              <div className="leading-tight">
+                                <h1 className="text-xl font-black tracking-tighter text-slate-900 uppercase">ZIVA <span className="text-primary">YANGIN</span></h1>
+                                <p className="text-[9px] uppercase font-bold tracking-[0.25em] text-slate-400">Teknik Servis & Yangın Güvenliği</p>
+                              </div>
+                            </div>
+                            <p className="text-[9px] font-bold text-slate-400">Ümraniye / İstanbul &nbsp;·&nbsp; +90 (216) 123 45 67 &nbsp;·&nbsp; www.zivayangin.com</p>
+                          </div>
+                          <div className="text-right space-y-1">
+                            <div className="inline-block text-[8px] font-black uppercase tracking-widest border border-primary/30 text-primary px-3 py-1 rounded-full mb-1">SERVİS RAPORU</div>
+                            <p className="text-[22px] font-black text-slate-200 tracking-tighter">#TKT-{rec.id.substring(0,6).toUpperCase()}</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(rec.created_at).toLocaleDateString('tr-TR', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                          </div>
+                        </div>
+
+                        {/* Info grid */}
+                        <div className="px-10 py-6 grid grid-cols-3 gap-6 border-b border-slate-100 bg-slate-50/50">
+                          <div className="col-span-2">
+                            <p className="text-[8px] font-black uppercase tracking-[0.3em] text-primary mb-1">Müşteri / Lokasyon</p>
+                            <p className="text-base font-black text-slate-900 uppercase tracking-tight">{bizName}</p>
+                            <p className="text-[10px] font-medium text-slate-400 mt-0.5">{mallName}</p>
+                          </div>
+                          <div className="text-right space-y-2">
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">Hizmet Türü</p>
+                              <p className="text-xs font-black text-slate-800 uppercase mt-0.5">{rec.service_type || 'Genel Bakım'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">Durum</p>
+                              <p className="text-xs font-black text-emerald-600 uppercase mt-0.5">{parsed.status}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Body */}
+                        <div className="px-10 py-8 space-y-8">
+
+                          {/* Photos */}
+                          {photos.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-3 mb-4">
+                                <div className="h-px flex-1 bg-slate-100" />
+                                <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">Servis Kanıt Fotoğrafları</p>
+                                <div className="h-px flex-1 bg-slate-100" />
+                              </div>
+                              <div className="grid grid-cols-3 gap-3">
+                                {photos.map((ph: any, idx: number) => (
+                                  <div key={idx} className="aspect-[4/3] rounded-lg overflow-hidden border border-slate-100">
+                                    <img src={ph.photo_url} alt="Servis kanıtı" className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Description */}
+                          <div>
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="h-px flex-1 bg-slate-100" />
+                              <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">Müdahale Detayı</p>
+                              <div className="h-px flex-1 bg-slate-100" />
+                            </div>
+                            <div className="bg-slate-50 border border-slate-100 rounded-xl p-6 min-h-[100px]">
+                              <p className="text-sm text-slate-700 leading-relaxed">
+                                {parsed.text || 'Bu servis kaydı için detaylı açıklama girilmemiştir.'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Materials & Cost */}
+                          <div>
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="h-px flex-1 bg-slate-100" />
+                              <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">Malzeme & Maliyet</p>
+                              <div className="h-px flex-1 bg-slate-100" />
+                            </div>
+                            <div className="border border-slate-100 rounded-xl overflow-hidden">
+                              <div className="grid grid-cols-[1fr_auto] text-[9px] font-black uppercase tracking-widest bg-slate-900 text-white">
+                                <div className="px-5 py-3 border-r border-slate-700">Kullanılan Malzeme / Yapılan İşlem</div>
+                                <div className="px-5 py-3 text-right w-32">Tutar (TL)</div>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto] border-t border-slate-100 bg-white text-xs font-medium">
+                                <div className="px-5 py-4 border-r border-slate-100 text-slate-700">{parsed.materials || 'Standart Periyodik Bakım'}</div>
+                                <div className="px-5 py-4 text-right font-black text-slate-900 w-32">{parsed.cost || 'Sözleşme Kapsamı'}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Technician */}
+                          {parsed.technician && (
+                            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                              </div>
+                              <div>
+                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Görevli Teknisyen</p>
+                                <p className="text-xs font-black text-slate-800">{parsed.technician}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Signatures */}
+                          <div className="pt-10 grid grid-cols-2 gap-16">
+                            {['Ziva Teknik Yetkili', 'Müşteri / Mağaza Yetkilisi'].map(label => (
+                              <div key={label} className="space-y-8">
+                                <div className="h-16 border-b-2 border-dashed border-slate-200" />
+                                <div className="text-center">
+                                  <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-500">{label}</p>
+                                  <p className="text-[8px] text-slate-300 mt-1">Ad Soyad / İmza / Tarih</p>
                                 </div>
-                                <div className="text-[10px] text-slate-500 font-bold border-l-2 border-primary pl-3">
-                                   Ümraniye / İstanbul <br />
-                                   www.zivayangin.com | +90 (216) 123 45 67
-                                </div>
-                             </div>
-                             <div className="text-right space-y-1 sm:pt-2">
-                                <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-[10px] font-black uppercase mb-2">Resmi Servis Raporu</div>
-                                <h2 className="text-3xl font-light text-slate-300 tracking-tighter">#TKT-{rec.id.substring(0,6).toUpperCase()}</h2>
-                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Tarih: {new Date(rec.created_at).toLocaleDateString('tr-TR')}</p>
-                             </div>
-                         </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-                         <div className="px-10 py-8 grid grid-cols-2 gap-12 border-b border-slate-50">
-                            <div className="space-y-4">
-                               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Müşteri / Lokasyon</p>
-                               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">{bizName}</h3>
-                               <p className="text-xs font-bold text-slate-400 italic">{mallName}</p>
-                            </div>
-                            <div className="space-y-4 text-right">
-                               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Hizmet Detayı</p>
-                               <div className="grid grid-cols-1 gap-1">
-                                  <p className="text-xs font-black text-slate-700 uppercase tracking-tight">{rec.service_type || 'Genel Bakım'}</p>
-                                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-tight">{parsed.status}</p>
-                               </div>
-                            </div>
-                         </div>
-
-                         <div className="px-10 py-10 space-y-12">
-                            <div className="space-y-4">
-                               <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 border-b-2 border-primary/20 pb-2">Operasyonel Müdahale Raporu</h4>
-                               <div className="p-8 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 min-h-[160px]">
-                                 <p className="text-sm leading-relaxed text-slate-700 font-medium italic italic font-serif">
-                                   &ldquo;{parsed.text || 'Bu servis kaydı için detaylı açıklama girilmemiştir.'}&rdquo;
-                                 </p>
-                               </div>
-                            </div>
-
-                            <div className="space-y-4">
-                               <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 pb-2 border-b">Yedek Parça & Sarfiyat Bedeli</h4>
-                               <table className="w-full text-left text-xs border border-slate-100 rounded-xl overflow-hidden shadow-sm">
-                                  <thead>
-                                     <tr className="bg-slate-900 text-white font-black uppercase tracking-widest">
-                                        <th className="py-4 px-6 border-r border-slate-800">Cinsi & Açıklama</th>
-                                        <th className="py-4 px-6 text-right w-1/4">Tutar (TL)</th>
-                                     </tr>
-                                  </thead>
-                                  <tbody className="font-bold">
-                                     <tr className="border-b border-slate-50 text-slate-700">
-                                        <td className="py-4 px-6 border-r border-slate-50 bg-slate-50/30">{parsed.materials || 'Standart Bakım Sarfiyatı'}</td>
-                                        <td className="py-4 px-6 text-right bg-slate-50/10 font-black">{parsed.cost || 'Dahil'}</td>
-                                     </tr>
-                                  </tbody>
-                               </table>
-                            </div>
-
-                            <div className="pt-24 grid grid-cols-2 gap-24">
-                               <div className="text-center space-y-6">
-                                  <div className="w-full h-[1px] bg-slate-200" />
-                                  <p className="text-[10px] font-black uppercase text-slate-900 tracking-[0.2em]">Ziva Teknik Onayı</p>
-                               </div>
-                               <div className="text-center space-y-6">
-                                  <div className="w-full h-[1px] bg-slate-200" />
-                                  <p className="text-[10px] font-black uppercase text-slate-900 tracking-[0.2em]">Mağaza Sorumlu İmzası</p>
-                               </div>
-                            </div>
-                         </div>
-
-                         <div className="bg-slate-900 p-5 mt-auto flex justify-between items-center text-[8px] font-black tracking-widest text-slate-500 uppercase">
-                            <span>ZIVA CRM AUTHENTICATED SYSTEM DOCUMENT</span>
-                            <span>ID: {rec.id.substring(0,24).toUpperCase()}</span>
-                         </div>
+                        {/* Footer */}
+                        <div className="mx-10 mb-8 pt-4 border-t border-slate-100 flex justify-between items-center">
+                          <p className="text-[7px] font-black uppercase tracking-widest text-slate-300">ZIVA CRM · Doğrulanmış Servis Belgesi</p>
+                          <p className="text-[7px] font-black uppercase tracking-widest text-slate-300">{rec.id.substring(0,24).toUpperCase()}</p>
+                        </div>
                       </div>
                     </React.Fragment>
                   );

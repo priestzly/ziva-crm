@@ -44,6 +44,7 @@ function ClientHistoryContent() {
   const targetId = searchParams.get('id');
 
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [businesses, setBusinesses] = useState<any[]>([]);
@@ -82,8 +83,19 @@ function ClientHistoryContent() {
       setRecords(recData || []);
     }
     
+    // Fetch Photos if targeting a specific record
+    if (targetId) {
+      const { data: photoData } = await supabase
+        .from('maintenance_photos')
+        .select('*')
+        .eq('record_id', targetId);
+      setPhotos(photoData || []);
+    } else {
+      setPhotos([]);
+    }
+    
     setLoading(false);
-  }, [profile]);
+  }, [profile, targetId]);
 
   useEffect(() => {
     fetchData();
@@ -397,16 +409,39 @@ function ClientHistoryContent() {
                            </div>
                         </div>
 
-                        {/* Report Body */}
-                        <div className="px-10 py-10 space-y-12">
-                           <div className="space-y-4">
-                              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 border-b-2 border-primary/30 w-full pb-2">Servis Müdahale Detayı</h4>
-                              <div className="p-10 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 min-h-[160px]">
-                                 <p className="text-sm leading-relaxed text-slate-700 font-medium italic font-serif">
-                                   &ldquo;{parsed.text || 'Bu servis kaydı için detaylı açıklama girilmemiştir.'}&rdquo;
-                                 </p>
+                         {/* Report Body */}
+                         <div className="px-10 py-10 space-y-12">
+                            {/* Service Photos Gallery - NEW */}
+                            {photos.length > 0 && (
+                              <div className="space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 border-b-2 border-primary/30 w-full pb-2">Servis Kanıt Fotoğrafları</h4>
+                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                                   {photos.map((ph, idx) => (
+                                     <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-slate-100 shadow-sm relative group bg-slate-50">
+                                        <img 
+                                          src={ph.photo_url} 
+                                          alt="Servis Kanıtı"
+                                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                           <div className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-900 p-2 rounded-xl backdrop-blur-sm transition-all scale-75 group-hover:scale-100">
+                                              <Download size={16} />
+                                           </div>
+                                        </div>
+                                     </div>
+                                   ))}
+                                </div>
                               </div>
-                           </div>
+                            )}
+
+                            <div className="space-y-4">
+                               <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 border-b-2 border-primary/30 w-full pb-2">Servis Müdahale Detayı</h4>
+                               <div className="p-10 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100 min-h-[160px]">
+                                  <p className="text-sm leading-relaxed text-slate-700 font-medium italic font-serif">
+                                    &ldquo;{parsed.text || 'Bu servis kaydı için detaylı açıklama girilmemiştir.'}&rdquo;
+                                  </p>
+                               </div>
+                            </div>
 
                            <div className="space-y-4">
                               <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 pb-2 border-b">Hizmet & Malzeme Detayları</h4>

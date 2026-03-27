@@ -236,21 +236,22 @@ function DashboardContent() {
             {stats.map((stat, i) => {
               const Icon = stat.icon;
               return (
-                <div key={i} className="glass rounded-xl p-5 flex flex-col" style={{ animationDelay: `${i * 0.05}s` }}>
+                <div key={i} className="glass rounded-xl p-5 flex flex-col group hover:border-primary/30 transition-all" style={{ animationDelay: `${i * 0.05}s` }}>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={cn("p-2 rounded-md bg-[hsl(var(--muted))]", stat.color)}>
+                    <div className={cn("p-2 rounded-md bg-[hsl(var(--muted))] group-hover:scale-110 transition-transform", stat.color)}>
                       <Icon size={16} />
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">{stat.label}</span>
+                    <span className="text-[10px] sm:text-xs font-black text-muted-foreground uppercase tracking-widest">{stat.label}</span>
                   </div>
-                  <p className="text-3xl font-semibold tracking-tight">{loading ? '—' : stat.value}</p>
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight">{loading ? '—' : stat.value}</p>
                   <div className="mt-3 pt-3 border-t border-[hsl(var(--border))]">
-                    <p className="text-[10px] text-muted-foreground">{stat.trend}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground opacity-60">{stat.trend}</p>
                   </div>
                 </div>
               );
             })}
           </div>
+
 
           {/* Records Timeline (Advanced Service Tickets) */}
           <div className="glass rounded-xl overflow-hidden shadow-sm flex flex-col h-full border border-[hsl(var(--border))]">
