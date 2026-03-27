@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { Activity } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Building2, ClipboardList, Settings, LogOut, Flame,
-  Menu, X, Bell, Users, Shield, Store, Search
+  Menu, X, Bell, Users, Shield, Store, Search,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -115,7 +116,7 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
             >
                <div className="flex items-center gap-2">
                   <div className="relative">
-                    <Activity size={12} className="text-emerald-500 animate-pulse" />
+                    <Activity size={10} className="text-emerald-500 animate-pulse" />
                     <div className="absolute inset-0 bg-emerald-500 blur-[4px] opacity-20" />
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-foreground">Sistem Senkronize</span>

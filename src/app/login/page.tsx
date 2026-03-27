@@ -16,6 +16,7 @@ export default function LoginPage() {
   // Handle redirection centrally based on the reactive profile state
   React.useEffect(() => {
     if (user && profile) {
+      router.refresh(); // Crucial for @supabase/ssr to sync the cookie into Next.js Server context
       if (profile.role === 'admin') {
         router.replace('/admin/dashboard');
       } else {

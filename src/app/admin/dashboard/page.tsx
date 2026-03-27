@@ -91,7 +91,7 @@ function DashboardContent() {
 
     // If session is new, sometimes RLS blocks the first request on client-side router push.
     // We retry once after a short delay if everything came back empty.
-    if (!results.bizRes.data?.length && !results.recsRes?.data?.length) {
+    if (!results.bizRes.data?.length && !results.recRes?.data?.length) {
       console.warn('Initial fetch empty - possibly token race condition. Retrying in 1s...');
       await new Promise(r => setTimeout(r, 1000));
       results = await runQuery();
