@@ -38,13 +38,40 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login');
   
   // Protect /admin and /client routes
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/client');
+  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+  const isClientRoute = request.nextUrl.pathname.startsWith('/client');
+  const isProtectedRoute = isAdminRoute || isClientRoute;
   
   if (!user && isProtectedRoute) {
     // Session not found or expired, redirect to login
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
+  }
+
+  // If user is logged in, handle their role routing
+  if (user) {
+    // Fetch profile to know the role
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+    if (profile) {
+      // 1. Logged in user tries to visit login or root
+      if (isAuthRoute || request.nextUrl.pathname === '/') {
+        const url = request.nextUrl.clone();
+        url.pathname = profile.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+        return NextResponse.redirect(url);
+      }
+
+      // 2. Cross-role boundary checks
+      if (profile.role === 'client' && isAdminRoute) {
+        // Client trying to access admin - Protect Admin Area
+        const url = request.nextUrl.clone();
+        url.pathname = '/client/dashboard';
+        return NextResponse.redirect(url);
+      }
+      
+      // Note: Admin can access both /admin and /client, so no bounce needed for Admins.
+    }
   }
 
   return supabaseResponse;

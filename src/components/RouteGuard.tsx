@@ -18,25 +18,15 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
   useEffect(() => {
     if (loading) return; // Henüz yükleniyor, bekle
 
-    // Giriş yapılmamışsa login'e at
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-
-    // Profil yoksa bekle (kısa süre sonra gelecek)
+    // Profil yoksa bekle (kısa süre sonra gelecek, gelmezse middleware zaten atacak)
     if (!profile) return;
 
-    // Rol kontrolü
+    // Hedeflenen role client bazlı son kontrol
     if (requiredRole === 'admin' && profile.role !== 'admin') {
       router.replace('/client/dashboard');
       return;
     }
-
-    if (requiredRole === 'client' && profile.role === 'admin') {
-      // Admin her yere girebilir, sorun yok
-    }
-  }, [user, profile, loading, requiredRole, router, pathname]);
+  }, [profile, loading, requiredRole, router]);
 
   // Yüklenirken premium loading ekranı göster
   if (loading || !user || !profile) {

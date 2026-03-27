@@ -1,15 +1,16 @@
 'use client';
 
-import React, { Activity } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Building2, ClipboardList, Settings, LogOut, Flame,
   Menu, X, Bell, Users, Shield, Store, Search,
-  Zap
+  Zap, Activity, Moon, Sun
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 import { CommandPalette } from './CommandPalette';
 
@@ -91,17 +92,17 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative",
                     isActive 
-                      ? "text-white" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/[0.03]"
+                      ? "text-primary bg-[hsl(var(--muted))]/50" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--muted))]"
                   )}
                 >
                   {isActive && (
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-500/20 to-orange-500/10 border border-red-500/20" />
+                    <div className="absolute inset-0 rounded-xl bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] pointer-events-none" />
                   )}
-                  <Icon size={18} className={cn("relative z-10", isActive && "text-red-400")} />
+                  <Icon size={18} className={cn("relative z-10", isActive && "text-primary")} />
                   <span className="font-medium text-sm relative z-10">{link.name}</span>
                   {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-gradient-to-b from-red-500 to-orange-500 rounded-r-full" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
                   )}
                 </Link>
               );
@@ -112,7 +113,7 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
           <div className="p-4 mt-auto space-y-2">
             <div 
               onClick={() => { refreshProfile(); }}
-              className="px-4 py-2 rounded-xl bg-[hsl(var(--muted))/40 border border-[hsl(var(--border))] flex items-center justify-between group cursor-pointer hover:bg-white/[0.02] transition-all"
+              className="px-4 py-2 rounded-xl bg-[hsl(var(--muted))]/40 border border-[hsl(var(--border))] flex items-center justify-between group cursor-pointer hover:bg-[hsl(var(--muted))] transition-all"
             >
                <div className="flex items-center gap-2">
                   <div className="relative">
@@ -121,25 +122,25 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-foreground">Sistem Senkronize</span>
                </div>
-               <div className="p-1 rounded bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+               <div className="p-1 rounded bg-[hsl(var(--border))]/50 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Zap size={10} className="text-primary" />
                </div>
             </div>
 
             <div className="glass rounded-2xl p-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/20 to-orange-500/20 border border-red-500/20 flex items-center justify-center">
-                  <Shield size={16} className="text-red-400" />
+                <div className="w-9 h-9 rounded-xl bg-[hsl(var(--muted))] border border-[hsl(var(--border))] flex items-center justify-center">
+                  <Shield size={16} className="text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold truncate">{profile?.full_name || profile?.email || 'Kullanıcı'}</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{profile?.full_name || profile?.email || 'Kullanıcı'}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">{profile?.role || role}</p>
                 </div>
               </div>
             </div>
             <button 
               onClick={() => signOut()}
-              className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-all duration-300"
+              className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all duration-300"
             >
               <LogOut size={18} />
               <span className="font-medium text-sm">Çıkış Yap</span>
@@ -152,6 +153,8 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
 }
 
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <header className="h-16 glass-strong sticky top-0 z-30 px-6 lg:px-8 flex items-center justify-between">
       <div className="lg:hidden w-10" /> {/* spacer for mobile menu */}
@@ -165,6 +168,20 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
           ARAMA YAPIN
           <span className="ml-2 font-mono bg-white/10 px-1 py-0.5 rounded opacity-40 group-hover:opacity-100 transition-all">CTRL K</span>
         </div>
+        
+        {/* Theme Toggle Button */}
+        <button 
+          onClick={toggleTheme}
+          className="relative p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+          title={theme === 'dark' ? 'Açık Temaya Geç' : 'Karanlık Temaya Geç'}
+        >
+          {theme === 'dark' ? (
+            <Sun size={18} className="text-muted-foreground hover:text-amber-400 transition-colors" />
+          ) : (
+            <Moon size={18} className="text-muted-foreground hover:text-indigo-500 transition-colors" />
+          )}
+        </button>
+
         <button className="relative p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors">
           <Bell size={18} className="text-muted-foreground" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-[hsl(225,15%,9%)]" />

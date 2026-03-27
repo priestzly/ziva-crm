@@ -282,100 +282,44 @@ function DashboardContent() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {records.map((rec, i) => {
-                    const parsed = parseDescription(rec.description);
-                    return (
-                      <div key={rec.id} className="glass rounded-lg border border-[hsl(var(--border))] p-5 shadow-sm hover:border-[hsl(var(--primary)/0.3)] transition-colors group flex flex-col justify-between">
-                        {/* Ticket Header */}
-                        <div className="flex items-start justify-between mb-4 border-b border-[hsl(var(--border))] pb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded bg-[hsl(var(--muted))] flex items-center justify-center">
-                              <Wrench size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold">TKT-{rec.id.substring(0, 6).toUpperCase()}</p>
-                              <p className="text-[11px] text-muted-foreground">{new Date(rec.created_at).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })}</p>
-                            </div>
-                          </div>
-                          <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-md border", getStatusColor(parsed.status))}>
-                            {parsed.status}
-                          </span>
-                        </div>
-
-                        {/* Ticket Body */}
-                        <div className="flex-1 space-y-3 mb-4">
-                          <div>
-                            <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Hedef İşletme</p>
-                            <p className="text-sm font-medium">{(rec as any).businesses?.name || 'Bilinmeyen İşletme'}</p>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">İşlem Türü</p>
-                              <p className="text-xs">{rec.service_type || 'Belirtilmedi'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Atanan Teknisyen</p>
-                              <p className="text-xs flex items-center gap-1">
-                                <UserCircle size={12} className="text-muted-foreground" /> 
-                                {parsed.technician || 'Atanmadı'}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Saha Notları</p>
-                            <p className="text-xs leading-relaxed text-foreground bg-[hsl(var(--card))] p-3 rounded-md border border-[hsl(var(--border))]">
-                              {parsed.text || 'Açıklama girilmemiş.'}
-                            </p>
-                          </div>
-
-                          {parsed.materials && (
-                            <div>
-                              <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Kullanılan Donanım / Parça</p>
-                              <p className="text-xs text-muted-foreground">{parsed.materials}</p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Ticket Footer */}
-                        <div className="pt-3 border-t border-[hsl(var(--border))] flex items-center justify-between">
-                          <div className="text-xs font-medium">
-                            {parsed.cost && <span className="text-[11px] text-muted-foreground">Maliyet/Tutar: <span className="text-foreground font-semibold">{parsed.cost}</span></span>}
-                          </div>
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => { 
-                                setEditingRecord(rec); 
-                                setEditRecordForm({ 
-                                  service_type: rec.service_type || '', 
-                                  text: parsed.text, technician: parsed.technician, materials: parsed.materials, status: parsed.status, cost: parsed.cost 
-                                }); 
-                                setShowEditRecord(true); 
-                              }}
-                              className="px-3 py-1.5 rounded-md hover:bg-[hsl(var(--muted))] text-xs font-medium text-muted-foreground transition-colors"
-                            >
-                              Düzenle
-                            </button>
-                            <button 
-                              onClick={() => window.open(`/admin/history?id=${rec.id}`, '_blank')}
-                              className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                              title="Detaylı PDF Raporu"
-                            >
-                              <Printer size={14} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteRecord(rec.id)}
-                              className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[hsl(var(--muted))] text-muted-foreground font-black uppercase tracking-tighter border-b border-[hsl(var(--border))]">
+                      <tr>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">No</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Tarih</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">İşletme</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Hizmet Türü</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))] w-1/3">Saha Notları</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Durum</th>
+                        <th className="py-4 px-4 text-center">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[hsl(var(--border))] font-medium">
+                      {records.map((rec) => {
+                        const parsed = parseDescription(rec.description);
+                        return (
+                          <tr key={rec.id} className="hover:bg-primary/5 transition-colors group">
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] font-bold text-slate-400 group-hover:text-primary">#{rec.id.substring(0,6).toUpperCase()}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] whitespace-nowrap">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] font-black uppercase">{(rec as any).businesses?.name || '—'}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] font-black text-primary/70">{rec.service_type || 'BAKIM'}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] italic text-slate-500 line-clamp-1 max-w-xs">{parsed.text}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))]">
+                               <span className={cn("px-2 py-0.5 rounded text-[9px] font-black border uppercase", getStatusColor(parsed.status))}>{parsed.status}</span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <button onClick={() => { setEditingRecord(rec); setEditRecordForm({ service_type: rec.service_type || '', text: parsed.text, technician: parsed.technician, materials: parsed.materials, status: parsed.status, cost: parsed.cost }); setShowEditRecord(true); }} className="p-1 hover:text-primary transition-colors"><Edit3 size={14} /></button>
+                                <Link href={`/admin/history?id=${rec.id}`} className="p-1 hover:text-primary transition-colors"><Printer size={14} /></Link>
+                                <button onClick={() => handleDeleteRecord(rec.id)} className="p-1 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

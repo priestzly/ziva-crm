@@ -46,6 +46,7 @@ const getStatusColor = (status: string) => {
 };
 
 function DetailContent() {
+  const { profile } = useAuth();
   const params = useParams();
   const bizId = params?.id as string;
 
@@ -102,7 +103,7 @@ function DetailContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex">
-        <Sidebar role="client" />
+        <Sidebar role={profile?.role === 'admin' ? 'admin' : 'client'} />
         <main className="flex-1 lg:ml-72 flex flex-col items-center justify-center bg-[hsl(var(--background))]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
           <p className="text-sm font-semibold text-muted-foreground">İşletme Detayları Yükleniyor...</p>
@@ -113,13 +114,16 @@ function DetailContent() {
 
   return (
     <div className="min-h-screen flex">
-      <Sidebar role="client" />
+      <Sidebar role={profile?.role === 'admin' ? 'admin' : 'client'} />
       <main className="flex-1 lg:ml-72 transition-all duration-500 bg-[hsl(var(--background))]">
         <Topbar title="İşletme Detayları" subtitle={business?.name} />
 
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
           {/* Back Button */}
-          <Link href="/client/dashboard" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors font-medium w-fit">
+          <Link 
+            href={profile?.role === 'admin' ? '/admin/businesses' : '/client/dashboard'} 
+            className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors font-medium w-fit"
+          >
             <div className="p-1.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
               <ArrowLeft size={14} />
             </div>

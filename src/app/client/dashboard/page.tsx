@@ -163,53 +163,39 @@ function ClientContent() {
                   <p className="text-xs text-muted-foreground">Arama kriterinize uygun dükkan/işletme bulunamadı.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredBiz.map((biz, i) => {
-                    const count = getRecordCount(biz.id);
-                    const statusConfig = getServiceStatusText(count);
-                    
-                    return (
-                      <div key={biz.id} className="glass rounded-lg border border-[hsl(var(--border))] p-4 hover:border-primary/30 transition-colors flex flex-col justify-between group animate-fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-                        <div>
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded border border-[hsl(var(--border))] bg-[hsl(var(--muted))] flex items-center justify-center text-muted-foreground group-hover:bg-primary/5 transition-colors">
-                                <Building2 size={18} />
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-sm group-hover:text-primary transition-colors leading-tight">{biz.name}</h4>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">{biz.category || 'Belirtilmedi'}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-md p-3 mb-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-muted-foreground font-semibold uppercase">Son İşlem</span>
-                              <span className="text-[11px] font-medium">{getLastService(biz.id)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-muted-foreground font-semibold uppercase">Geçmiş Kayıt</span>
-                              <span className="text-[11px] font-medium">{count > 0 ? `${count} Adet` : 'Yok'}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-3 border-t border-[hsl(var(--border))]">
-                          <span className={cn("text-[9px] font-bold px-2 py-1 rounded border uppercase tracking-wider", statusConfig.color)}>
-                            {statusConfig.text}
-                          </span>
-                          
-                          <Link 
-                            href={`/client/businesses/${biz.id}`}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground hover:text-primary transition-colors px-3 py-1.5 rounded-md hover:bg-[hsl(var(--muted))]"
-                          >
-                            Servis Kartı <ChevronRight size={14} />
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse font-medium">
+                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 font-black uppercase tracking-tighter border-b border-[hsl(var(--border))]">
+                      <tr>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Birim / Mağaza</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Kategori</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Son İşlem</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Kayıt Sayısı</th>
+                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Durum</th>
+                        <th className="py-4 px-4 text-center">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[hsl(var(--border))]">
+                      {filteredBiz.map((biz) => {
+                        const count = getRecordCount(biz.id);
+                        const statusConfig = getServiceStatusText(count);
+                        return (
+                          <tr key={biz.id} className="hover:bg-primary/5 transition-colors group">
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] font-black uppercase tracking-tight group-hover:text-primary">{biz.name}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] text-slate-500">{biz.category || 'GENEL'}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))]">{getLastService(biz.id)}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))]">{count > 0 ? `${count} İşlem` : 'Kayıt Yok'}</td>
+                            <td className="py-3 px-4 border-r border-[hsl(var(--border))]">
+                               <span className={cn("px-2 py-0.5 rounded text-[9px] font-black border uppercase tracking-wider", statusConfig.color)}>{statusConfig.text}</span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                               <Link href={`/client/businesses/${biz.id}`} className="inline-flex items-center gap-1 text-primary font-black uppercase text-[10px] hover:underline">Servis Kartı <ChevronRight size={14} /></Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

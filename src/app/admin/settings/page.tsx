@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { 
   Settings, User, Lock, Bell, Shield, Palette,
   Save, LogOut, Loader2, Sparkles, ChevronRight
@@ -12,6 +13,7 @@ import { cn } from '@/lib/utils';
 
 function SettingsContent() {
   const { profile, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'appearance'>('profile');
 
@@ -127,19 +129,32 @@ function SettingsContent() {
                 <div className="space-y-6">
                   <h3 className="text-lg font-bold flex items-center gap-2"><Palette size={18} className="text-red-400" /> Tema Tercihleri</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl border-2 border-red-500/50 bg-neutral-900 flex flex-col items-center gap-2 cursor-pointer">
-                      <div className="w-full h-8 bg-neutral-800 rounded-lg" />
+                    <div 
+                      onClick={() => setTheme('dark')}
+                      className={cn(
+                        "p-4 rounded-2xl border-2 bg-neutral-950 flex flex-col items-center gap-2 cursor-pointer transition-all",
+                        theme === 'dark' ? "border-red-500 shadow-lg shadow-red-500/10" : "border-white/5 opacity-60 hover:opacity-100"
+                      )}
+                    >
+                      <div className="w-full h-8 bg-neutral-900 rounded-lg" />
                       <div className="w-full h-4 flex gap-1">
                         <div className="w-full h-full bg-red-500/20 rounded" />
                         <div className="w-full h-full bg-red-500/20 rounded" />
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">Premium Dark</span>
                     </div>
-                    <div className="p-4 rounded-2xl border border-white/5 bg-neutral-800/10 flex flex-col items-center gap-2 cursor-pointer opacity-50 grayscale">
-                      <div className="w-full h-8 bg-neutral-200 rounded-lg" />
+                    
+                    <div 
+                      onClick={() => setTheme('light')}
+                      className={cn(
+                        "p-4 rounded-2xl border-2 bg-white flex flex-col items-center gap-2 cursor-pointer transition-all",
+                        theme === 'light' ? "border-red-500 shadow-lg shadow-red-500/10 text-red-500" : "border-black/5 text-slate-400 opacity-60 hover:opacity-100"
+                      )}
+                    >
+                      <div className="w-full h-8 bg-slate-100 rounded-lg border" />
                       <div className="w-full h-4 flex gap-1">
-                        <div className="w-full h-full bg-neutral-300 rounded" />
-                        <div className="w-full h-full bg-neutral-300 rounded" />
+                        <div className="w-full h-full bg-slate-200 rounded" />
+                        <div className="w-full h-full bg-slate-200 rounded" />
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-widest">Minimal Light</span>
                     </div>
