@@ -282,8 +282,8 @@ function DashboardContent() {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary/10">
+                  <table className="w-full text-left text-xs border-collapse min-w-[800px]">
                     <thead className="bg-[hsl(var(--muted))] text-muted-foreground font-black uppercase tracking-tighter border-b border-[hsl(var(--border))]">
                       <tr>
                         <th className="py-4 px-4 border-r border-[hsl(var(--border))]">No</th>

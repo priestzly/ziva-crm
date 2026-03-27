@@ -163,8 +163,8 @@ function ClientContent() {
                   <p className="text-xs text-muted-foreground">Arama kriterinize uygun dükkan/işletme bulunamadı.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse font-medium">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary/10">
+                  <table className="w-full text-left text-xs border-collapse font-medium min-w-[700px]">
                     <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 font-black uppercase tracking-tighter border-b border-[hsl(var(--border))]">
                       <tr>
                         <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Birim / Mağaza</th>

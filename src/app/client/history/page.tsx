@@ -106,6 +106,33 @@ function ClientHistoryContent() {
     window.print();
   };
 
+  const exportToCSV = () => {
+    const headers = ["No", "Tarih", "İşletme", "Hizmet Türü", "Açıklama", "Teknisyen", "Malzemeler", "Durum"];
+    const rows = filteredRecords.map(r => {
+      const p = parseDescription(r.description);
+      return [
+        `TKT-${r.id.substring(0,6).toUpperCase()}`,
+        new Date(r.created_at).toLocaleDateString('tr-TR'),
+        (r as any).businesses?.name || '',
+        r.service_type || 'BAKIM',
+        p.text.replace(/,/g, "."),
+        p.technician,
+        p.materials.replace(/,/g, "."),
+        p.status
+      ];
+    });
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Ziva_Servis_Arsivi_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen flex bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <Sidebar role="client" />
@@ -136,29 +163,37 @@ function ClientHistoryContent() {
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
 
-                <div className="flex bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-1 gap-1">
+                <div className="flex bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-1 gap-1 shrink-0">
                     <button 
                       onClick={() => setViewMode('grid')}
-                      className={cn("flex-1 flex items-center justify-center py-2 rounded-lg transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
+                      className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
                       title="Izgara Görünümü"
                     >
                       <LayoutGrid size={18} />
                     </button>
                     <button 
                       onClick={() => setViewMode('table')}
-                      className={cn("flex-1 flex items-center justify-center py-2 rounded-lg transition-all", viewMode === 'table' ? "bg-primary text-white" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
+                      className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", viewMode === 'table' ? "bg-primary text-white" : "text-muted-foreground hover:bg-[hsl(var(--muted))]")}
                       title="Tablo Görünümü"
                     >
                       <List size={18} />
                     </button>
                 </div>
 
-                <button 
-                    onClick={handlePrint}
-                    className="btn-primary rounded-xl flex items-center justify-center gap-2"
-                >
-                    <Printer size={18} /> Arşivi PDF Yap
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                      onClick={exportToCSV}
+                      className="flex-1 glass border-[hsl(var(--border))] rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-tight"
+                  >
+                      <Download size={16} /> CSV
+                  </button>
+                  <button 
+                      onClick={handlePrint}
+                      className="flex-[2] btn-primary rounded-xl flex items-center justify-center gap-2 text-sm font-black uppercase"
+                  >
+                      <Printer size={18} /> PDF / Yazdır
+                  </button>
+                </div>
             </div>
           )}
 
@@ -173,6 +208,32 @@ function ClientHistoryContent() {
                 >
                     <Download size={18} /> Raporu PDF Kaydet
                 </button>
+            </div>
+          )}
+
+          {/* Quick Stats Summary - Hidden on Print */}
+          {!targetId && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:hidden animate-fade-in delay-75">
+                <div className="glass p-4 rounded-xl border-l-4 border-l-primary">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Toplam Arşiv</p>
+                    <p className="text-xl font-black">{filteredRecords.length}</p>
+                </div>
+                <div className="glass p-4 rounded-xl border-l-4 border-l-emerald-500">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Tamamlanan</p>
+                    <p className="text-xl font-black text-emerald-500">
+                        {filteredRecords.filter(r => parseDescription(r.description).status === 'Tamamlandı').length}
+                    </p>
+                </div>
+                <div className="glass p-4 rounded-xl border-l-4 border-l-blue-500">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Devam Eden</p>
+                    <p className="text-xl font-black text-blue-500">
+                        {filteredRecords.filter(r => parseDescription(r.description).status === 'Devam Ediyor').length}
+                    </p>
+                </div>
+                <div className="glass p-4 rounded-xl border-l-4 border-l-purple-500">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Aktif İşletme</p>
+                    <p className="text-xl font-black text-purple-500">{businesses.length}</p>
+                </div>
             </div>
           )}
 
@@ -204,8 +265,8 @@ function ClientHistoryContent() {
                         <div className="text-right text-[10px] font-black text-slate-400">TARİH: {new Date().toLocaleDateString('tr-TR')}</div>
                       </div>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
+                    <div className="overflow-x-auto overflow-y-hidden">
+                      <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                         <thead className="bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] font-black uppercase tracking-tighter border-b border-[hsl(var(--border))] print:bg-slate-100 print:text-slate-900">
                           <tr>
                             <th className="py-4 px-4 border-r border-[hsl(var(--border))]">No</th>
