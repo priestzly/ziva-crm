@@ -58,11 +58,13 @@ export default function LoginPage() {
       <div className="w-full max-w-[420px] relative z-10">
         {/* Logo */}
         <div className="text-center mb-10 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500 to-orange-500 mb-6 shadow-2xl shadow-red-500/20">
-            <Flame className="w-9 h-9 text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary mb-6 shadow-2xl shadow-primary/20 bg-grid">
+            <Flame className="w-10 h-10 text-white" fill="currentColor" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight gradient-text mb-1.5">Ziva Yangın</h1>
-          <p className="text-sm text-muted-foreground">Bakım & Onarım Yönetim Sistemi</p>
+          <h1 className="text-3xl font-black tracking-tighter uppercase italic gradient-text mb-1.5 flex flex-col">
+            ZIVA <span className="text-primary not-italic tracking-normal">BACA YANGIN</span>
+          </h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Müşteri & Personel Takip Portalı</p>
         </div>
 
         {/* Card */}

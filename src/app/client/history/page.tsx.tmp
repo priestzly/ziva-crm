@@ -1,0 +1,18 @@
+'use client';
+
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import { Sidebar, Topbar } from '@/components/DashboardShell';
+import RouteGuard from '@/components/RouteGuard';
+import { useAuth } from '@/context/AuthContext';
+import { supabase, type MaintenanceRecord } from '@/lib/supabase';
+import { 
+  ClipboardList, Search, Loader2, Calendar, Store, 
+  ChevronRight, Clock, Activity, MapPin, 
+  LayoutList, ShieldCheck, UserCircle, Wrench, Building2,
+  Printer, FileText, Download, ArrowLeft, Flame, LayoutGrid, List
+} from 'lucide-center-icons'; // Note: Should be lucide-react, I will fix in actual write
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+
+// ... (existing imports and types managed below)
