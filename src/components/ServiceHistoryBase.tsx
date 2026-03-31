@@ -198,7 +198,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
                      return (
                        <div key={rec.id} className="bg-white border-2 border-slate-100 p-6 flex flex-col gap-4 hover:border-primary transition-all cursor-pointer shadow-sm relative group" onClick={() => window.location.href=`?id=${rec.id}`}>
                           <div className="flex justify-between items-start">
-                             <div className="bg-slate-900 text-white p-2 flex items-center justify-center"><Flame size={20} fill="currentColor" /></div>
+                             <div className="w-10 h-10 border border-slate-100 overflow-hidden"><img src="/logo.png" alt="Ziva" className="w-full h-full object-cover" /></div>
                              <div className="text-right">
                                 <p className="text-[10px] font-black text-slate-300">#{rec.id.substring(0,6).toUpperCase()}</p>
                                 <p className="text-xs font-black text-slate-500">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</p>
@@ -235,9 +235,9 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
                     <div className="bg-white text-slate-950 p-12 border border-slate-200 print:text-black print:border-none print:p-0 min-h-[1100px] flex flex-col relative">
                       <div className="flex justify-between items-end border-b-2 border-slate-900 pb-8 mb-12">
                         <div className="flex items-center gap-4">
-                           <div className="w-14 h-14 bg-slate-900 flex items-center justify-center text-white"><Flame size={32} fill="currentColor" /></div>
+                           <div className="w-16 h-16 border border-slate-100 overflow-hidden"><img src="/logo.png" alt="Ziva Logo" className="w-full h-full object-cover" /></div>
                            <div>
-                             <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">ZIVA <span className="text-primary">FIRE</span></h1>
+                             <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">ZIVA <span className="text-primary">BACA YANGIN</span></h1>
                              <p className="text-[9px] uppercase font-bold tracking-[0.3em] text-slate-400 mt-1">Teknik Servis & Müdahale Birimi</p>
                            </div>
                         </div>

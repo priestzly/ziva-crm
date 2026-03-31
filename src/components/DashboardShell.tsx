@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Building2, ClipboardList, Settings, LogOut, Flame,
   Menu, X, Bell, Users, Shield, Store, Search,
-  Zap, Activity, Moon, Sun
+  Zap, Activity, Moon, Sun, FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -24,6 +24,7 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
     {name: 'AVM Yönetimi', href: '/admin/malls', icon: Building2 },
     {name: 'Tüm İşletmeler', href: '/admin/businesses', icon: Store },
     {name: 'Operasyon Arşivi', href: '/admin/history', icon: ClipboardList },
+    {name: 'Fiyat Teklifi', href: '/admin/quotes', icon: FileText },
     {name: 'Kullanıcılar', href: '/admin/users', icon: Users },
     { name: 'Ayarlar', href: '/admin/settings', icon: Settings },
   ];
@@ -54,7 +55,7 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-72 glass-strong transition-transform duration-500 ease-out lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 w-72 glass-strong transition-transform duration-500 ease-out lg:translate-x-0 border-none shadow-none",
         !isOpen && "-translate-x-full"
       )}>
         <div className="flex flex-col h-full">
@@ -62,8 +63,8 @@ export function Sidebar({ role }: { role: 'admin' | 'client' }) {
           <div className="p-6 pb-8">
             <Link href="/" className="flex items-center gap-3 group">
               <div className="relative">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-red-500/20 group-hover:shadow-red-500/40 transition-shadow duration-300">
-                  <Flame className="h-5 w-5 text-white" />
+                <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-lg transition-shadow duration-300">
+                  <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[hsl(225,15%,9%)]" />
               </div>
