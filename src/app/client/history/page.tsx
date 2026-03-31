@@ -10,11 +10,12 @@ function ClientHistoryContent() {
   const { profile } = useAuth();
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
+  const businessId = (profile as any)?.business_id || undefined;
 
   return (
     <ServiceHistoryBase 
       role="client" 
-      businessId={profile?.business_id || undefined}
+      businessId={businessId}
       targetId={id}
     />
   );

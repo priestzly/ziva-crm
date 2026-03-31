@@ -24,6 +24,7 @@ export type Profile = {
   email: string;
   role: 'admin' | 'client';
   mall_id: string | null;
+  business_id: string | null;
   full_name: string | null;
   created_at: string;
 };
