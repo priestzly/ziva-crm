@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Sidebar, Topbar } from '@/components/DashboardShell';
+import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type MaintenanceRecord, type Mall } from '@/lib/supabase';
 import { 
-  Building2, ClipboardCheck, Search, ChevronRight, ChevronLeft,
-  Loader2, MapPin, Activity, Store, History, CheckCircle2,
-  Clock, AlertCircle, Wrench
+  Building2, Search, ChevronRight, ChevronLeft,
+  Loader2, MapPin, Store, History, CheckCircle2,
+  Clock, AlertCircle, Wrench, Flame
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ const parseDesc = (desc: string) => {
 };
 
 function ClientContent() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [mall, setMall] = useState<Mall | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
@@ -54,7 +54,9 @@ function ClientContent() {
     setLoading(false);
   }, [profile]);
 
-  useEffect(() => { if (profile?.mall_id) fetchData(); }, [fetchData, profile?.mall_id]);
+  useEffect(() => { 
+    if (profile?.mall_id && !authLoading) fetchData(); 
+  }, [fetchData, profile?.mall_id, authLoading]);
 
   useEffect(() => {
     if (!profile?.mall_id) return;
@@ -72,7 +74,6 @@ function ClientContent() {
     return rec ? new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
   };
 
-  // Filtered + paginated
   const filtered = useMemo(() => {
     let list = businesses.filter(b => b.name.toLowerCase().includes(search.toLowerCase()));
     if (filterStatus === 'active') list = list.filter(b => getRecordCount(b.id) > 0);
@@ -83,7 +84,6 @@ function ClientContent() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Reset page on filter change
   useEffect(() => setPage(1), [search, filterStatus]);
 
   const thisMonth = records.filter(r => new Date(r.created_at).getMonth() === new Date().getMonth()).length;
@@ -92,54 +92,74 @@ function ClientContent() {
   return (
     <div className="min-h-screen flex">
       <Sidebar role="client" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500 bg-[hsl(var(--background))] w-full overflow-x-hidden pb-20 sm:pb-8">
+      <main className="flex-1 lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
         <Topbar title={mall?.name || 'Yükleniyor...'} subtitle="Servis Takip Merkezi" />
 
-        <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
 
-          {/* ── HERO ── */}
-          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/70 shadow-2xl shadow-primary/30 text-white">
-            <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, white 1px, transparent 1px)', backgroundSize: '24px 24px'}} />
-            <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          {/* ── HERO SECTION ── */}
+          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/70 shadow-xl text-white">
+            {/* Decorative pattern */}
+            <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 1px)', backgroundSize: '24px 24px'}} />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+            
+            <div className="relative p-6 sm:p-8">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                {/* Left - Info */}
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     Canlı Sistem
-                  </span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                    {mall?.name || 'AVM'}
+                    <span className="block text-lg font-normal opacity-80 mt-1">Servis Takip Merkezi</span>
+                  </h1>
+                  {mall?.address && (
+                    <p className="text-white/70 text-sm flex items-center gap-1.5">
+                      <MapPin size={14} /> {mall.address}
+                    </p>
+                  )}
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tighter">{mall?.name || 'AVM'}<br/><span className="font-light opacity-80 text-lg">Servis Takip Merkezi</span></h1>
-                <p className="text-white/60 text-xs flex items-center gap-1.5">
-                  <MapPin size={11} /> {mall?.address || '—'}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 sm:gap-6 flex-wrap">
-                {[
-                  { val: businesses.length, label: 'İşletme', color: 'text-white' },
-                  { val: records.length, label: 'İş Emri', color: 'text-emerald-300' },
-                  { val: thisMonth, label: 'Bu Ay', color: 'text-blue-300' },
-                  { val: completedAll, label: 'Tamamlanan', color: 'text-amber-300' },
-                ].map((s, i) => (
-                  <React.Fragment key={i}>
-                    {i > 0 && <div className="w-px h-10 bg-white/20 hidden sm:block" />}
-                    <div className="text-center px-2 sm:px-0">
-                      <p className={cn('text-2xl sm:text-3xl font-black tabular-nums', s.color)}>{loading ? '—' : s.val}</p>
-                      <p className="text-[9px] font-black uppercase text-white/50 mt-0.5">{s.label}</p>
-                    </div>
-                  </React.Fragment>
-                ))}
+
+                {/* Right - Stats */}
+                <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
+                  {[
+                    { val: businesses.length, label: 'İşletme' },
+                    { val: records.length, label: 'İş Emri' },
+                    { val: thisMonth, label: 'Bu Ay' },
+                    { val: completedAll, label: 'Tamamlanan' },
+                  ].map((s, i) => (
+                    <React.Fragment key={i}>
+                      {i > 0 && <div className="w-px h-10 bg-white/20 hidden sm:block" />}
+                      <div className="text-center px-2 sm:px-4">
+                        <p className="text-2xl sm:text-3xl font-bold tabular-nums">{loading ? '—' : s.val}</p>
+                        <p className="text-[10px] font-semibold uppercase text-white/60 mt-0.5">{s.label}</p>
+                      </div>
+                    </React.Fragment>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
+          {/* ── PAGE HEADER ── */}
+          <PageHeader 
+            title="İşletmeler"
+            description="AVM'nizdeki tüm işletmeleri ve servis kayıtlarını görüntüleyin."
+          />
+
           {/* ── CONTROLS ── */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
-                type="text" value={search} onChange={e => setSearch(e.target.value)}
+                type="text" 
+                value={search} 
+                onChange={e => setSearch(e.target.value)}
                 placeholder={`${businesses.length} işletme içinde ara...`}
-                className="input-premium pl-11 py-3 w-full text-sm"
+                className="input-premium pl-10"
               />
             </div>
             <div className="flex gap-2 shrink-0">
@@ -148,13 +168,13 @@ function ClientContent() {
                   key={f}
                   onClick={() => setFilterStatus(f)}
                   className={cn(
-                    'px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide border transition-all',
+                    'px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap',
                     filterStatus === f
-                      ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
-                      : 'glass border-[hsl(var(--border))] text-muted-foreground hover:border-primary/40'
+                      ? 'bg-primary text-white border-primary shadow-md'
+                      : 'bg-[hsl(var(--card))] border-[hsl(var(--border))] text-muted-foreground hover:border-primary/40'
                   )}
                 >
-                  {f === 'all' ? 'Tümü' : f === 'active' ? '✓ Kayıtlı' : '○ Kayıtsız'}
+                  {f === 'all' ? 'Tümü' : f === 'active' ? 'Kayıtlı' : 'Kayıtsız'}
                 </button>
               ))}
             </div>
@@ -162,27 +182,32 @@ function ClientContent() {
 
           {/* ── RESULT INFO ── */}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground font-medium">
-              <span className="font-black text-foreground">{filtered.length}</span> işletme · Sayfa <span className="font-black text-foreground">{page}/{totalPages || 1}</span>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{filtered.length}</span> işletme bulundu
             </p>
-            <Link href="/client/history" className="text-[11px] font-black text-primary uppercase tracking-wide hover:underline flex items-center gap-1">
-              <History size={13} /> Tüm Arşiv
+            <Link href="/client/history" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
+              <History size={14} /> Tüm Geçmiş
             </Link>
           </div>
 
           {/* ── BUSINESS LIST ── */}
           {loading ? (
-            <div className="flex items-center justify-center py-32 gap-3">
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-sm font-bold text-muted-foreground">Veriler Hazırlanıyor...</p>
+              <p className="text-sm font-medium text-muted-foreground">Veriler Yükleniyor...</p>
             </div>
           ) : paginated.length === 0 ? (
-            <div className="glass rounded-2xl py-24 flex flex-col items-center text-center gap-3">
-              <Building2 className="w-10 h-10 text-muted-foreground/20" />
-              <p className="text-sm font-bold">Sonuç bulunamadı</p>
+            <div className="glass rounded-xl py-20 flex flex-col items-center text-center gap-3">
+              <div className="w-14 h-14 rounded-xl bg-[hsl(var(--muted))] flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-muted-foreground/40" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Sonuç bulunamadı</p>
+                <p className="text-xs text-muted-foreground mt-1">Arama kriterlerinize uygun işletme yok.</p>
+              </div>
             </div>
           ) : (
-            <div className="glass rounded-2xl border border-[hsl(var(--border))] overflow-hidden">
+            <div className="glass rounded-xl overflow-hidden">
               {paginated.map((biz, idx) => {
                 const count = getRecordCount(biz.id);
                 const lastRec = getLastRecord(biz.id);
@@ -204,41 +229,41 @@ function ClientContent() {
                   <div
                     key={biz.id}
                     className={cn(
-                      'flex items-center justify-between px-5 py-4 hover:bg-primary/5 transition-colors group',
+                      'flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-4 hover:bg-[hsl(var(--primary))]/5 transition-colors group',
                       !isLast && 'border-b border-[hsl(var(--border))]'
                     )}
                   >
-                    {/* Left */}
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-all duration-200">
-                        <Store size={16} />
+                    {/* Left - Business Info */}
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-all duration-200">
+                        <Store size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-black uppercase tracking-tight truncate group-hover:text-primary transition-colors">{biz.name}</p>
-                        <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground font-medium">{biz.category || 'Genel'}</span>
+                        <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{biz.name}</p>
+                        <div className="flex items-center gap-2 sm:gap-3 mt-0.5">
+                          <span className="text-[10px] sm:text-xs text-muted-foreground">{biz.category || 'Genel'}</span>
                           {p?.text && (
-                            <span className="text-[10px] text-muted-foreground italic truncate max-w-[160px] sm:max-w-xs hidden sm:block">
-                              "{p.text.substring(0, 60)}{p.text.length > 60 ? '…' : ''}"
+                            <span className="text-[10px] text-muted-foreground italic truncate max-w-[140px] sm:max-w-xs hidden sm:block">
+                              "{p.text.substring(0, 50)}{p.text.length > 50 ? '…' : ''}"
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Right */}
-                    <div className="flex items-center gap-3 sm:gap-6 shrink-0 ml-4">
-                      <div className="hidden md:flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    {/* Right - Actions & Status */}
+                    <div className="flex items-center gap-3 sm:gap-4 shrink-0 sm:ml-4">
+                      <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
                         {statusIcon}
-                        <span className="font-medium">{lastDate || 'Kayıt yok'}</span>
+                        <span className="text-xs">{lastDate || 'Kayıt yok'}</span>
                       </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-base font-black tabular-nums">{count}</p>
-                        <p className="text-[9px] text-muted-foreground uppercase font-bold">İşlem</p>
+                      <div className="text-center">
+                        <p className="text-lg font-bold tabular-nums leading-none">{count}</p>
+                        <p className="text-[9px] text-muted-foreground uppercase font-semibold">İşlem</p>
                       </div>
                       <Link
                         href={`/client/businesses/${biz.id}`}
-                        className="flex items-center gap-1 bg-primary/8 hover:bg-primary text-primary hover:text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all duration-200"
+                        className="btn-primary h-9 px-3 text-xs"
                       >
                         <Wrench size={12} /> Detay
                       </Link>
@@ -255,7 +280,7 @@ function ClientContent() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="w-9 h-9 rounded-xl glass border border-[hsl(var(--border))] flex items-center justify-center disabled:opacity-30 hover:border-primary/50 transition-all"
+                className="btn-icon disabled:opacity-30"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -274,10 +299,10 @@ function ClientContent() {
                     key={n}
                     onClick={() => setPage(n as number)}
                     className={cn(
-                      'w-9 h-9 rounded-xl text-xs font-black transition-all',
+                      'w-9 h-9 rounded-lg text-xs font-bold transition-all',
                       page === n
-                        ? 'bg-primary text-white shadow-lg shadow-primary/30'
-                        : 'glass border border-[hsl(var(--border))] hover:border-primary/50 text-muted-foreground'
+                        ? 'bg-primary text-white shadow-md'
+                        : 'bg-[hsl(var(--card))] border border-[hsl(var(--border))] hover:border-primary/50 text-muted-foreground'
                     )}
                   >
                     {n}
@@ -288,7 +313,7 @@ function ClientContent() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="w-9 h-9 rounded-xl glass border border-[hsl(var(--border))] flex items-center justify-center disabled:opacity-30 hover:border-primary/50 transition-all"
+                className="btn-icon disabled:opacity-30"
               >
                 <ChevronRight size={16} />
               </button>

@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 function BusinessesContent() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [malls, setMalls] = useState<Mall[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,8 +39,10 @@ function BusinessesContent() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!authLoading) {
+      fetchData();
+    }
+  }, [authLoading]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

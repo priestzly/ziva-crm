@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Sidebar, Topbar } from '@/components/DashboardShell';
+import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, type Mall, type Business, type MaintenanceRecord } from '@/lib/supabase';
 import { 
-  Building2, ClipboardCheck, TrendingUp, PlusCircle, Search,
-  Calendar, Flame, Users, X, Loader2, Upload,
-  Edit3, Trash2, CheckCircle2, Store, Activity,
-  ArrowUpRight, Zap, BarChart3, Clock, ShieldCheck,
-  UserCircle, Settings, FileText, Wrench, ChevronRight, Printer
+  Building2, PlusCircle, X, Loader2, Upload,
+  Edit3, Trash2, Store, Activity,
+  ChevronRight, Printer, FileText, UserCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -39,7 +37,7 @@ const parseDescription = (desc: string): ParsedDescription => {
 };
 
 function DashboardContent() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [malls, setMalls] = useState<Mall[]>([]);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
@@ -104,7 +102,6 @@ function DashboardContent() {
       cost: parsed.cost 
     });
     
-    // Fetch photos for the record
     const { data: photoData } = await supabase
       .from('maintenance_photos')
       .select('*')
@@ -128,7 +125,6 @@ function DashboardContent() {
     let results = await runQuery();
 
     if (!results.bizRes.data?.length && !results.recRes?.data?.length) {
-      console.warn('Initial fetch empty - possibly token race condition. Retrying in 1000ms...');
       await new Promise(r => setTimeout(r, 1000));
       results = await runQuery();
     }
@@ -140,9 +136,8 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || authLoading) return;
     fetchData();
-    // (Existing subscriptions...)
     const mallSub = supabase.channel('mall-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData()).subscribe();
     const recSub = supabase.channel('rec-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData()).subscribe();
     
@@ -150,7 +145,7 @@ function DashboardContent() {
       supabase.removeChannel(mallSub);
       supabase.removeChannel(recSub);
     };
-  }, [fetchData, profile]);
+  }, [fetchData, profile, authLoading]);
 
   const handleAddMall = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,14 +192,12 @@ function DashboardContent() {
           
           if (uploadData) {
             const { data: { publicUrl } } = supabase.storage.from('maintenance-photos').getPublicUrl(uploadData.path);
-            console.log('Generated Public URL:', publicUrl);
-            const { error: insError } = await supabase.from('maintenance_photos').insert([{ record_id: rec.id, photo_url: publicUrl }]);
-            if (insError) console.error('Database Insert Error:', insError);
+            await supabase.from('maintenance_photos').insert([{ record_id: rec.id, photo_url: publicUrl }]);
           }
         }));
 
         if (uploadErrors > 0) {
-          alert(`Rapor oluşturuldu ancak ${uploadErrors} fotoğraf yüklenemedi. Lütfen Supabase'de 'maintenance-photos' isimli bir Storage Bucket olduğundan ve Public olduğundan emin olun.`);
+          alert(`Rapor oluşturuldu ancak ${uploadErrors} fotoğraf yüklenemedi.`);
         }
       }
       
@@ -257,7 +250,7 @@ function DashboardContent() {
         }));
 
         if (uploadErrors > 0) {
-          alert(`Güncelleme yapıldı ancak ${uploadErrors} fotoğraf yüklenemedi. 'maintenance-photos' Bucket ayarlarınızı kontrol edin.`);
+          alert(`Güncelleme yapıldı ancak ${uploadErrors} fotoğraf yüklenemedi.`);
         }
       }
 
@@ -281,203 +274,279 @@ function DashboardContent() {
   const thisMonthCount = records.filter(r => new Date(r.created_at).getMonth() === new Date().getMonth()).length;
   const last7Count = records.filter(r => Date.now() - new Date(r.created_at).getTime() < 7 * 86400000).length;
 
-  const stats = [
-    { label: 'Toplam Müşteri Kompleksi', value: malls.length, icon: Building2, color: 'text-violet-500', trend: 'Sisteme Kayıtlı' },
-    { label: 'Aktif İşletme / Dükkan', value: businesses.length, icon: Store, color: 'text-cyan-500', trend: 'Operasyonel' },
-    { label: 'Bu Ay Servis İşlemi', value: thisMonthCount, icon: Activity, color: 'text-amber-500', trend: `${last7Count} son 7 gün içinde` },
-    { label: 'Oluşturulan İş Emri', value: records.length, icon: BarChart3, color: 'text-emerald-500', trend: 'Tüm zamanlar' },
-  ];
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Tamamlandı': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-      case 'Devam Ediyor': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-      case 'İptal / Ertelendi': return 'bg-red-500/10 text-red-500 border-red-500/20';
-      default: return 'bg-[hsl(var(--muted))] text-muted-foreground border-[hsl(var(--border))]';
+      case 'Tamamlandı': return 'badge-success';
+      case 'Devam Ediyor': return 'badge-primary';
+      case 'İptal / Ertelendi': return 'badge-destructive';
+      default: return 'badge-muted';
     }
   };
 
   return (
     <div className="min-h-screen flex">
       <Sidebar role="admin" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500 w-full overflow-x-hidden pb-20 sm:pb-8">
+      <main className="flex-1 lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
         <Topbar title="Operasyon Komuta Merkezi" subtitle={`Yönetici: ${profile?.full_name || 'Admin'}`} />
 
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
-          {/* Welcome Banner - Responsive */}
-          <div className="glass rounded-xl p-5 sm:p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 border-l-4 border-l-primary shadow-sm">
-            <div className="space-y-1">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase">Saha Operasyonları</h1>
-              <p className="text-muted-foreground text-[11px] sm:text-xs max-w-lg leading-relaxed font-medium">
-                Gerçek zamanlı servis biletlerini izleyin, yeni operasyonlar oluşturun ve tüm müşteri kayıtlarını profesyonel bir standartla yönetin.
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto shrink-0 mt-2 lg:mt-0">
-              <button onClick={() => setShowAddMall(true)} className="glass h-10 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[hsl(var(--muted))] transition-all w-full sm:w-auto active:scale-95">
-                <Building2 size={16} /> Yeni AVM
-              </button>
-              <button onClick={() => setShowAddRecord(true)} className="btn-primary h-10 px-5 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 w-full sm:w-auto shadow-lg shadow-primary/20 active:scale-95 transition-all">
-                <PlusCircle size={16} /> İş Emri Oluştur
-              </button>
-            </div>
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+          {/* Page Header */}
+          <PageHeader 
+            title="Saha Operasyonları"
+            description="Gerçek zamanlı servis biletlerini izleyin, yeni operasyonlar oluşturun ve müşteri kayıtlarını yönetin."
+            actions={
+              <>
+                <button 
+                  onClick={() => setShowAddMall(true)} 
+                  className="btn-secondary h-10 px-4 text-xs font-semibold"
+                >
+                  <Building2 size={16} />
+                  <span className="hidden sm:inline">Yeni AVM</span>
+                </button>
+                <button 
+                  onClick={() => setShowAddRecord(true)} 
+                  className="btn-primary h-10 px-4 text-xs font-semibold"
+                >
+                  <PlusCircle size={16} />
+                  İş Emri Oluştur
+                </button>
+              </>
+            }
+          />
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard 
+              label="Toplam AVM" 
+              value={malls.length} 
+              icon={Building2} 
+              color="text-violet-500"
+              trend="Sisteme Kayıtlı"
+              loading={loading}
+            />
+            <StatCard 
+              label="Aktif İşletme" 
+              value={businesses.length} 
+              icon={Store} 
+              color="text-cyan-500"
+              trend="Operasyonel"
+              loading={loading}
+            />
+            <StatCard 
+              label="Bu Ay Servis" 
+              value={thisMonthCount} 
+              icon={Activity} 
+              color="text-amber-500"
+              trend={`${last7Count} son 7 gün`}
+              loading={loading}
+            />
+            <StatCard 
+              label="İş Emirleri" 
+              value={records.length} 
+              icon={FileText} 
+              color="text-emerald-500"
+              trend="Tüm zamanlar"
+              loading={loading}
+            />
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {stats.map((stat, i) => {
-              const Icon = stat.icon;
-              return (
-                <div key={i} className="glass rounded-xl p-5 flex flex-col group hover:border-primary/30 transition-all" style={{ animationDelay: `${i * 0.05}s` }}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={cn("p-2 rounded-md bg-[hsl(var(--muted))] group-hover:scale-110 transition-transform", stat.color)}>
-                      <Icon size={16} />
-                    </div>
-                    <span className="text-[10px] sm:text-xs font-black text-muted-foreground uppercase tracking-widest">{stat.label}</span>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-black tracking-tight">{loading ? '—' : stat.value}</p>
-                  <div className="mt-3 pt-3 border-t border-[hsl(var(--border))]">
-                    <p className="text-[10px] font-bold text-muted-foreground opacity-60">{stat.trend}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-
-          {/* Records Timeline (Advanced Service Tickets) */}
-          <div className="glass rounded-xl overflow-hidden shadow-sm flex flex-col h-full border border-[hsl(var(--border))]">
-            <div className="p-5 border-b border-[hsl(var(--border))] flex items-center justify-between bg-[hsl(var(--card))]">
+          {/* Records Table */}
+          <div className="glass overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <FileText size={18} className="text-muted-foreground" />
-                  Saha Servis Kayıtları & İş Emirleri
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <FileText size={16} className="text-muted-foreground" />
+                  Son İş Emirleri
                 </h3>
-                <Link href="/admin/history" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                  Arşivin Tamamını Gör <ChevronRight size={14} />
-                </Link>
               </div>
+              <Link href="/admin/history" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
+                Tümünü Gör <ChevronRight size={14} />
+              </Link>
             </div>
             
-            <div className="flex-1 bg-[hsl(var(--background))] p-4 lg:p-6">
+            <div className="overflow-x-auto">
               {loading ? (
-                <div className="flex items-center justify-center py-20">
+                <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : records.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 gap-3">
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <div className="w-12 h-12 rounded-xl bg-[hsl(var(--muted))] flex items-center justify-center">
-                    <ClipboardCheck className="w-5 h-5 text-muted-foreground" />
+                    <FileText className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div className="text-center">
                     <p className="font-semibold text-sm">İşlem Bulunamadı</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Saha ekibi tarafından girilmiş detaylı bir iş emri yok.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Henüz iş emri oluşturulmamış.</p>
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary/10">
-                  <table className="w-full text-left text-xs border-collapse min-w-[800px]">
-                    <thead className="bg-[hsl(var(--muted))] text-muted-foreground font-black uppercase tracking-tighter border-b border-[hsl(var(--border))]">
-                      <tr>
-                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">No</th>
-                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Tarih</th>
-                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">İşletme</th>
-                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Hizmet Türü</th>
-                        <th className="py-4 px-4 border-r border-[hsl(var(--border))] w-1/3">Saha Notları</th>
-                        <th className="py-4 px-4 border-r border-[hsl(var(--border))]">Durum</th>
-                        <th className="py-4 px-4 text-center">İşlem</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[hsl(var(--border))] font-medium">
-                      {records.map((rec) => {
-                        const parsed = parseDescription(rec.description);
-                        return (
-                          <tr key={rec.id} className="hover:bg-primary/5 transition-colors group">
-                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] font-bold text-slate-400 group-hover:text-primary">#{rec.id.substring(0,6).toUpperCase()}</td>
-                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] whitespace-nowrap">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
-                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] font-black uppercase">{(rec as any).businesses?.name || '—'}</td>
-                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] font-black text-primary/70">{rec.service_type || 'BAKIM'}</td>
-                            <td className="py-3 px-4 border-r border-[hsl(var(--border))] italic text-slate-500 line-clamp-1 max-w-xs">{parsed.text}</td>
-                            <td className="py-3 px-4 border-r border-[hsl(var(--border))]">
-                               <span className={cn("px-2 py-0.5 rounded text-[9px] font-black border uppercase", getStatusColor(parsed.status))}>{parsed.status}</span>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <button onClick={() => handleEditClick(rec)} className="p-1 hover:text-primary transition-colors"><Edit3 size={14} /></button>
-                                <Link href={`/admin/history?id=${rec.id}`} className="p-1 hover:text-primary transition-colors"><Printer size={14} /></Link>
-                                <button onClick={() => handleDeleteRecord(rec.id)} className="p-1 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <table className="table-modern">
+                  <thead>
+                    <tr>
+                      <th className="w-20">No</th>
+                      <th className="w-28">Tarih</th>
+                      <th>İşletme</th>
+                      <th className="w-28">Hizmet Türü</th>
+                      <th className="hidden md:table-cell">Notlar</th>
+                      <th className="w-24">Durum</th>
+                      <th className="w-24 text-center">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map((rec) => {
+                      const parsed = parseDescription(rec.description);
+                      return (
+                        <tr key={rec.id}>
+                          <td className="font-mono text-xs text-muted-foreground">#{rec.id.substring(0, 6).toUpperCase()}</td>
+                          <td className="whitespace-nowrap text-xs">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
+                          <td className="font-semibold">{(rec as any).businesses?.name || '—'}</td>
+                          <td className="text-primary/80 font-medium text-xs">{rec.service_type || 'BAKIM'}</td>
+                          <td className="hidden md:table-cell text-muted-foreground text-xs italic max-w-xs truncate">{parsed.text}</td>
+                          <td>
+                            <span className={cn("badge", getStatusColor(parsed.status))}>{parsed.status}</span>
+                          </td>
+                          <td>
+                            <div className="flex items-center justify-center gap-1">
+                              <button onClick={() => handleEditClick(rec)} className="btn-icon w-8 h-8" title="Düzenle">
+                                <Edit3 size={14} />
+                              </button>
+                              <Link href={`/admin/history?id=${rec.id}`} className="btn-icon w-8 h-8" title="Yazdır">
+                                <Printer size={14} />
+                              </Link>
+                              <button onClick={() => handleDeleteRecord(rec.id)} className="btn-icon w-8 h-8 hover:text-red-500 hover:border-red-500/30" title="Sil">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
         </div>
 
-        {/* === MODALS === */}
+        {/* ═══ MODALS ═══ */}
+        
+        {/* Add Mall Modal */}
         {showAddMall && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 min-h-[100dvh]" onClick={() => setShowAddMall(false)}>
-            <div className="glass-strong rounded-2xl p-6 md:p-8 w-full max-w-md animate-scale-up shadow-lg" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-semibold">Yeni AVM Tanımla</h3>
-                <button onClick={() => setShowAddMall(false)} className="p-2 rounded-lg hover:bg-[hsl(var(--muted))]"><X size={18} /></button>
-              </div>
-              <form onSubmit={handleAddMall} className="space-y-4">
-                <div><label className="text-xs font-semibold text-muted-foreground mb-1.5 block">AVM Adı *</label><input value={mallForm.name} onChange={e => setMallForm({...mallForm, name: e.target.value})} required className="w-full input-premium py-2.5" placeholder="Örn: Akasya AVM" /></div>
-                <div><label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Lokasyon / Adres</label><input value={mallForm.address} onChange={e => setMallForm({...mallForm, address: e.target.value})} className="w-full input-premium py-2.5" placeholder="Şehir, İlçe vs." /></div>
-                <div><label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Sorumlu Kişi</label><input value={mallForm.contact_person} onChange={e => setMallForm({...mallForm, contact_person: e.target.value})} className="w-full input-premium py-2.5" placeholder="İsim Soyisim" /></div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-12 rounded-lg font-medium flex items-center justify-center gap-2 mt-6">
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : 'Kaydet'}
+          <div className="modal-overlay" onClick={() => setShowAddMall(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--border))]">
+                <h3 className="text-lg font-semibold">Yeni AVM Tanımla</h3>
+                <button onClick={() => setShowAddMall(false)} className="btn-icon">
+                  <X size={18} />
                 </button>
+              </div>
+              <form onSubmit={handleAddMall} className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">AVM Adı *</label>
+                  <input 
+                    value={mallForm.name} 
+                    onChange={e => setMallForm({...mallForm, name: e.target.value})} 
+                    required 
+                    className="input-premium" 
+                    placeholder="Örn: Akasya AVM" 
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Lokasyon / Adres</label>
+                  <input 
+                    value={mallForm.address} 
+                    onChange={e => setMallForm({...mallForm, address: e.target.value})} 
+                    className="input-premium" 
+                    placeholder="Şehir, İlçe vs." 
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Sorumlu Kişi</label>
+                  <input 
+                    value={mallForm.contact_person} 
+                    onChange={e => setMallForm({...mallForm, contact_person: e.target.value})} 
+                    className="input-premium" 
+                    placeholder="İsim Soyisim" 
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <button type="button" onClick={() => setShowAddMall(false)} className="btn-secondary h-10 px-4">
+                    İptal
+                  </button>
+                  <button type="submit" disabled={saving} className="btn-primary h-10 px-4">
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'Kaydet'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* ADVANCED ADD RECORD MODAL */}
+        {/* Add Record Modal */}
         {showAddRecord && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto" onClick={() => setShowAddRecord(false)}>
-            <div className="glass-strong rounded-2xl p-6 md:p-8 w-full max-w-2xl animate-scale-up shadow-lg my-8" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[hsl(var(--border))]">
+          <div className="modal-overlay" onClick={() => setShowAddRecord(false)}>
+            <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--border))]">
                 <div>
-                  <h3 className="text-xl font-semibold">Yeni İş Emri (Servis Kaydı)</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Sisteme detaylı bir operasyon fişi ekleyin.</p>
+                  <h3 className="text-lg font-semibold">Yeni İş Emri</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Sisteme detaylı bir operasyon fişi ekleyin.</p>
                 </div>
-                <button onClick={() => setShowAddRecord(false)} className="p-2 rounded-lg hover:bg-[hsl(var(--muted))]"><X size={18} /></button>
+                <button onClick={() => setShowAddRecord(false)} className="btn-icon">
+                  <X size={18} />
+                </button>
               </div>
-              <form onSubmit={handleAddRecord} className="space-y-6">
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <form onSubmit={handleAddRecord} className="p-5 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Hedef İşletme *</label>
-                    <select value={recordForm.business_id} onChange={e => setRecordForm({...recordForm, business_id: e.target.value})} required className="w-full input-premium py-2.5 cursor-pointer">
-                      <option value="">Seçim Yapın</option>{businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    <select 
+                      value={recordForm.business_id} 
+                      onChange={e => setRecordForm({...recordForm, business_id: e.target.value})} 
+                      required 
+                      className="input-premium"
+                    >
+                      <option value="">Seçim Yapın</option>
+                      {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Türü</label>
-                    <input list="svc" value={recordForm.service_type} onChange={e => setRecordForm({...recordForm, service_type: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: Genel Bakım" />
+                    <input 
+                      list="svc" 
+                      value={recordForm.service_type} 
+                      onChange={e => setRecordForm({...recordForm, service_type: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Örn: Genel Bakım" 
+                    />
                     <datalist id="svc">
-                      <option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" />
-                      <option value="Baca Temizliği" /><option value="Arıza Tespiti & Onarım" />
+                      <option value="Genel Bakım" />
+                      <option value="Yangın Sistemi Kontrolü" />
+                      <option value="Baca Temizliği" />
+                      <option value="Arıza Tespiti & Onarım" />
                     </datalist>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
                     <div className="relative">
                       <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input value={recordForm.technician} onChange={e => setRecordForm({...recordForm, technician: e.target.value})} className="w-full input-premium py-2.5 pl-9" placeholder="Personel seçin/yazın" />
+                      <input 
+                        value={recordForm.technician} 
+                        onChange={e => setRecordForm({...recordForm, technician: e.target.value})} 
+                        className="input-premium pl-9" 
+                        placeholder="Personel seçin/yazın" 
+                      />
                     </div>
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Durumu</label>
-                    <select value={recordForm.status} onChange={e => setRecordForm({...recordForm, status: e.target.value})} className="w-full input-premium py-2.5 cursor-pointer">
+                    <select 
+                      value={recordForm.status} 
+                      onChange={e => setRecordForm({...recordForm, status: e.target.value})} 
+                      className="input-premium"
+                    >
                       <option value="Tamamlandı">Tamamlandı</option>
                       <option value="Devam Ediyor">Devam Ediyor</option>
                       <option value="İptal / Ertelendi">İptal / Ertelendi</option>
@@ -486,36 +555,55 @@ function DashboardContent() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Saha Notları (Detaylı Açıklama) *</label>
-                  <textarea value={recordForm.text} onChange={e => setRecordForm({...recordForm, text: e.target.value})} required rows={3} className="w-full input-premium py-2.5 resize-none" placeholder="Yapılan işlemi detaylı şekilde özetleyin..." />
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Saha Notları *</label>
+                  <textarea 
+                    value={recordForm.text} 
+                    onChange={e => setRecordForm({...recordForm, text: e.target.value})} 
+                    required 
+                    rows={3} 
+                    className="input-premium resize-none" 
+                    placeholder="Yapılan işlemi detaylı şekilde özetleyin..." 
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar / Donanım</label>
-                    <input value={recordForm.materials} onChange={e => setRecordForm({...recordForm, materials: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: 2 Adet Yangın Tüpü" />
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar</label>
+                    <input 
+                      value={recordForm.materials} 
+                      onChange={e => setRecordForm({...recordForm, materials: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Örn: 2 Adet Yangın Tüpü" 
+                    />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet / Fatura Tutarı (Opsiyonel)</label>
-                    <input value={recordForm.cost} onChange={e => setRecordForm({...recordForm, cost: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: 2500 TL" />
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet (Opsiyonel)</label>
+                    <input 
+                      value={recordForm.cost} 
+                      onChange={e => setRecordForm({...recordForm, cost: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Örn: 2500 TL" 
+                    />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Saha Fotoğrafları / Evrak Yükle</label>
-                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed border-[hsl(var(--border))] hover:border-primary/50 cursor-pointer transition-colors bg-[hsl(var(--card))]">
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Fotoğraf Yükle</label>
+                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed border-[hsl(var(--border))] hover:border-primary/50 cursor-pointer transition-colors bg-[hsl(var(--muted))]/30">
                     <Upload size={24} className="text-muted-foreground/50" />
-                    <span className="text-sm font-medium text-muted-foreground">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Seçildi` : 'Tıkla veya Sürükle'}</span>
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Seçildi` : 'Tıkla veya Sürükle'}
+                    </span>
                     <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
                   </label>
                 </div>
                 
-                <div className="pt-4 border-t border-[hsl(var(--border))] flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowAddRecord(false)} className="px-5 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-[hsl(var(--muted))] transition-colors">
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowAddRecord(false)} className="btn-secondary h-10 px-4">
                     İptal
                   </button>
-                  <button type="submit" disabled={saving} className="btn-primary px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 text-sm">
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'İş Emrini Kaydet'}
+                  <button type="submit" disabled={saving} className="btn-primary h-10 px-4">
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'Kaydet'}
                   </button>
                 </div>
               </form>
@@ -523,31 +611,47 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* ADVANCED EDIT RECORD MODAL (Same layout logic as above) */}
+        {/* Edit Record Modal */}
         {showEditRecord && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto" onClick={() => setShowEditRecord(false)}>
-            <div className="glass-strong rounded-2xl p-6 md:p-8 w-full max-w-2xl animate-scale-up shadow-lg my-8" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[hsl(var(--border))]">
-                <h3 className="text-xl font-semibold">İş Emrini Düzenle</h3>
-                <button onClick={() => setShowEditRecord(false)} className="p-2 rounded-lg hover:bg-[hsl(var(--muted))]"><X size={18} /></button>
+          <div className="modal-overlay" onClick={() => setShowEditRecord(false)}>
+            <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--border))]">
+                <h3 className="text-lg font-semibold">İş Emrini Düzenle</h3>
+                <button onClick={() => setShowEditRecord(false)} className="btn-icon">
+                  <X size={18} />
+                </button>
               </div>
-              <form onSubmit={handleUpdateRecord} className="space-y-6">
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <form onSubmit={handleUpdateRecord} className="p-5 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Türü</label>
-                    <input list="svc2" value={editRecordForm.service_type} onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} className="w-full input-premium py-2.5" />
+                    <input 
+                      list="svc2" 
+                      value={editRecordForm.service_type} 
+                      onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} 
+                      className="input-premium" 
+                    />
                     <datalist id="svc2">
-                      <option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" />
+                      <option value="Genel Bakım" />
+                      <option value="Yangın Sistemi Kontrolü" />
                     </datalist>
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
-                    <input value={editRecordForm.technician} onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} className="w-full input-premium py-2.5" placeholder="Personel seçin/yazın" />
+                    <input 
+                      value={editRecordForm.technician} 
+                      onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Personel seçin/yazın" 
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Durumu</label>
-                    <select value={editRecordForm.status} onChange={e => setEditRecordForm({...editRecordForm, status: e.target.value})} className="w-full input-premium py-2.5 cursor-pointer">
+                    <select 
+                      value={editRecordForm.status} 
+                      onChange={e => setEditRecordForm({...editRecordForm, status: e.target.value})} 
+                      className="input-premium"
+                    >
                       <option value="Tamamlandı">Tamamlandı</option>
                       <option value="Devam Ediyor">Devam Ediyor</option>
                       <option value="İptal / Ertelendi">İptal / Ertelendi</option>
@@ -557,17 +661,33 @@ function DashboardContent() {
 
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Açıklama / Saha Notları</label>
-                  <textarea value={editRecordForm.text} onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} rows={3} className="w-full input-premium py-2.5 resize-none" placeholder="Yapılan işlemi detaylandırın..." />
+                  <textarea 
+                    value={editRecordForm.text} 
+                    onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} 
+                    rows={3} 
+                    className="input-premium resize-none" 
+                    placeholder="Yapılan işlemi detaylandırın..." 
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar / Donanım</label>
-                    <input value={editRecordForm.materials} onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: 2 Adet Yangın Tüpü" />
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar</label>
+                    <input 
+                      value={editRecordForm.materials} 
+                      onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Örn: 2 Adet Yangın Tüpü" 
+                    />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet / Fatura Tutarı (Opsiyonel)</label>
-                    <input value={editRecordForm.cost} onChange={e => setEditRecordForm({...editRecordForm, cost: e.target.value})} className="w-full input-premium py-2.5" placeholder="Örn: 2500 TL" />
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet</label>
+                    <input 
+                      value={editRecordForm.cost} 
+                      onChange={e => setEditRecordForm({...editRecordForm, cost: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Örn: 2500 TL" 
+                    />
                   </div>
                 </div>
 
@@ -575,36 +695,38 @@ function DashboardContent() {
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-2 block">Mevcut Fotoğraflar</label>
                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                       {editingPhotos.map((ph, idx) => (
-                         <div key={ph.id} className="relative aspect-square rounded-lg overflow-hidden border border-[hsl(var(--border))] group">
-                            <img src={ph.photo_url} className="w-full h-full object-cover" />
-                            <button 
-                              type="button"
-                              onClick={() => handleDeletePhoto(ph)}
-                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                               <Trash2 size={12} />
-                            </button>
-                         </div>
-                       ))}
+                      {editingPhotos.map((ph) => (
+                        <div key={ph.id} className="relative aspect-square rounded-lg overflow-hidden border border-[hsl(var(--border))] group">
+                          <img src={ph.photo_url} className="w-full h-full object-cover" alt="Fotoğraf" />
+                          <button 
+                            type="button"
+                            onClick={() => handleDeletePhoto(ph)}
+                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Sisteme Yeni Fotoğraf Ekle (Opsiyonel)</label>
-                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed border-[hsl(var(--border))] hover:border-primary/50 cursor-pointer transition-colors bg-[hsl(var(--card))]">
+                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Yeni Fotoğraf Ekle</label>
+                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed border-[hsl(var(--border))] hover:border-primary/50 cursor-pointer transition-colors bg-[hsl(var(--muted))]/30">
                     <Upload size={24} className="text-muted-foreground/50" />
-                    <span className="text-sm font-medium text-muted-foreground">{recordPhotos.length > 0 ? `${recordPhotos.length} Yeni Dosya Seçildi` : 'Tıkla veya Sürükle (Mevcut fotoğraflara eklenir)'}</span>
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {recordPhotos.length > 0 ? `${recordPhotos.length} Yeni Dosya` : 'Tıkla veya Sürükle'}
+                    </span>
                     <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
                   </label>
                 </div>
 
-                <div className="pt-4 border-t border-[hsl(var(--border))] flex justify-end gap-3">
-                  <button type="button" onClick={() => { setShowEditRecord(false); setRecordPhotos([]); }} className="px-5 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-[hsl(var(--muted))] transition-colors">
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => { setShowEditRecord(false); setRecordPhotos([]); }} className="btn-secondary h-10 px-4">
                     İptal
                   </button>
-                  <button type="submit" disabled={saving} className="btn-primary px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 text-sm">
+                  <button type="submit" disabled={saving} className="btn-primary h-10 px-4">
                     {saving ? <Loader2 size={16} className="animate-spin" /> : 'Güncelle'}
                   </button>
                 </div>

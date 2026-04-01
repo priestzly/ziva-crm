@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 function ClientBusinessesContent() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [mall, setMall] = useState<Mall | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,8 +45,10 @@ function ClientBusinessesContent() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [profile]);
+    if (!authLoading) {
+      fetchData();
+    }
+  }, [profile, authLoading]);
 
   const filteredBiz = businesses.filter(b => 
     b.name.toLowerCase().includes(search.toLowerCase()) ||
