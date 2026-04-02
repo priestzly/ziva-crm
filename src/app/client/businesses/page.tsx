@@ -5,8 +5,8 @@ import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type Mall } from '@/lib/supabase';
-import { 
-  Building2, Search, Loader2, Store, ChevronRight, 
+import {
+  Building2, Search, Loader2, Store, ChevronRight,
   MapPin, ShieldCheck, Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -27,7 +27,7 @@ function ClientBusinessesContent() {
     if (profile.mall_id) {
       const { data: mallData } = await supabase.from('malls').select('*').eq('id', profile.mall_id).single();
       setMall(mallData);
-      
+
       // 2. Get all businesses in this mall
       const { data: bizData } = await supabase
         .from('businesses')
@@ -40,7 +40,7 @@ function ClientBusinessesContent() {
       // For now, if no mall_id, we assume they have no access to browse a list.
       setBusinesses([]);
     }
-    
+
     setLoading(false);
   };
 
@@ -50,7 +50,7 @@ function ClientBusinessesContent() {
     }
   }, [profile, authLoading]);
 
-  const filteredBiz = businesses.filter(b => 
+  const filteredBiz = businesses.filter(b =>
     b.name.toLowerCase().includes(search.toLowerCase()) ||
     b.category?.toLowerCase().includes(search.toLowerCase())
   );
@@ -59,9 +59,9 @@ function ClientBusinessesContent() {
     <div className="min-h-screen flex">
       <Sidebar role="client" />
       <main className="flex-1 lg:ml-72 transition-all duration-500">
-        <Topbar 
-          title="İşletme Listesi" 
-          subtitle={mall ? `${mall.name} bünyesindeki dükkanlar` : "Yetkili olduğunuz işletmeler"} 
+        <Topbar
+          title="İşletme Listesi"
+          subtitle={mall ? `${mall.name} bünyesindeki dükkanlar` : "Yetkili olduğunuz işletmeler"}
         />
 
         <div className="p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
@@ -92,7 +92,7 @@ function ClientBusinessesContent() {
           {/* Search */}
           <div className="relative max-w-md mx-auto sm:mx-0">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input 
+            <input
               type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Dükkan veya kategori ara..."
               className="w-full input-premium pl-11 py-3"
@@ -117,8 +117,8 @@ function ClientBusinessesContent() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredBiz.map((biz, i) => (
-                <Link 
-                  key={biz.id} 
+                <Link
+                  key={biz.id}
                   href={`/client/businesses/${biz.id}`}
                   className="glass rounded-3xl p-6 card-hover animate-fade-in group flex flex-col justify-between"
                   style={{ animationDelay: `${i * 0.04}s` }}
@@ -135,7 +135,7 @@ function ClientBusinessesContent() {
                     <h3 className="font-bold text-lg mb-0.5 group-hover:text-red-400 transition-colors">{biz.name}</h3>
                     <p className="text-xs text-muted-foreground">{biz.category || 'Kategori belirtilmemiş'}</p>
                   </div>
-                  
+
                   <div className="mt-8 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-red-400 transition-colors">
                     Detayları Gör <ChevronRight size={14} />
                   </div>

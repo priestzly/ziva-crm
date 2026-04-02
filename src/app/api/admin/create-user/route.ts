@@ -15,8 +15,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Kullanıcı adı ve şifre zorunludur.' }, { status: 400 });
     }
 
-    // Kullanıcı adını gizli bir e-postaya çevirelim
-    const dummyEmail = `${username.toLowerCase()}@ziva.internal`;
+    // Kullanıcı adını gizli bir e-postaya çevirelim - Daha standart bir TLD kullanalım (.internal bazen reddedilir)
+    const dummyEmail = `${username.replace(/\s+/g, '').toLowerCase()}@ziva.com.tr`;
 
     // 1. Supabase Auth üzerinden kullanıcıyı oluştur (Service Role sayesinde admin yetkisiyle)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({

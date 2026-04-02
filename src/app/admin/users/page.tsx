@@ -23,6 +23,8 @@ function UsersContent() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', role: 'client', mall_id: '' });
   const [creating, setCreating] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [editForm, setEditForm] = useState({ full_name: '', mall_id: '', password: '' });
   const [infoMsg, setInfoMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const fetchData = async () => {
@@ -55,6 +57,46 @@ function UsersContent() {
     // unless we use the API similar to create-user.
     const { error } = await supabase.from('profiles').delete().eq('id', profile.id);
     if (!error) fetchData();
+  };
+
+  const handleEditClick = (p: Profile) => {
+    setEditingProfile(p);
+    setEditForm({ full_name: p.full_name || '', mall_id: p.mall_id || '', password: '' });
+    setInfoMsg(null);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProfile) return;
+    setCreating(true);
+    try {
+      // 1. Update basic info
+      const { error: profileError } = await supabase.from('profiles').update({
+        full_name: editForm.full_name,
+        mall_id: editForm.mall_id || null
+      }).eq('id', editingProfile.id);
+
+      if (profileError) throw profileError;
+
+      // 2. Update password if provided
+      if (editForm.password.trim()) {
+        const res = await fetch('/api/admin/update-user-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: editingProfile.id, password: editForm.password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Şifre güncellenemedi');
+      }
+
+      setInfoMsg({ type: 'success', text: 'Profil başarıyla güncellendi' });
+      setEditingProfile(null);
+      fetchData();
+    } catch (err: any) {
+      setInfoMsg({ type: 'error', text: err.message });
+    } finally {
+      setCreating(false);
+    }
   };
 
   const filteredProfiles = profiles.filter(p => 
@@ -115,39 +157,60 @@ function UsersContent() {
                 <table className="w-full">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold border-b border-white/[0.04]">
-                      <th className="text-left px-6 py-4 italic">GİRİŞ ADI / EMAIL</th>
+                      <th className="text-left px-6 py-4 italic">KULLANICI ADI</th>
                       <th className="text-left px-6 py-4">AD SOYAD</th>
-                      <th className="text-left px-6 py-4">ROL</th>
-                      <th className="text-left px-6 py-4">YETKİLİ OLD. AVM</th>
-                      <th className="text-right px-6 py-4">KAYIT</th>
+                      <th className="text-left px-6 py-4">YETKİLİ OLDUĞU AVM</th>
+                      <th className="text-right px-6 py-4"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {filteredProfiles.map((p, i) => (
-                      <tr key={p.id} className="hover:bg-white/[0.01] transition-colors group animate-fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center border border-white/[0.06] text-muted-foreground">
-                              <Mail size={14} />
+                    {filteredProfiles.map((p, i) => {
+                      const mall = malls.find(m => m.id === p.mall_id);
+                      return (
+                        <tr key={p.id} className="hover:bg-white/[0.01] transition-colors group animate-fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center border border-white/[0.06] text-muted-foreground">
+                                <Mail size={14} />
+                              </div>
+                              <span className="text-sm font-mono text-muted-foreground">
+                                {p.email.split('@')[0]}
+                              </span>
                             </div>
-                            <span className="text-sm font-mono text-muted-foreground">
-                              {p.email.split('@')[0]}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 font-semibold text-sm">{p.full_name || '—'}</td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => handleDeleteUser(p)}
-                              className="p-2 rounded-xl hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-all"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 font-semibold text-sm">{p.full_name || '—'}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <Building2 size={14} className="text-muted-foreground/40" />
+                              <span className={cn(
+                                "text-xs font-medium",
+                                mall ? "text-primary/80" : "text-muted-foreground/40 italic"
+                              )}>
+                                {mall ? mall.name : 'AVM Tanımsız (Bağımsız)'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => handleEditClick(p)}
+                                className="p-2 rounded-xl hover:bg-white/10 text-muted-foreground hover:text-white transition-all"
+                                title="Düzenle"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteUser(p)}
+                                className="p-2 rounded-xl hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-all"
+                                title="Sil"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -202,7 +265,11 @@ function UsersContent() {
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input 
-                        value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value.toLowerCase().trim()})}
+                        value={newUser.username} 
+                        onChange={e => {
+                          const val = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+                          setNewUser({...newUser, username: val});
+                        }}
                         placeholder="mehmet_ali" className="w-full input-premium pl-11 py-3" required
                       />
                     </div>
@@ -237,6 +304,62 @@ function UsersContent() {
                     className="w-full btn-primary h-14 rounded-2xl flex items-center justify-center gap-3 font-bold text-base hover:scale-[1.02] active:scale-[0.98] transition-all"
                   >
                     {creating ? <Loader2 size={20} className="animate-spin" /> : <><UserPlus size={20} /> Müşteriyi Oluştur</>}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* EDIT USER MODAL */}
+        {editingProfile && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setEditingProfile(null)}>
+            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-2xl font-black tracking-tight">Profili Düzenle</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{editingProfile.email}</p>
+                </div>
+                <button onClick={() => setEditingProfile(null)} className="p-2.5 rounded-2xl hover:bg-white/[0.05]"><X size={20} /></button>
+              </div>
+              
+              <form onSubmit={handleUpdateUser} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Soyad</label>
+                  <input 
+                    value={editForm.full_name} onChange={e => setEditForm({...editForm, full_name: e.target.value})}
+                    placeholder="Ad Soyad" className="w-full input-premium py-3" required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Yetkili AVM</label>
+                  <select 
+                    value={editForm.mall_id} onChange={e => setEditForm({...editForm, mall_id: e.target.value})}
+                    className="w-full input-premium py-3"
+                  >
+                    <option value="">AVM Seçilmedi (Bağımsız)</option>
+                    {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Şifre Değiştir (Opsiyonel)</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input 
+                      type="password" value={editForm.password} onChange={e => setEditForm({...editForm, password: e.target.value})}
+                      placeholder="Yeni şifre (Boş bırakılırsa aynı kalır)" className="w-full input-premium pl-11 py-3"
+                    />
+                  </div>
+                  <p className="px-1 text-[9px] text-muted-foreground/60 italic">Kullanıcının şifresini direkt buradan güncelleyebilirsiniz.</p>
+                </div>
+
+                <div className="pt-6">
+                  <button 
+                    disabled={creating}
+                    className="w-full btn-primary h-14 rounded-2xl flex items-center justify-center gap-3 font-bold text-base hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    {creating ? <Loader2 size={20} className="animate-spin" /> : 'Değişiklikleri Kaydet'}
                   </button>
                 </div>
               </form>

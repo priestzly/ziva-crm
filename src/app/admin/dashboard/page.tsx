@@ -53,6 +53,7 @@ function DashboardContent() {
   const [saving, setSaving] = useState(false);
   
   const [recordForm, setRecordForm] = useState({ 
+    mall_id: '',
     business_id: '', 
     service_type: '', 
     text: '', 
@@ -201,7 +202,7 @@ function DashboardContent() {
         }
       }
       
-      setRecordForm({ business_id: '', service_type: '', text: '', technician: '', materials: '', status: 'Tamamlandı', cost: '' });
+      setRecordForm({ mall_id: '', business_id: '', service_type: '', text: '', technician: '', materials: '', status: 'Tamamlandı', cost: '' });
       setRecordPhotos([]);
       setShowAddRecord(false);
       fetchData();
@@ -498,17 +499,36 @@ function DashboardContent() {
               <form onSubmit={handleAddRecord} className="p-5 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Hedef AVM *</label>
+                    <select 
+                      value={recordForm.mall_id} 
+                      onChange={e => setRecordForm({...recordForm, mall_id: e.target.value, business_id: ''})} 
+                      required 
+                      className="input-premium"
+                    >
+                      <option value="">AVM Seçin</option>
+                      {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Hedef İşletme *</label>
                     <select 
                       value={recordForm.business_id} 
                       onChange={e => setRecordForm({...recordForm, business_id: e.target.value})} 
                       required 
+                      disabled={!recordForm.mall_id}
                       className="input-premium"
                     >
-                      <option value="">Seçim Yapın</option>
-                      {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      <option value="">{recordForm.mall_id ? 'İşletme Seçin' : 'Önce AVM Seçin'}</option>
+                      {businesses
+                        .filter(b => b.mall_id === recordForm.mall_id)
+                        .map(b => <option key={b.id} value={b.id}>{b.name}</option>)
+                      }
                     </select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Türü</label>
                     <input 
@@ -525,21 +545,6 @@ function DashboardContent() {
                       <option value="Arıza Tespiti & Onarım" />
                     </datalist>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
-                    <div className="relative">
-                      <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input 
-                        value={recordForm.technician} 
-                        onChange={e => setRecordForm({...recordForm, technician: e.target.value})} 
-                        className="input-premium pl-9" 
-                        placeholder="Personel seçin/yazın" 
-                      />
-                    </div>
-                  </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Durumu</label>
                     <select 
@@ -554,6 +559,39 @@ function DashboardContent() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-1">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
+                    <div className="relative">
+                      <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input 
+                        value={recordForm.technician} 
+                        onChange={e => setRecordForm({...recordForm, technician: e.target.value})} 
+                        className="input-premium pl-9" 
+                        placeholder="Personel" 
+                      />
+                    </div>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar</label>
+                    <input 
+                      value={recordForm.materials} 
+                      onChange={e => setRecordForm({...recordForm, materials: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Örn: 2 Adet Tüp" 
+                    />
+                  </div>
+                  <div className="sm:col-span-1">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet (Opsiyonel)</label>
+                    <input 
+                      value={recordForm.cost} 
+                      onChange={e => setRecordForm({...recordForm, cost: e.target.value})} 
+                      className="input-premium" 
+                      placeholder="Örn: 2500 TL" 
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Saha Notları *</label>
                   <textarea 
@@ -564,27 +602,6 @@ function DashboardContent() {
                     className="input-premium resize-none" 
                     placeholder="Yapılan işlemi detaylı şekilde özetleyin..." 
                   />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar</label>
-                    <input 
-                      value={recordForm.materials} 
-                      onChange={e => setRecordForm({...recordForm, materials: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Örn: 2 Adet Yangın Tüpü" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet (Opsiyonel)</label>
-                    <input 
-                      value={recordForm.cost} 
-                      onChange={e => setRecordForm({...recordForm, cost: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Örn: 2500 TL" 
-                    />
-                  </div>
                 </div>
 
                 <div>

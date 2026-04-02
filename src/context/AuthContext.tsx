@@ -52,20 +52,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 1. Initial State Check
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (mounted) {
-        if (session?.user) {
-          setUser(session.user);
-          const prof = await fetchProfile(session.user.id);
-          if (mounted) {
-            setProfile(prof);
-            setLoading(false);
+      // Safety timeout
+      const timeoutId = setTimeout(() => {
+        if (mounted && loading) {
+          console.warn('Auth session check timed out');
+          setLoading(false);
+        }
+      }, 5000);
+
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (mounted) {
+          if (session?.user) {
+            setUser(session.user);
+            const prof = await fetchProfile(session.user.id);
+            if (mounted) setProfile(prof);
+          } else {
+            setUser(null);
+            setProfile(null);
           }
-        } else {
+        }
+      } catch (err) {
+        console.error('Session check error:', err);
+        if (mounted) {
           setUser(null);
           setProfile(null);
+        }
+      } finally {
+        if (mounted) {
           setLoading(false);
+          clearTimeout(timeoutId);
         }
       }
     };

@@ -30,13 +30,21 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const finalEmail = email.includes('@') ? email : `${email.toLowerCase().trim()}@ziva.internal`;
+    const isLikelyUsername = !email.includes('@');
+    const finalEmail = isLikelyUsername ? `${email.toLowerCase().trim()}@ziva.com.tr` : email;
 
     try {
-      const { error: signInError } = await signIn(finalEmail, password);
+      let { error: signInError } = await signIn(finalEmail, password);
       
+      // Fallback for older users with @ziva.internal
+      if (signInError && isLikelyUsername) {
+        const oldEmail = `${email.toLowerCase().trim()}@ziva.internal`;
+        const { error: oldSignInError } = await signIn(oldEmail, password);
+        signInError = oldSignInError;
+      }
+
       if (signInError) {
-        setError('E-posta veya şifre hatalı.');
+        setError('Kullanıcı adı veya şifre hatalı.');
         setLoading(false);
       }
       // Redirection is handled by the useEffect above
