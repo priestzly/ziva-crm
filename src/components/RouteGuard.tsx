@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Flame, Loader2 } from 'lucide-react';
@@ -13,50 +13,31 @@ interface RouteGuardProps {
 export default function RouteGuard({ children, requiredRole }: RouteGuardProps) {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
-  const [timedOut, setTimedOut] = useState(false);
-  const redirected = useRef(false);
 
-  // Sonsuz loading koruması — 6 saniye sonra timeout
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTimedOut(true);
-    }, 6000);
+    // Auth yükleniyorsa sadece bekle, hiçbir yönlendirme yapma
+    if (loading) return;
 
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Loading bittiyse ve kullanıcı yoksa → login'e yönlendir
-  // Timeout olduysa da login'e yönlendir
-  useEffect(() => {
-    if (redirected.current) return;
-
-    // Hâlâ yükleniyor ve timeout olmadıysa bekle
-    if (loading && !timedOut) return;
-
-    // Loading bitti veya timeout oldu ama kullanıcı yok
+    // Yükleme BİTTİ ama user veya profil YOK -> Login'e git
     if (!user || !profile) {
-      redirected.current = true;
       router.replace('/login');
       return;
     }
 
-    // Rol kontrolü — admin sayfasına client erişmeye çalışıyorsa
+    // Role kontrolleri
     if (requiredRole === 'admin' && profile.role !== 'admin') {
-      redirected.current = true;
       router.replace('/client/dashboard');
       return;
     }
 
-    // Rol kontrolü — client sayfasına admin erişmeye çalışıyorsa
     if (requiredRole === 'client' && profile.role !== 'client') {
-      redirected.current = true;
       router.replace('/admin/dashboard');
       return;
     }
-  }, [loading, timedOut, user, profile, requiredRole, router]);
+  }, [loading, user, profile, requiredRole, router]);
 
   // Loading durumu — loading spinner göster
-  if (loading && !timedOut) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-grid">
         <div className="flex flex-col items-center gap-6 animate-fade-in">
@@ -70,7 +51,7 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
             <h2 className="text-lg font-bold tracking-tight gradient-text">Ziva Yangın</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 size={14} className="animate-spin" />
-              <span>Yükleniyor...</span>
+              <span>Veriler Yükleniyor...</span>
             </div>
           </div>
           {/* Shimmer bar */}
@@ -82,19 +63,11 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
     );
   }
 
-  // Kullanıcı yoksa veya rol uyumsuzsa → yönlendirme yapılıyordur, boş göster
-  if (!user || !profile) {
+  // Kullanıcı yoksa veya rol uyumsuzsa, router.replace işlenene kadar hiçbir şey gösterme
+  if (!user || !profile || (requiredRole && profile.role !== requiredRole)) {
     return null;
   }
 
-  if (requiredRole === 'admin' && profile.role !== 'admin') {
-    return null;
-  }
-
-  if (requiredRole === 'client' && profile.role !== 'client') {
-    return null;
-  }
-
-  // 🎉 Yetkilendirme OK — children'ı render et
+  // 🎉 Her şey tamam — asıl sayfayı göster
   return <>{children}</>;
 }
