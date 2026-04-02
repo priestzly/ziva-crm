@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
 
     // Dinleyici - tab değiştirme vb. durumlar için
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: Session | null) => {
       if (!mounted) return;
 
       if (event === 'SIGNED_OUT') {
