@@ -16,11 +16,11 @@ export default function LoginPage() {
   // Handle redirection centrally based on the reactive profile state
   React.useEffect(() => {
     if (user && profile) {
-      // Use window.location for hard redirect to ensure middleware picks up the new session
       const targetUrl = profile.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
-      window.location.href = targetUrl;
+      router.push(targetUrl);
+      router.refresh();
     }
-  }, [user, profile]);
+  }, [user, profile, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
