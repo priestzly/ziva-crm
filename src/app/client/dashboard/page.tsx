@@ -20,7 +20,7 @@ const parseDesc = (desc: string) => {
 };
 
 function ClientContent() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const [mall, setMall] = useState<Mall | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
@@ -55,10 +55,10 @@ function ClientContent() {
   }, [profile?.mall_id]);
 
   useEffect(() => { 
-    if (profile?.mall_id && !authLoading) {
+    if (profile?.mall_id) {
       fetchData();
     }
-  }, [fetchData, profile?.mall_id, authLoading]);
+  }, [fetchData, profile?.mall_id]);
 
   useEffect(() => {
     if (!profile?.mall_id) return;

@@ -37,7 +37,7 @@ const parseDescription = (desc: string): ParsedDescription => {
 };
 
 function DashboardContent() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [malls, setMalls] = useState<Mall[]>([]);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
@@ -132,12 +132,7 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    // Auth loading bitmiş ve profile mevcut olmalı
-    if (authLoading || !profile) {
-      return;
-    }
-
-    // Verileri yükle
+    // RouteGuard zaten auth kontrolü yapıyor — hemen verileri yükle
     fetchData();
 
     // Real-time subscriptions
@@ -153,7 +148,7 @@ function DashboardContent() {
       supabase.removeChannel(mallSub);
       supabase.removeChannel(recSub);
     };
-  }, [authLoading, profile, fetchData]);
+  }, [fetchData]);
 
   const handleAddMall = async (e: React.FormEvent) => {
     e.preventDefault();

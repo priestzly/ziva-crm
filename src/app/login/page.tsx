@@ -13,12 +13,11 @@ export default function LoginPage() {
   const { signIn, profile, user } = useAuth();
   const router = useRouter();
 
-  // Handle redirection centrally based on the reactive profile state
+  // Kullanıcı zaten giriş yapmışsa dashboard'a yönlendir
   React.useEffect(() => {
     if (user && profile) {
       const targetUrl = profile.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
-      router.push(targetUrl);
-      router.refresh();
+      router.replace(targetUrl);
     }
   }, [user, profile, router]);
 
@@ -44,7 +43,7 @@ export default function LoginPage() {
         setError('Kullanıcı adı veya şifre hatalı.');
         setLoading(false);
       }
-      // Redirection is handled by the useEffect above
+      // Giriş başarılıysa onAuthStateChange → profile set → useEffect redirect yapacak
     } catch (err) {
       setError('Bir hata oluştu. Lütfen tekrar deneyin.');
       setLoading(false);

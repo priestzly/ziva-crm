@@ -26,32 +26,47 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session if expired - required for Server Components
+  // getUser() ile server-side token doğrulaması yap (güvenlik best-practice)
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  // Auth koruma - protected route'lar
   const url = new URL(request.url);
   const pathname = url.pathname;
 
-  // Public route'lar
+  // Public route'lar — auth gerekmez
   const publicPaths = ['/', '/login', '/signup', '/forgot-password'];
   const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'));
 
-  // Eğer public bir route değilse ve session yoksa login'e yönlendir
-  if (!isPublicPath && !session) {
+  // API route'lar da public
+  const isApiPath = pathname.startsWith('/api');
+
+  // Protected route'lara session olmadan erişim → login'e yönlendir
+  if (!isPublicPath && !isApiPath && (!user || error)) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Eğer login sayfasındaysa ve session varsa dashboard'a yönlendir
-  if (pathname === '/login' && session) {
-    const role = session.user.user_metadata?.role || 'client';
-    return NextResponse.redirect(
-      new URL(role === 'admin' ? '/admin/dashboard' : '/client/dashboard', request.url)
-    );
+  // Login sayfasında zaten session varsa → profil tablosundaki role göre yönlendir
+  if (pathname === '/login' && user && !error) {
+    // Profili middleware'dan çekmeye gerek yok — client-side'da AuthContext halleder
+    // Ama basit bir yönlendirme yapalım: profilden role çek
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      const role = profileData?.role || 'client';
+      const target = role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+      return NextResponse.redirect(new URL(target, request.url));
+    } catch {
+      // Profil çekilemezse client dashboard'a yönlendir, oradan RouteGuard halleder
+      return NextResponse.redirect(new URL('/client/dashboard', request.url));
+    }
   }
 
   return response;
@@ -61,12 +76,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public assets
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

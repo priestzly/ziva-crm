@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import { supabase, type MaintenanceRecord } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
 import { 
   Search, Loader2, Calendar, ChevronRight, MapPin, 
   Printer, ArrowLeft, Flame, LayoutGrid, List, Trash2, Edit3, Upload, X, Clock, Store
@@ -41,7 +40,7 @@ interface ServiceHistoryBaseProps {
 }
 
 export default function ServiceHistoryBase({ role, businessId, targetId }: ServiceHistoryBaseProps) {
-  const { loading: authLoading } = useAuth();
+  // Auth kontrolü RouteGuard tarafından yapılıyor
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,10 +78,8 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
   }, [role, businessId, targetId]);
 
   useEffect(() => {
-    // Auth loading tamamlanana kadar bekle
-    if (authLoading) return;
     fetchData();
-  }, [fetchData, authLoading]);
+  }, [fetchData]);
 
   const handleEditClick = async (rec: any) => {
     const p = parseDescription(rec.description);
@@ -178,7 +175,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
             </div>
           )}
 
-          {authLoading || loading ? <div className="py-20 text-center"><Loader2 className="animate-spin inline-block text-primary w-8 h-8" /></div> : (
+          {loading ? <div className="py-20 text-center"><Loader2 className="animate-spin inline-block text-primary w-8 h-8" /></div> : (
             <div className="animate-fade-in">
               {/* TABLO GÖRÜNÜMÜ */}
               {!targetId && viewMode === 'table' && (

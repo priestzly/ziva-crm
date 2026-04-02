@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, type Profile } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sessionChecked, setSessionChecked] = useState(false);
+  const initialized = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
@@ -35,136 +35,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('id', userId)
         .single();
-      
+
       if (error) {
-        console.warn('Profile fetch error:', error.message);
+        console.warn('[Auth] Profile fetch error:', error.message);
         return null;
       }
       return data;
     } catch (err) {
-      console.error('Profile catch error:', err);
+      console.error('[Auth] Profile fetch failed:', err);
       return null;
     }
   }, []);
 
-  // Session'ı yükle ve state'i güncelle
-  const loadSession = useCallback(async () => {
-    if (sessionChecked) return; // Sadece bir kez çalıştır
-    
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Session error:', error.message);
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
-        setSessionChecked(true);
-        return;
-      }
-
-      if (session?.user) {
-        setUser(session.user);
-        const prof = await fetchProfile(session.user.id);
-        setProfile(prof);
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-      setLoading(false);
-      setSessionChecked(true);
-    } catch (err) {
-      console.error('Session load error:', err);
+  // Kullanıcı ve profili set et — tek bir yerden yapılır
+  const setSession = useCallback(async (session: Session | null) => {
+    if (session?.user) {
+      setUser(session.user);
+      const prof = await fetchProfile(session.user.id);
+      setProfile(prof);
+    } else {
       setUser(null);
       setProfile(null);
-      setLoading(false);
-      setSessionChecked(true);
     }
-  }, [fetchProfile, sessionChecked]);
+    setLoading(false);
+  }, [fetchProfile]);
 
-  // Auth state değişikliklerini dinle
   useEffect(() => {
-    // İlk yükleme
-    loadSession();
-
+    // onAuthStateChange TÜM auth eventlerini yakalar
+    // İlk mount'ta INITIAL_SESSION event'i otomatik gelir
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        console.log('Auth event:', event, session?.user?.id);
+        console.log('[Auth] Event:', event, session?.user?.email);
 
-        if (event === 'SIGNED_OUT') {
+        if (event === 'INITIAL_SESSION') {
+          // İlk yükleme — session varsa profili çek
+          await setSession(session);
+          initialized.current = true;
+        } else if (event === 'SIGNED_IN') {
+          await setSession(session);
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
           setLoading(false);
-          setSessionChecked(true);
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Token yenilendiğinde sadece user'ı güncelle, profili tekrar çekme
           if (session?.user) {
             setUser(session.user);
-            const prof = await fetchProfile(session.user.id);
-            setProfile(prof);
-            setLoading(false);
-            setSessionChecked(true);
           }
-        } else if (event === 'INITIAL_SESSION') {
-          // Initial session zaten loadSession ile kontrol edildi
-          if (!sessionChecked) {
-            if (session?.user) {
-              setUser(session.user);
-              const prof = await fetchProfile(session.user.id);
-              setProfile(prof);
-            }
-            setLoading(false);
-            setSessionChecked(true);
-          }
-        } else if (session?.user) {
-          setUser(session.user);
-          const prof = await fetchProfile(session.user.id);
-          setProfile(prof);
-          setLoading(false);
-          setSessionChecked(true);
-        } else if (!session) {
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          setSessionChecked(true);
         }
       }
     );
 
+    // Güvenlik: 5 saniye içinde INITIAL_SESSION gelmezse loading'i kapat
+    const timeout = setTimeout(() => {
+      if (!initialized.current) {
+        console.warn('[Auth] Timeout: INITIAL_SESSION did not fire in 5s');
+        setLoading(false);
+      }
+    }, 5000);
+
     return () => {
       subscription.unsubscribe();
+      clearTimeout(timeout);
     };
-  }, [loadSession, fetchProfile, sessionChecked]);
+  }, [setSession]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         return { error: error.message };
       }
-      // Auth state değişikliği otomatik olarak onAuthStateChange tarafından yakalanacak
+      // onAuthStateChange -> SIGNED_IN event profili otomatik çekecek
       return { error: null };
     } catch (err) {
       return { error: 'Beklenmeyen bir hata oluştu' };
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       await supabase.auth.signOut();
+      // onAuthStateChange -> SIGNED_OUT event state'i temizleyecek
+    } catch (err) {
+      console.error('[Auth] Sign out error:', err);
+      // Logout'ta hata olsa bile state'i temizle
       setUser(null);
       setProfile(null);
-      // Login sayfasına yönlendirme component tarafından yapılmalı
-    } catch (err) {
-      console.error('Sign out error:', err);
     }
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       const prof = await fetchProfile(user.id);
       setProfile(prof);
     }
-  };
+  }, [user, fetchProfile]);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refreshProfile }}>

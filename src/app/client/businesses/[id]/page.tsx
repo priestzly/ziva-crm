@@ -46,7 +46,7 @@ const getStatusColor = (status: string) => {
 };
 
 function DetailContent() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const params = useParams();
   const bizId = params?.id as string;
 
@@ -86,9 +86,9 @@ function DetailContent() {
   };
 
   useEffect(() => {
-    if (bizId && !authLoading) fetchData();
+    if (bizId) fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bizId, authLoading]);
+  }, [bizId]);
 
   useEffect(() => {
     if (!bizId) return;

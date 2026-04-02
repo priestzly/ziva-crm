@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Flame, Loader2 } from 'lucide-react';
 
 interface RouteGuardProps {
@@ -13,35 +13,50 @@ interface RouteGuardProps {
 export default function RouteGuard({ children, requiredRole }: RouteGuardProps) {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const redirected = useRef(false);
 
+  // Sonsuz loading koruması — 6 saniye sonra timeout
   useEffect(() => {
-    // Loading bitene kadar bekle
-    if (loading) return;
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+    }, 6000);
 
-    // Kullanıcı yoksa login'e yönlendir
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Loading bittiyse ve kullanıcı yoksa → login'e yönlendir
+  // Timeout olduysa da login'e yönlendir
+  useEffect(() => {
+    if (redirected.current) return;
+
+    // Hâlâ yükleniyor ve timeout olmadıysa bekle
+    if (loading && !timedOut) return;
+
+    // Loading bitti veya timeout oldu ama kullanıcı yok
     if (!user || !profile) {
+      redirected.current = true;
       router.replace('/login');
       return;
     }
 
-    // Rol kontrolü
+    // Rol kontrolü — admin sayfasına client erişmeye çalışıyorsa
     if (requiredRole === 'admin' && profile.role !== 'admin') {
+      redirected.current = true;
       router.replace('/client/dashboard');
       return;
     }
+
+    // Rol kontrolü — client sayfasına admin erişmeye çalışıyorsa
     if (requiredRole === 'client' && profile.role !== 'client') {
+      redirected.current = true;
       router.replace('/admin/dashboard');
       return;
     }
+  }, [loading, timedOut, user, profile, requiredRole, router]);
 
-    // Yetkilendirme başarılı
-    setIsAuthorized(true);
-  }, [loading, user, profile, requiredRole, router]);
-
-  // Yüklenirken premium loading ekranı göster
-  if (loading || !isAuthorized) {
+  // Loading durumu — loading spinner göster
+  if (loading && !timedOut) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-grid">
         <div className="flex flex-col items-center gap-6 animate-fade-in">
@@ -55,7 +70,7 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
             <h2 className="text-lg font-bold tracking-tight gradient-text">Ziva Yangın</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 size={14} className="animate-spin" />
-              <span>{loading ? 'Oturum doğrulanıyor...' : 'Yetkilendirme kontrol ediliyor...'}</span>
+              <span>Yükleniyor...</span>
             </div>
           </div>
           {/* Shimmer bar */}
@@ -67,5 +82,19 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
     );
   }
 
+  // Kullanıcı yoksa veya rol uyumsuzsa → yönlendirme yapılıyordur, boş göster
+  if (!user || !profile) {
+    return null;
+  }
+
+  if (requiredRole === 'admin' && profile.role !== 'admin') {
+    return null;
+  }
+
+  if (requiredRole === 'client' && profile.role !== 'client') {
+    return null;
+  }
+
+  // 🎉 Yetkilendirme OK — children'ı render et
   return <>{children}</>;
 }

@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 
 function UsersContent() {
-  const { profile: currentAdmin, loading: authLoading } = useAuth();
+  const { profile: currentAdmin } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [malls, setMalls] = useState<Mall[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,10 +39,8 @@ function UsersContent() {
   };
 
   useEffect(() => {
-    if (!authLoading) {
-      fetchData();
-    }
-  }, [authLoading]);
+    fetchData();
+  }, []);
 
   const handleDeleteUser = async (profile: Profile) => {
     if (profile.role === 'admin') {

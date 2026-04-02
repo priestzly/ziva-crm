@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 
 function MallsContent() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const [malls, setMalls] = useState<Mall[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,15 +51,13 @@ function MallsContent() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading) {
-      fetchData();
-      const sub = supabase.channel('malls-biz-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => fetchData())
-        .subscribe();
-      return () => { supabase.removeChannel(sub); };
-    }
-  }, [authLoading, fetchData]);
+    fetchData();
+    const sub = supabase.channel('malls-biz-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, [fetchData]);
 
   const handleAddBiz = async (e: React.FormEvent) => {
     e.preventDefault();
