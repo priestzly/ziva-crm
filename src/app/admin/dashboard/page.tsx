@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -113,46 +114,49 @@ function DashboardContent() {
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = useCallback(async () => {
-    // İlk yüklemede spinner göster, sonraki güncellemelerde sessizce güncelle
+  const fetchData = async (signal: AbortSignal) => {
     if (!initialLoadDone.current) setLoading(true);
     
     try {
       const [bizRes, mallsRes, recRes] = await Promise.all([
-        supabase.from('businesses').select('*'),
-        supabase.from('malls').select('*'),
-        supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(20),
+        supabase.from('businesses').select('*').abortSignal(signal),
+        supabase.from('malls').select('*').abortSignal(signal),
+        supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(20).abortSignal(signal),
       ]);
+      if (signal.aborted) return;
 
       setBusinesses(bizRes.data || []);
       setMalls(mallsRes.data || []);
       setRecords(recRes.data || []);
       initialLoadDone.current = true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       console.error('Error fetching data:', error);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, []);
+  };
+
+  const { safeFetch } = useSafeFetch(fetchData);
 
   useEffect(() => {
     // RouteGuard zaten auth kontrolü yapıyor — hemen verileri yükle
-    fetchData();
+    safeFetch();
 
-    // Real-time subscriptions
+    // Event abonelikleri
     const mallSub = supabase.channel('mall-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => safeFetch())
       .subscribe();
     
     const recSub = supabase.channel('rec-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => safeFetch())
       .subscribe();
     
     return () => {
       supabase.removeChannel(mallSub);
       supabase.removeChannel(recSub);
     };
-  }, [fetchData]);
+  }, [safeFetch]);
 
   const handleAddMall = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,7 +215,7 @@ function DashboardContent() {
       setRecordForm({ mall_id: '', business_id: '', service_type: '', text: '', technician: '', materials: '', status: 'Tamamlandı', cost: '' });
       setRecordPhotos([]);
       setShowAddRecord(false);
-      fetchData();
+      safeFetch();
     } catch (error) {
       console.error(error);
       alert('Kayıt eklenirken bir hata oluştu');
@@ -264,7 +268,7 @@ function DashboardContent() {
       setShowEditRecord(false);
       setEditingRecord(null);
       setRecordPhotos([]);
-      fetchData();
+      safeFetch();
     } catch (error) {
       console.error(error);
       alert('Kayıt güncellenirken hata oluştu');

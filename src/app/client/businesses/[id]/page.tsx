@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -58,13 +59,14 @@ function DetailContent() {
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = async () => {
+  const fetchData = async (signal: AbortSignal) => {
     if (!initialLoadDone.current) setLoading(true);
     try {
       const [bizRes, recsRes] = await Promise.all([
-        supabase.from('businesses').select('*').eq('id', bizId).single(),
-        supabase.from('maintenance_records').select('*').eq('business_id', bizId).order('created_at', { ascending: false }),
+        supabase.from('businesses').select('*').eq('id', bizId).single().abortSignal(signal),
+        supabase.from('maintenance_records').select('*').eq('business_id', bizId).order('created_at', { ascending: false }).abortSignal(signal),
       ]);
+      if (signal.aborted) return;
 
       setBusiness(bizRes.data);
       const recs = recsRes.data || [];
@@ -74,7 +76,10 @@ function DetailContent() {
         const { data: photoData } = await supabase
           .from('maintenance_photos')
           .select('*')
-          .in('record_id', recs.map((r: MaintenanceRecord) => r.id));
+          .in('record_id', recs.map((r: MaintenanceRecord) => r.id))
+          .abortSignal(signal);
+        
+        if (signal.aborted) return;
 
         const grouped: Record<string, MaintenancePhoto[]> = {};
         (photoData || []).forEach((p: MaintenancePhoto) => {
@@ -84,23 +89,25 @@ function DetailContent() {
         setPhotos(grouped);
       }
       initialLoadDone.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       console.error('Error fetching business detail:', err);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 
+  const { safeFetch } = useSafeFetch(fetchData);
+
   useEffect(() => {
-    if (bizId) fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bizId]);
+    if (bizId) safeFetch();
+  }, [bizId, safeFetch]);
 
   useEffect(() => {
     if (!bizId) return;
     const sub = supabase.channel(`biz-${bizId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records', filter: `business_id=eq.${bizId}` }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_photos' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records', filter: `business_id=eq.${bizId}` }, () => safeFetch())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_photos' }, () => safeFetch())
       .subscribe();
     return () => { supabase.removeChannel(sub); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

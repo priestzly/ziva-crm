@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -36,31 +37,35 @@ function MallsContent() {
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async (signal: AbortSignal) => {
     try {
       if (!initialLoadDone.current) setLoading(true);
       const [mallRes, bizRes] = await Promise.all([
-        supabase.from('malls').select('*').order('name'),
-        supabase.from('businesses').select('*').order('name'),
+        supabase.from('malls').select('*').order('name').abortSignal(signal),
+        supabase.from('businesses').select('*').order('name').abortSignal(signal),
       ]);
+      if (signal.aborted) return;
       setMalls(mallRes.data || []);
       setBusinesses(bizRes.data || []);
       initialLoadDone.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       console.error('Fetch Error:', err);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, []);
+  };
+
+  const { safeFetch } = useSafeFetch(fetchData);
 
   useEffect(() => {
-    fetchData();
+    safeFetch();
     const sub = supabase.channel('malls-biz-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => safeFetch())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => safeFetch())
       .subscribe();
     return () => { supabase.removeChannel(sub); };
-  }, [fetchData]);
+  }, [safeFetch]);
 
   const handleAddBiz = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +74,7 @@ function MallsContent() {
     setBizForm({ name: '', category: '', mall_id: '' });
     setShowAddBiz(false);
     setSaving(false);
-    fetchData();
+    safeFetch();
   };
 
   const handleUpdateMall = async (e: React.FormEvent) => {
@@ -80,7 +85,7 @@ function MallsContent() {
     setShowEditMall(false);
     setEditingMall(null);
     setSaving(false);
-    fetchData();
+    safeFetch();
   };
 
   const handleUpdateBiz = async (e: React.FormEvent) => {
@@ -91,20 +96,20 @@ function MallsContent() {
     setShowEditBiz(false);
     setEditingBiz(null);
     setSaving(false);
-    fetchData();
+    safeFetch();
   };
 
   const handleDeleteMall = async (id: string) => {
     if (!confirm('Bu AVM\'yi ve içindeki tüm işletmeleri silmek istediğinizden emin misiniz?')) return;
     // Sub-businesses might need cascade delete in SQL or manual delete here
     await supabase.from('malls').delete().eq('id', id);
-    fetchData();
+    safeFetch();
   };
 
   const handleDeleteBiz = async (id: string) => {
     if (!confirm('Bu işletmeyi silmek istediğinize emin misiniz?')) return;
     await supabase.from('businesses').delete().eq('id', id);
-    fetchData();
+    safeFetch();
   };
 
   const filteredMalls = malls.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));

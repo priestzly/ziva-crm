@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import { supabase, type MaintenanceRecord } from '@/lib/supabase';
 import { 
@@ -60,29 +61,38 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async (signal: AbortSignal) => {
     if (!initialLoadDone.current) setLoading(true);
     try {
-      let query = supabase.from('maintenance_records').select('*, businesses:business_id(name, mall_id, mall:mall_id(name))').order('created_at', { ascending: false });
+      let query = supabase.from('maintenance_records').select('*, businesses:business_id(name, mall_id, mall:mall_id(name))').order('created_at', { ascending: false }).abortSignal(signal);
       if (role === 'client' && businessId) query = query.eq('business_id', businessId);
       
       const { data: recData } = await query;
-      const { data: mallData } = await supabase.from('malls').select('id, name');
+      const { data: mallData } = await supabase.from('malls').select('id, name').abortSignal(signal);
+      
+      if (signal.aborted) return;
       
       setRecords(recData || []);
       setMalls(mallData || []);
 
       if (targetId) {
-        const { data: photoData } = await supabase.from('maintenance_photos').select('*').eq('record_id', targetId);
-        setPhotos(photoData || []);
+        const { data: photoData } = await supabase.from('maintenance_photos').select('*').eq('record_id', targetId).abortSignal(signal);
+        if (!signal.aborted) setPhotos(photoData || []);
       }
       initialLoadDone.current = true;
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [role, businessId, targetId]);
+    } catch (err: any) { 
+      if (err?.name === 'AbortError') return;
+      console.error(err); 
+    } finally { 
+      if (!signal.aborted) setLoading(false); 
+    }
+  };
+
+  const { safeFetch } = useSafeFetch(fetchData);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    safeFetch();
+  }, [safeFetch]);
 
   const handleEditClick = async (rec: any) => {
     const p = parseDescription(rec.description);
@@ -112,7 +122,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
           }
         }));
       }
-      setShowEditRecord(false); setEditingRecord(null); setRecordPhotos([]); fetchData();
+      setShowEditRecord(false); setEditingRecord(null); setRecordPhotos([]); safeFetch();
     } catch (err) { console.error(err); } finally { setSaving(false); }
   };
 
@@ -121,7 +131,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
     if (!confirm('Silinsin mi?')) return;
     try {
       await supabase.from('maintenance_records').delete().eq('id', id);
-      fetchData();
+      safeFetch();
     } catch (err) { console.error(err); }
   };
 
@@ -135,7 +145,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
          await supabase.storage.from('maintenance-photos').remove([`${editingRecord.id}/${fileName}`]);
       }
       setExistingPhotos(prev => prev.filter(p => p.id !== photoId));
-      if (targetId) fetchData(); // Detay ekranındaysa arka planı da güncelle
+      if (targetId) safeFetch(); // Detay ekranındaysa arka planı da güncelle
     } catch (err) { console.error(err); }
   };
 

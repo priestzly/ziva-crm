@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -21,34 +22,39 @@ function ClientBusinessesContent() {
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = async () => {
+  const fetchData = async (signal: AbortSignal) => {
     if (!profile) return;
     if (!initialLoadDone.current) setLoading(true);
 
     try {
       if (profile.mall_id) {
-        const { data: mallData } = await supabase.from('malls').select('*').eq('id', profile.mall_id).single();
+        const { data: mallData } = await supabase.from('malls').select('*').eq('id', profile.mall_id).single().abortSignal(signal);
         setMall(mallData);
         const { data: bizData } = await supabase
           .from('businesses')
           .select('*')
           .eq('mall_id', profile.mall_id)
-          .order('name');
+          .order('name')
+          .abortSignal(signal);
         setBusinesses(bizData || []);
       } else {
         setBusinesses([]);
       }
+      if (signal.aborted) return;
       initialLoadDone.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       console.error('Error fetching businesses:', err);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 
+  const { safeFetch } = useSafeFetch(fetchData);
+
   useEffect(() => {
-    fetchData();
-  }, [profile]);
+    if (profile) safeFetch();
+  }, [profile, safeFetch]);
 
   const filteredBiz = businesses.filter(b =>
     b.name.toLowerCase().includes(search.toLowerCase()) ||

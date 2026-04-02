@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -29,26 +30,26 @@ function UsersContent() {
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = async () => {
+  const fetchData = async (signal: AbortSignal) => {
     if (!initialLoadDone.current) setLoading(true);
     try {
       const [profRes, mallsRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('malls').select('*').order('name'),
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }).abortSignal(signal),
+        supabase.from('malls').select('*').order('name').abortSignal(signal),
       ]);
+      if (signal.aborted) return;
       setProfiles(profRes.data || []);
       setMalls(mallsRes.data || []);
       initialLoadDone.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       console.error('Error fetching users:', err);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const { safeFetch } = useSafeFetch(fetchData);
 
   const handleDeleteUser = async (profile: Profile) => {
     if (profile.role === 'admin') {
@@ -62,7 +63,7 @@ function UsersContent() {
     // but for simplicity we'll just remove the profile link for now 
     // unless we use the API similar to create-user.
     const { error } = await supabase.from('profiles').delete().eq('id', profile.id);
-    if (!error) fetchData();
+    if (!error) safeFetch();
   };
 
   const handleEditClick = (p: Profile) => {
@@ -97,7 +98,7 @@ function UsersContent() {
 
       setInfoMsg({ type: 'success', text: 'Profil başarıyla güncellendi' });
       setEditingProfile(null);
-      fetchData();
+      safeFetch();
     } catch (err: any) {
       setInfoMsg({ type: 'error', text: err.message });
     } finally {
@@ -250,7 +251,7 @@ function UsersContent() {
                       setInfoMsg({ type: 'success', text: 'Hazır!' }); 
                       setShowAddUser(false); 
                       setNewUser({ username: '', password: '', full_name: '', role: 'client', mall_id: '' }); 
-                      fetchData();
+                      safeFetch();
                     }
                   } catch (err) { setInfoMsg({ type: 'error', text: 'Hata' }); }
                   finally { setCreating(false); }

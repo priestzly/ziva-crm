@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -29,26 +30,26 @@ function BusinessesContent() {
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = async () => {
+  const fetchData = async (signal: AbortSignal) => {
     if (!initialLoadDone.current) setLoading(true);
     try {
       const [bizRes, mallsRes] = await Promise.all([
-        supabase.from('businesses').select('*, malls(name)').order('name'),
-        supabase.from('malls').select('*').order('name'),
+        supabase.from('businesses').select('*, malls(name)').order('name').abortSignal(signal),
+        supabase.from('malls').select('*').order('name').abortSignal(signal),
       ]);
+      if (signal.aborted) return;
       setBusinesses(bizRes.data || []);
       setMalls(mallsRes.data || []);
       initialLoadDone.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       console.error('Error fetching businesses:', err);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const { safeFetch } = useSafeFetch(fetchData);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,13 +73,13 @@ function BusinessesContent() {
     setEditingBiz(null);
     setShowModal(false);
     setSaving(false);
-    fetchData();
+    safeFetch();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bu dükkanı/işletmeyi silmek istediğinizden emin misiniz?')) return;
     await supabase.from('businesses').delete().eq('id', id);
-    fetchData();
+    safeFetch();
   };
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -93,7 +94,7 @@ function BusinessesContent() {
     await Promise.all(selectedIds.map(id => supabase.from('businesses').delete().eq('id', id)));
     setSelectedIds([]);
     setSaving(false);
-    fetchData();
+    safeFetch();
   };
 
   const filteredBiz = businesses.filter(b => {

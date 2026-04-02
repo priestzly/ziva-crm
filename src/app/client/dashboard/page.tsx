@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -31,7 +32,7 @@ function ClientContent() {
 
   const initialLoadDone = useRef(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async (signal: AbortSignal) => {
     if (!profile?.mall_id) { 
       setLoading(false); 
       return; 
@@ -39,38 +40,42 @@ function ClientContent() {
     if (!initialLoadDone.current) setLoading(true);
     try {
       const [mallRes, bizRes, recsRes] = await Promise.all([
-        supabase.from('malls').select('*').eq('id', profile.mall_id).single(),
-        supabase.from('businesses').select('*').eq('mall_id', profile.mall_id).order('name'),
+        supabase.from('malls').select('*').eq('id', profile.mall_id).single().abortSignal(signal),
+        supabase.from('businesses').select('*').eq('mall_id', profile.mall_id).order('name').abortSignal(signal),
         supabase.from('maintenance_records').select('*, businesses!inner(name, mall_id)')
           .eq('businesses.mall_id', profile.mall_id)
           .order('created_at', { ascending: false })
-          .limit(200),
+          .limit(200).abortSignal(signal),
       ]);
+      if (signal.aborted) return;
       setMall(mallRes.data);
       setBusinesses(bizRes.data || []);
       setRecords(recsRes.data || []);
       initialLoadDone.current = true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       console.error('Error fetching data:', error);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, [profile?.mall_id]);
+  };
+
+  const { safeFetch } = useSafeFetch(fetchData);
 
   useEffect(() => { 
     if (profile?.mall_id) {
-      fetchData();
+      safeFetch();
     }
-  }, [fetchData, profile?.mall_id]);
+  }, [safeFetch, profile?.mall_id]);
 
   useEffect(() => {
     if (!profile?.mall_id) return;
     const sub = supabase.channel('client-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => safeFetch())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => safeFetch())
       .subscribe();
     return () => { supabase.removeChannel(sub); };
-  }, [profile?.mall_id, fetchData]);
+  }, [profile?.mall_id, safeFetch]);
 
   const getRecordCount = (bizId: string) => records.filter(r => r.business_id === bizId).length;
   const getLastRecord = (bizId: string) => records.find(r => r.business_id === bizId);
