@@ -3,71 +3,88 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Flame, Loader2 } from 'lucide-react';
+import { Loader2, Flame } from 'lucide-react';
 
 interface RouteGuardProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'client';
+  requiredRole?: 'admin' | 'client' | 'any';
 }
 
+/**
+ * RouteGuard ensures that only authenticated users can access a route.
+ * It also handles role-based access control.
+ * 
+ * If Auth is loading -> show a splash screen
+ * If Auth has finished loading but no user or profile -> redirect to login
+ * If user possesses a role that does not match requiredRole -> redirect to their default dashboard
+ * Otherwise -> show children content
+ */
 export default function RouteGuard({ children, requiredRole }: RouteGuardProps) {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Auth yükleniyorsa sadece bekle, hiçbir yönlendirme yapma
+    // We only perform routing logic once the initial auth check has completed.
     if (loading) return;
 
-    // Yükleme BİTTİ ama user veya profil YOK -> Login'e git
     if (!user || !profile) {
+      // Not authenticated or profile fetch failed -> send to login.
       router.replace('/login');
       return;
     }
 
-    // Role kontrolleri
-    if (requiredRole === 'admin' && profile.role !== 'admin') {
-      router.replace('/client/dashboard');
-      return;
-    }
-
-    if (requiredRole === 'client' && profile.role !== 'client') {
-      router.replace('/admin/dashboard');
-      return;
+    // Role check
+    if (requiredRole && requiredRole !== 'any') {
+      const userRole = profile.role?.toLowerCase();
+      const targetRole = requiredRole.toLowerCase();
+      
+      if (userRole !== targetRole) {
+        // Logged in user is on the wrong dashboard type, route them back to their home.
+        console.warn(`[RouteGuard] Role mismatch: user=${userRole}, required=${targetRole}. Redirecting...`);
+        const target = userRole === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+        router.replace(target);
+      }
     }
   }, [loading, user, profile, requiredRole, router]);
 
-  // Loading durumu — loading spinner göster
+  // While auth is still initializing, we show a clean, high-quality splash screen.
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-grid">
-        <div className="flex flex-col items-center gap-6 animate-fade-in">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-2xl shadow-red-500/30">
-              <Flame className="w-10 h-10 text-white animate-pulse" />
+      <div className="min-h-screen flex items-center justify-center bg-grid overflow-hidden">
+        <div className="flex flex-col items-center gap-8 animate-fade-in relative z-10">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-red-500 blur-2xl opacity-20 group-hover:opacity-40 transition-opacity rounded-full" />
+            <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-red-600 to-orange-500 flex items-center justify-center shadow-2xl relative z-10 border border-white/10">
+              <Flame className="w-12 h-12 text-white animate-pulse" />
             </div>
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-[hsl(225,15%,6%)] status-active" />
+            <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-emerald-500 rounded-full border-4 border-[hsl(225,15%,6%)] shadow-lg z-20" />
           </div>
-          <div className="text-center space-y-2">
-            <h2 className="text-lg font-bold tracking-tight gradient-text">Ziva Yangın</h2>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 size={14} className="animate-spin" />
-              <span>Veriler Yükleniyor...</span>
+          
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground gradient-text">Ziva Yangın</h2>
+            <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground font-medium">
+              <Loader2 size={18} className="animate-spin text-primary" />
+              <span>Sistem Başlatılıyor...</span>
             </div>
           </div>
-          {/* Shimmer bar */}
-          <div className="w-48 h-1 rounded-full overflow-hidden bg-white/[0.03]">
-            <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-red-500 to-orange-500 shimmer" />
+
+          <div className="w-56 h-1.5 rounded-full overflow-hidden bg-white/5 border border-white/5 backdrop-blur-sm shadow-inner">
+            <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-red-600 via-orange-500 to-red-600 animate-shimmer-fast" />
           </div>
         </div>
+        
+        {/* Background Decorative Elements */}
+        <div className="absolute top-1/4 -left-12 w-64 h-64 bg-primary/5 blur-[100px] rounded-full" />
+        <div className="absolute bottom-1/4 -right-12 w-64 h-64 bg-orange-500/5 blur-[100px] rounded-full" />
       </div>
     );
   }
 
-  // Kullanıcı yoksa veya rol uyumsuzsa, router.replace işlenene kadar hiçbir şey gösterme
-  if (!user || !profile || (requiredRole && profile.role !== requiredRole)) {
+  // If user is missing or role is wrong, return null so we don't flash content before redirect happens.
+  if (!user || !profile || (requiredRole && requiredRole !== 'any' && profile.role !== requiredRole)) {
     return null;
   }
 
-  // 🎉 Her şey tamam — asıl sayfayı göster
+  // Auth is done and successful!
   return <>{children}</>;
 }

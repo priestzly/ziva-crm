@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useSafeFetch } from '@/hooks/useSafeFetch';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -9,7 +8,7 @@ import { supabase, type Business, type MaintenanceRecord, type Mall } from '@/li
 import { 
   Building2, Search, ChevronRight, ChevronLeft,
   Loader2, MapPin, Store, History, CheckCircle2,
-  Clock, AlertCircle, Wrench, Flame
+  Clock, AlertCircle, Wrench, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -26,56 +25,120 @@ function ClientContent() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'none'>('all');
 
   const initialLoadDone = useRef(false);
+  const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const fetchData = async (signal: AbortSignal) => {
+  /**
+   * ENHANCED FAILSAFE FETCH PATTERN
+   */
+  const fetchData = useCallback(async (isRefresh = false) => {
     if (!profile?.mall_id) { 
       setLoading(false); 
       return; 
     }
+    
     if (!initialLoadDone.current) setLoading(true);
+    if (isRefresh) {
+      setIsRefreshing(true);
+      setFetchError(null);
+    }
+    
     try {
+      console.log('Fetching client dashboard data for mall:', profile.mall_id);
+      
       const [mallRes, bizRes, recsRes] = await Promise.all([
-        supabase.from('malls').select('*').eq('id', profile.mall_id).single().abortSignal(signal),
-        supabase.from('businesses').select('*').eq('mall_id', profile.mall_id).order('name').abortSignal(signal),
+        supabase.from('malls').select('*').eq('id', profile.mall_id).single(),
+        supabase.from('businesses').select('*').eq('mall_id', profile.mall_id).order('name'),
         supabase.from('maintenance_records').select('*, businesses!inner(name, mall_id)')
           .eq('businesses.mall_id', profile.mall_id)
           .order('created_at', { ascending: false })
-          .limit(200).abortSignal(signal),
+          .limit(200),
       ]);
-      if (signal.aborted) return;
+      
+      if (recsRes.error) throw recsRes.error;
+      
       setMall(mallRes.data);
       setBusinesses(bizRes.data || []);
       setRecords(recsRes.data || []);
       initialLoadDone.current = true;
     } catch (error: any) {
-      if (error?.name === 'AbortError') return;
       console.error('Error fetching data:', error);
+      setFetchError(`Veri bağlantı hatası: ${error.message || 'Bilinmeyen hata'}`);
     } finally {
-      if (!signal.aborted) setLoading(false);
+      setLoading(false);
+      if (isRefresh) setIsRefreshing(false);
     }
-  };
+  }, [profile?.mall_id]);
 
-  const { safeFetch } = useSafeFetch(fetchData);
+  const setupSubscription = useCallback(() => {
+    if (!profile?.mall_id) return;
+    
+    if (subscriptionRef.current) {
+      supabase.removeChannel(subscriptionRef.current);
+      subscriptionRef.current = null;
+    }
+    
+    const sub = supabase.channel('client-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => fetchData(true))
+      .subscribe((status: string) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Dashboard subscription error, retrying...');
+          setTimeout(() => setupSubscription(), 3000);
+        }
+      });
+    
+    subscriptionRef.current = sub;
+    return sub;
+  }, [profile?.mall_id, fetchData]);
 
   useEffect(() => { 
     if (profile?.mall_id) {
-      safeFetch();
+      fetchData();
+      setupSubscription();
     }
-  }, [safeFetch, profile?.mall_id]);
+  }, [fetchData, setupSubscription, profile?.mall_id]);
+
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!profile?.mall_id) return;
-    const sub = supabase.channel('client-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => safeFetch())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => safeFetch())
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-  }, [profile?.mall_id, safeFetch]);
+    
+    const handleVisibility = () => {
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+
+      if (document.visibilityState === 'visible') {
+        visibilityTimeoutRef.current = setTimeout(() => {
+          fetchData(true);
+          setupSubscription();
+        }, 500); 
+      } else {
+        if (subscriptionRef.current) {
+          supabase.removeChannel(subscriptionRef.current);
+          subscriptionRef.current = null;
+        }
+      }
+    };
+    
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => { 
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+    };
+  }, [profile?.mall_id, fetchData, setupSubscription]);
 
   const getRecordCount = (bizId: string) => records.filter(r => r.business_id === bizId).length;
   const getLastRecord = (bizId: string) => records.find(r => r.business_id === bizId);
@@ -103,38 +166,58 @@ function ClientContent() {
     <div className="min-h-screen flex">
       <Sidebar role="client" />
       <main className="flex-1 lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
-        <Topbar title={mall?.name || 'Yükleniyor...'} subtitle="Servis Takip Merkezi" />
+        <Topbar 
+          title={mall?.name || (loading ? 'Yükleniyor...' : 'Panel')} 
+          subtitle={isRefreshing ? 'Veriler Yenileniyor...' : 'Servis Takip Merkezi'} 
+        />
 
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+          {/* Error Banner */}
+          {fetchError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-500/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
+                  <ShieldAlert size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-400">Bağlantı Kesildi</p>
+                  <p className="text-xs text-red-400/70">{fetchError}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => fetchData(true)}
+                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+              >
+                Tekrar Dene
+              </button>
+            </div>
+          )}
 
           {/* ── HERO SECTION ── */}
-          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/70 shadow-xl text-white">
-            {/* Decorative pattern */}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-red-600 via-red-500 to-orange-500 shadow-2xl text-white">
             <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 1px)', backgroundSize: '24px 24px'}} />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
             
-            <div className="relative p-6 sm:p-8">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                {/* Left - Info */}
-                <div className="space-y-3">
-                  <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    Canlı Sistem
+            <div className="relative p-8">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl">
+                      <Building2 size={24} />
+                    </div>
+                    <div>
+                      <h1 className="text-2xl sm:text-3xl font-black tracking-tight uppercase">
+                        {mall?.name || 'Müşteri Paneli'}
+                      </h1>
+                      {mall?.address && (
+                        <p className="text-white/80 text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                          <MapPin size={12} /> {mall.address}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                    {mall?.name || 'AVM'}
-                    <span className="block text-lg font-normal opacity-80 mt-1">Servis Takip Merkezi</span>
-                  </h1>
-                  {mall?.address && (
-                    <p className="text-white/70 text-sm flex items-center gap-1.5">
-                      <MapPin size={14} /> {mall.address}
-                    </p>
-                  )}
                 </div>
 
-                {/* Right - Stats */}
-                <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
+                <div className="flex items-center gap-4 sm:gap-6 flex-wrap bg-black/10 backdrop-blur-md p-6 rounded-3xl border border-white/10">
                   {[
                     { val: businesses.length, label: 'İşletme' },
                     { val: records.length, label: 'İş Emri' },
@@ -142,10 +225,10 @@ function ClientContent() {
                     { val: completedAll, label: 'Tamamlanan' },
                   ].map((s, i) => (
                     <React.Fragment key={i}>
-                      {i > 0 && <div className="w-px h-10 bg-white/20 hidden sm:block" />}
-                      <div className="text-center px-2 sm:px-4">
-                        <p className="text-2xl sm:text-3xl font-bold tabular-nums">{loading ? '—' : s.val}</p>
-                        <p className="text-[10px] font-semibold uppercase text-white/60 mt-0.5">{s.label}</p>
+                      {i > 0 && <div className="w-px h-8 bg-white/10 hidden sm:block" />}
+                      <div className="text-center px-2 min-w-[70px]">
+                        <p className="text-2xl font-black tabular-nums">{loading && !initialLoadDone.current ? '—' : s.val}</p>
+                        <p className="text-[9px] font-black uppercase text-white/50 tracking-widest mt-1">{s.label}</p>
                       </div>
                     </React.Fragment>
                   ))}
@@ -154,34 +237,43 @@ function ClientContent() {
             </div>
           </div>
 
-          {/* ── PAGE HEADER ── */}
-          <PageHeader 
-            title="İşletmeler"
-            description="AVM'nizdeki tüm işletmeleri ve servis kayıtlarını görüntüleyin."
-          />
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <PageHeader 
+              title="İşletme Rehberi"
+              description="AVM dökümantasyonu ve aktif servis biletleri."
+            />
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => fetchData(true)}
+                className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground group"
+                title="Yenile"
+              >
+                <RefreshCw size={18} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
+              </button>
+            </div>
+          </div>
 
-          {/* ── CONTROLS ── */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text" 
                 value={search} 
                 onChange={e => setSearch(e.target.value)}
-                placeholder={`${businesses.length} işletme içinde ara...`}
-                className="input-premium pl-10"
+                placeholder={`${businesses.length} birim içinde ara...`}
+                className="input-premium pl-11 h-12"
               />
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex gap-2 shrink-0 bg-white/[0.03] p-1 rounded-2xl border border-white/[0.06]">
               {(['all', 'active', 'none'] as const).map(f => (
                 <button
                   key={f}
                   onClick={() => setFilterStatus(f)}
                   className={cn(
-                    'px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap',
+                    'px-5 py-2 rounded-xl text-[10px] uppercase font-black tracking-widest transition-all whitespace-nowrap h-10',
                     filterStatus === f
-                      ? 'bg-primary text-white border-primary shadow-md'
-                      : 'bg-[hsl(var(--card))] border-[hsl(var(--border))] text-muted-foreground hover:border-primary/40'
+                      ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
+                      : 'text-muted-foreground hover:text-white'
                   )}
                 >
                   {f === 'all' ? 'Tümü' : f === 'active' ? 'Kayıtlı' : 'Kayıtsız'}
@@ -190,142 +282,122 @@ function ClientContent() {
             </div>
           </div>
 
-          {/* ── RESULT INFO ── */}
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{filtered.length}</span> işletme bulundu
-            </p>
-            <Link href="/client/history" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
-              <History size={14} /> Tüm Geçmiş
-            </Link>
-          </div>
-
-          {/* ── BUSINESS LIST ── */}
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-sm font-medium text-muted-foreground">Veriler Yükleniyor...</p>
+          {loading && !initialLoadDone.current ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Sistem Yükleniyor</p>
             </div>
           ) : paginated.length === 0 ? (
-            <div className="glass rounded-xl py-20 flex flex-col items-center text-center gap-3">
-              <div className="w-14 h-14 rounded-xl bg-[hsl(var(--muted))] flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-muted-foreground/40" />
+            <div className="glass rounded-3xl py-24 flex flex-col items-center text-center gap-4 border border-white/[0.04]">
+              <div className="w-20 h-20 rounded-3xl bg-[hsl(var(--muted))] flex items-center justify-center text-muted-foreground/20">
+                <Store size={32} />
               </div>
               <div>
-                <p className="font-semibold text-sm">Sonuç bulunamadı</p>
-                <p className="text-xs text-muted-foreground mt-1">Arama kriterlerinize uygun işletme yok.</p>
+                <p className="font-black text-lg tracking-tight uppercase">Sonuç Bulunamadı</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">Arama kriterlerinize uygun aktif bir işletme kaydı yok.</p>
               </div>
             </div>
           ) : (
-            <div className="glass rounded-xl overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {paginated.map((biz, idx) => {
                 const count = getRecordCount(biz.id);
                 const lastRec = getLastRecord(biz.id);
                 const lastDate = getLastService(biz.id);
                 const p = lastRec ? parseDesc(lastRec.description) : null;
-                const isLast = idx === paginated.length - 1;
-
-                const statusIcon = !p ? (
-                  <AlertCircle size={14} className="text-amber-400" />
-                ) : p.status === 'Devam Ediyor' ? (
-                  <Clock size={14} className="text-blue-400" />
-                ) : p.status === 'Tamamlandı' ? (
-                  <CheckCircle2 size={14} className="text-emerald-400" />
-                ) : (
-                  <AlertCircle size={14} className="text-red-400" />
-                );
 
                 return (
-                  <div
+                  <Link
                     key={biz.id}
-                    className={cn(
-                      'flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-4 hover:bg-[hsl(var(--primary))]/5 transition-colors group',
-                      !isLast && 'border-b border-[hsl(var(--border))]'
-                    )}
+                    href={`/client/businesses/${biz.id}`}
+                    className="glass group hover:bg-white/[0.03] transition-all duration-500 rounded-3xl p-6 border border-white/[0.04] relative overflow-hidden"
+                    style={{ animationDelay: `${idx * 0.05}s` }}
                   >
-                    {/* Left - Business Info */}
-                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                      <div className="w-10 h-10 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-all duration-200">
-                        <Store size={18} />
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+                      <Store size={80} />
+                    </div>
+                    
+                    <div className="relative space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-500/10 border border-white/[0.06] flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                          <Store size={20} />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-black tabular-nums group-hover:text-red-500 transition-colors leading-none">{count}</p>
+                          <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mt-1">Saha Kaydı</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{biz.name}</p>
-                        <div className="flex items-center gap-2 sm:gap-3 mt-0.5">
-                          <span className="text-[10px] sm:text-xs text-muted-foreground">{biz.category || 'Genel'}</span>
-                          {p?.text && (
-                            <span className="text-[10px] text-muted-foreground italic truncate max-w-[140px] sm:max-w-xs hidden sm:block">
-                              "{p.text.substring(0, 50)}{p.text.length > 50 ? '…' : ''}"
-                            </span>
-                          )}
+
+                      <div>
+                        <h3 className="font-black text-lg tracking-tight uppercase group-hover:translate-x-1 transition-transform inline-block">
+                          {biz.name}
+                        </h3>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                          {biz.category || 'Genel Ticari'}
+                        </p>
+                      </div>
+
+                      <div className="pt-4 border-t border-white/[0.04] flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Son Operasyon</span>
+                          <span className="text-[10px] font-bold mt-0.5 flex items-center gap-1.5">
+                            <Clock size={10} className="text-primary" />
+                            {lastDate || 'Kayıt Yok'}
+                          </span>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-white/[0.03] flex items-center justify-center group-hover:bg-primary transition-colors text-muted-foreground group-hover:text-white">
+                          <ChevronRight size={16} />
                         </div>
                       </div>
                     </div>
-
-                    {/* Right - Actions & Status */}
-                    <div className="flex items-center gap-3 sm:gap-4 shrink-0 sm:ml-4">
-                      <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {statusIcon}
-                        <span className="text-xs">{lastDate || 'Kayıt yok'}</span>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold tabular-nums leading-none">{count}</p>
-                        <p className="text-[9px] text-muted-foreground uppercase font-semibold">İşlem</p>
-                      </div>
-                      <Link
-                        href={`/client/businesses/${biz.id}`}
-                        className="btn-primary h-9 px-3 text-xs"
-                      >
-                        <Wrench size={12} /> Detay
-                      </Link>
-                    </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
           )}
 
-          {/* ── PAGINATION ── */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-3 pt-8 pb-4">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="btn-icon disabled:opacity-30"
+                className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/[0.06] transition-all"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={20} />
               </button>
               
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
-                .reduce<(number | '...')[]>((acc, n, i, arr) => {
-                  if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push('...');
-                  acc.push(n);
-                  return acc;
-                }, [])
-                .map((n, i) => n === '...' ? (
-                  <span key={`e-${i}`} className="w-9 h-9 flex items-center justify-center text-xs text-muted-foreground">…</span>
-                ) : (
-                  <button
-                    key={n}
-                    onClick={() => setPage(n as number)}
-                    className={cn(
-                      'w-9 h-9 rounded-lg text-xs font-bold transition-all',
-                      page === n
-                        ? 'bg-primary text-white shadow-md'
-                        : 'bg-[hsl(var(--card))] border border-[hsl(var(--border))] hover:border-primary/50 text-muted-foreground'
-                    )}
-                  >
-                    {n}
-                  </button>
-                ))
-              }
+              <div className="flex items-center gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/[0.06]">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                  .reduce<(number | '...')[]>((acc, n, i, arr) => {
+                    if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push('...');
+                    acc.push(n);
+                    return acc;
+                  }, [])
+                  .map((n, i) => n === '...' ? (
+                    <span key={`e-${i}`} className="w-9 h-9 flex items-center justify-center text-[10px] font-black text-muted-foreground/30 px-2">•••</span>
+                  ) : (
+                    <button
+                      key={n}
+                      onClick={() => setPage(n as number)}
+                      className={cn(
+                        'w-9 h-9 rounded-xl text-[10px] font-black transition-all',
+                        page === n
+                          ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                          : 'text-muted-foreground hover:bg-white/[0.05]'
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))
+                }
+              </div>
               
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="btn-icon disabled:opacity-30"
+                className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/[0.06] transition-all"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={20} />
               </button>
             </div>
           )}

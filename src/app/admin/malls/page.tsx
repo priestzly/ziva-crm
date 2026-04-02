@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, type Mall, type Business } from '@/lib/supabase';
 import { 
   Building2, PlusCircle, Search, Loader2, X, Trash2, Edit3, Users, ChevronDown,
-  CheckCircle2, MapPin, User, Store
+  CheckCircle2, MapPin, User, Store, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +16,8 @@ function MallsContent() {
   const [malls, setMalls] = useState<Mall[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [expandedMall, setExpandedMall] = useState<string | null>(null);
 
@@ -36,36 +37,94 @@ function MallsContent() {
   const [editBizForm, setEditBizForm] = useState({ name: '', category: '' });
 
   const initialLoadDone = useRef(false);
+  const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const fetchData = async (signal: AbortSignal) => {
+  /**
+   * ENHANCED FAILSAFE FETCH PATTERN
+   */
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (!initialLoadDone.current) setLoading(true);
+    if (isRefresh) {
+      setIsRefreshing(true);
+      setFetchError(null);
+    }
+    
     try {
-      if (!initialLoadDone.current) setLoading(true);
       const [mallRes, bizRes] = await Promise.all([
-        supabase.from('malls').select('*').order('name').abortSignal(signal),
-        supabase.from('businesses').select('*').order('name').abortSignal(signal),
+        supabase.from('malls').select('*').order('name'),
+        supabase.from('businesses').select('*').order('name'),
       ]);
-      if (signal.aborted) return;
+
+      if (mallRes.error) throw mallRes.error;
+      if (bizRes.error) throw bizRes.error;
+
       setMalls(mallRes.data || []);
       setBusinesses(bizRes.data || []);
       initialLoadDone.current = true;
     } catch (err: any) {
-      if (err?.name === 'AbortError') return;
       console.error('Fetch Error:', err);
+      setFetchError(`Bağlantı sorunu: ${err.message || 'Bilinmeyen hata'}`);
     } finally {
-      if (!signal.aborted) setLoading(false);
+      setLoading(false);
+      if (isRefresh) setIsRefreshing(false);
     }
-  };
+  }, []);
 
-  const { safeFetch } = useSafeFetch(fetchData);
+  const setupSubscription = useCallback(() => {
+    if (subscriptionRef.current) {
+      supabase.removeChannel(subscriptionRef.current);
+      subscriptionRef.current = null;
+    }
+
+    const sub = supabase.channel('malls-biz-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => fetchData(true))
+      .subscribe((status: string) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Malls Realtime error, retrying...');
+          setTimeout(() => setupSubscription(), 3000);
+        }
+      });
+
+    subscriptionRef.current = sub;
+    return sub;
+  }, [fetchData]);
+
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    safeFetch();
-    const sub = supabase.channel('malls-biz-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => safeFetch())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => safeFetch())
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-  }, [safeFetch]);
+    fetchData();
+    setupSubscription();
+
+    const handleVisibility = () => {
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+
+      if (document.visibilityState === 'visible') {
+        visibilityTimeoutRef.current = setTimeout(() => {
+          fetchData(true);
+          setupSubscription();
+        }, 500); 
+      } else {
+        if (subscriptionRef.current) {
+          supabase.removeChannel(subscriptionRef.current);
+          subscriptionRef.current = null;
+        }
+      }
+    };
+    
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+    };
+  }, [fetchData, setupSubscription]);
 
   const handleAddBiz = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +133,7 @@ function MallsContent() {
     setBizForm({ name: '', category: '', mall_id: '' });
     setShowAddBiz(false);
     setSaving(false);
-    safeFetch();
+    fetchData(true);
   };
 
   const handleUpdateMall = async (e: React.FormEvent) => {
@@ -85,7 +144,7 @@ function MallsContent() {
     setShowEditMall(false);
     setEditingMall(null);
     setSaving(false);
-    safeFetch();
+    fetchData(true);
   };
 
   const handleUpdateBiz = async (e: React.FormEvent) => {
@@ -96,20 +155,19 @@ function MallsContent() {
     setShowEditBiz(false);
     setEditingBiz(null);
     setSaving(false);
-    safeFetch();
+    fetchData(true);
   };
 
   const handleDeleteMall = async (id: string) => {
     if (!confirm('Bu AVM\'yi ve içindeki tüm işletmeleri silmek istediğinizden emin misiniz?')) return;
-    // Sub-businesses might need cascade delete in SQL or manual delete here
     await supabase.from('malls').delete().eq('id', id);
-    safeFetch();
+    fetchData(true);
   };
 
   const handleDeleteBiz = async (id: string) => {
     if (!confirm('Bu işletmeyi silmek istediğinize emin misiniz?')) return;
     await supabase.from('businesses').delete().eq('id', id);
-    safeFetch();
+    fetchData(true);
   };
 
   const filteredMalls = malls.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
@@ -120,17 +178,50 @@ function MallsContent() {
     <div className="min-h-screen flex">
       <Sidebar role="admin" />
       <main className="flex-1 lg:ml-72 transition-all duration-500">
-        <Topbar title="AVM & İşletme Yönetimi" subtitle="Müşteri şubelerini ve dükkan listelerini düzenleyin" />
+        <Topbar 
+          title="AVM & İşletme Yönetimi" 
+          subtitle={isRefreshing ? 'Yenileniyor...' : 'Müşteri şubelerini ve dükkan listelerini düzenleyin'} 
+        />
 
         <div className="p-6 lg:p-8 space-y-6 max-w-[1200px] mx-auto">
+          {/* Error Banner */}
+          {fetchError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-500/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
+                  <ShieldAlert size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-400">Veri Hatası</p>
+                  <p className="text-xs text-red-400/70">{fetchError}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => fetchData(true)}
+                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+              >
+                Tekrar Dene
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">AVM & Şubeler</h1>
               <p className="text-sm text-muted-foreground mt-0.5">Sistemdeki tüm kayıtlı lokasyonlar</p>
             </div>
-            <button onClick={() => setShowAddBiz(true)} className="btn-primary h-12 px-6 rounded-2xl flex items-center gap-2 text-sm font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-transform">
-              <PlusCircle size={18} /> İşletme Ekle
-            </button>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => fetchData(true)}
+                className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground"
+                title="Yenile"
+              >
+                <RefreshCw size={18} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
+              </button>
+              <button onClick={() => setShowAddBiz(true)} className="btn-primary h-12 px-6 rounded-2xl flex items-center gap-2 text-sm font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-transform">
+                <PlusCircle size={18} /> İşletme Ekle
+              </button>
+            </div>
           </div>
 
           <div className="relative">
@@ -142,9 +233,9 @@ function MallsContent() {
             />
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          {loading && !initialLoadDone.current ? (
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : filteredMalls.length === 0 ? (
             <div className="glass rounded-3xl flex flex-col items-center justify-center py-20 gap-3 border border-white/[0.04]">
@@ -180,7 +271,7 @@ function MallsContent() {
                       <div className="pr-6 flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-all">
                         <button 
                           onClick={() => { setEditingMall(mall); setEditMallForm({ name: mall.name, address: mall.address || '', contact_person: mall.contact_person || '' }); setShowEditMall(true); }}
-                          className="p-2.5 rounded-xl hover:bg-white/[0.05] text-muted-foreground hover:text-red-400"
+                          className="p-2.5 rounded-xl hover:bg-white/[0.05] text-muted-foreground hover:text-red-400 font-bold"
                         >
                           <Edit3 size={16} />
                         </button>
@@ -207,7 +298,7 @@ function MallsContent() {
                                 <div className="flex items-center gap-4">
                                   <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
                                   <div>
-                                    <p className="text-sm font-bold text-foreground/90">{biz.name}</p>
+                                    <p className="text-sm font-bold text-foreground/90 uppercase tracking-tight">{biz.name}</p>
                                     <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">{biz.category || 'Dükkan'}</p>
                                   </div>
                                 </div>
@@ -238,32 +329,31 @@ function MallsContent() {
           )}
         </div>
 
-        {/* MODALS (Add/Edit Mall/Biz) */}
-        {/* ... (Modals implementation below) ... */}
+        {/* MODALS */}
         {showAddBiz && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowAddBiz(false)}>
             <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-xl font-bold tracking-tight">İşletme Ekle</h3>
-                <button onClick={() => setShowAddBiz(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors"><X size={20} /></button>
+                <button onClick={() => setShowAddBiz(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
               </div>
               <form onSubmit={handleAddBiz} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Konum (AVM) *</label>
-                  <select value={bizForm.mall_id} onChange={e => setBizForm({...bizForm, mall_id: e.target.value})} required className="w-full input-premium py-3">
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Konum (AVM) *</label>
+                  <select value={bizForm.mall_id} onChange={e => setBizForm({...bizForm, mall_id: e.target.value})} required className="w-full h-12 input-premium px-4 appearance-none">
                     <option value="">AVM Seçin</option>
                     {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">İşletme Adı *</label>
-                  <input value={bizForm.name} onChange={e => setBizForm({...bizForm, name: e.target.value})} required className="w-full input-premium py-3" placeholder="Örn: Burger King" />
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">İşletme Adı *</label>
+                  <input value={bizForm.name} onChange={e => setBizForm({...bizForm, name: e.target.value})} required className="w-full h-12 input-premium px-4" placeholder="Örn: Burger King" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Kategori</label>
-                  <input value={bizForm.category} onChange={e => setBizForm({...bizForm, category: e.target.value})} className="w-full input-premium py-3" placeholder="Gıda / Mutfak" />
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Kategori</label>
+                  <input value={bizForm.category} onChange={e => setBizForm({...bizForm, category: e.target.value})} className="w-full h-12 input-premium px-4" placeholder="Gıda / Mutfak" />
                 </div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4">
+                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4 shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all">
                   {saving ? <Loader2 size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /> Kaydet</>}
                 </button>
               </form>
@@ -273,16 +363,16 @@ function MallsContent() {
 
         {showEditMall && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowEditMall(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up border border-white/[0.06]" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-xl font-bold tracking-tight">AVM Bilgilerini Güncelle</h3>
-                <button onClick={() => setShowEditMall(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors"><X size={20} /></button>
+                <button onClick={() => setShowEditMall(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
               </div>
               <form onSubmit={handleUpdateMall} className="space-y-4">
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground">İsim</label><input value={editMallForm.name} onChange={e => setEditMallForm({...editMallForm, name: e.target.value})} className="w-full input-premium py-3" /></div>
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground">Adres</label><input value={editMallForm.address} onChange={e => setEditMallForm({...editMallForm, address: e.target.value})} className="w-full input-premium py-3" /></div>
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground">Yetkili</label><input value={editMallForm.contact_person} onChange={e => setEditMallForm({...editMallForm, contact_person: e.target.value})} className="w-full input-premium py-3" /></div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4">{saving ? <Loader2 size={18} /> : 'Değişiklikleri Kaydet'}</button>
+                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">AVM İsim</label><input value={editMallForm.name} onChange={e => setEditMallForm({...editMallForm, name: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
+                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">Adres</label><input value={editMallForm.address} onChange={e => setEditMallForm({...editMallForm, address: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
+                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">Yetkili</label><input value={editMallForm.contact_person} onChange={e => setEditMallForm({...editMallForm, contact_person: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
+                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4 shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all">{saving ? <Loader2 size={18} className="animate-spin" /> : 'Değişiklikleri Kaydet'}</button>
               </form>
             </div>
           </div>
@@ -290,15 +380,15 @@ function MallsContent() {
 
         {showEditBiz && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowEditBiz(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up border border-white/[0.06]" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-xl font-bold tracking-tight">İşletmeyi Düzenle</h3>
-                <button onClick={() => setShowEditBiz(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors"><X size={20} /></button>
+                <button onClick={() => setShowEditBiz(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
               </div>
               <form onSubmit={handleUpdateBiz} className="space-y-4">
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground">İşletme Adı</label><input value={editBizForm.name} onChange={e => setEditBizForm({...editBizForm, name: e.target.value})} className="w-full input-premium py-3" /></div>
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground">Kategori</label><input value={editBizForm.category} onChange={e => setEditBizForm({...editBizForm, category: e.target.value})} className="w-full input-premium py-3" /></div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4">{saving ? <Loader2 size={18} /> : 'Güncelle'}</button>
+                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">İşletme Adı</label><input value={editBizForm.name} onChange={e => setEditBizForm({...editBizForm, name: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
+                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">Kategori</label><input value={editBizForm.category} onChange={e => setEditBizForm({...editBizForm, category: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
+                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4 shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all">{saving ? <Loader2 size={18} className="animate-spin" /> : 'Güncelle'}</button>
               </form>
             </div>
           </div>

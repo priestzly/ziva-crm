@@ -8,11 +8,13 @@ import { useSearchParams } from 'next/navigation';
 function AdminHistoryContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
+  const bizId = searchParams.get('bizId');
 
   return (
     <ServiceHistoryBase 
       role="admin" 
       targetId={id}
+      businessId={bizId || undefined}
     />
   );
 }

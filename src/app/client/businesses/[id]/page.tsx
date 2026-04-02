@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { useSafeFetch } from '@/hooks/useSafeFetch';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, type Business, type MaintenanceRecord, type MaintenancePhoto } from '@/lib/supabase';
 import { 
   ArrowLeft, Calendar, User, ClipboardList, Eye, X,
-  ShieldCheck, Loader2, ImageIcon, Download, UserCircle, Wrench
+  ShieldCheck, Loader2, ImageIcon, Download, UserCircle, Wrench, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -56,31 +55,46 @@ function DetailContent() {
   const [photos, setPhotos] = useState<Record<string, MaintenancePhoto[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const initialLoadDone = useRef(false);
+  const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const fetchData = async (signal: AbortSignal) => {
+  /**
+   * ENHANCED FAILSAFE FETCH PATTERN
+   */
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (!bizId) return;
     if (!initialLoadDone.current) setLoading(true);
+    if (isRefresh) {
+      setIsRefreshing(true);
+      setFetchError(null);
+    }
+    
     try {
+      console.log('Fetching business detail data for:', bizId);
+      
       const [bizRes, recsRes] = await Promise.all([
-        supabase.from('businesses').select('*').eq('id', bizId).single().abortSignal(signal),
-        supabase.from('maintenance_records').select('*').eq('business_id', bizId).order('created_at', { ascending: false }).abortSignal(signal),
+        supabase.from('businesses').select('*').eq('id', bizId).single(),
+        supabase.from('maintenance_records').select('*').eq('business_id', bizId).order('created_at', { ascending: false }),
       ]);
-      if (signal.aborted) return;
+
+      if (bizRes.error) throw bizRes.error;
+      if (recsRes.error) throw recsRes.error;
 
       setBusiness(bizRes.data);
       const recs = recsRes.data || [];
       setRecords(recs);
-
+      
       if (recs.length > 0) {
-        const { data: photoData } = await supabase
+        const { data: photoData, error: photoError } = await supabase
           .from('maintenance_photos')
           .select('*')
-          .in('record_id', recs.map((r: MaintenanceRecord) => r.id))
-          .abortSignal(signal);
+          .in('record_id', recs.map((r: MaintenanceRecord) => r.id));
         
-        if (signal.aborted) return;
-
+        if (photoError) console.error('Photos fetch error:', photoError);
+        
         const grouped: Record<string, MaintenancePhoto[]> = {};
         (photoData || []).forEach((p: MaintenancePhoto) => {
           if (!grouped[p.record_id]) grouped[p.record_id] = [];
@@ -90,36 +104,85 @@ function DetailContent() {
       }
       initialLoadDone.current = true;
     } catch (err: any) {
-      if (err?.name === 'AbortError') return;
       console.error('Error fetching business detail:', err);
+      setFetchError(`Kayıtlar yüklenemedi: ${err.message || 'Bilinmeyen hata'}`);
     } finally {
-      if (!signal.aborted) setLoading(false);
+      setLoading(false);
+      if (isRefresh) setIsRefreshing(false);
     }
-  };
+  }, [bizId]);
 
-  const { safeFetch } = useSafeFetch(fetchData);
+  const setupSubscription = useCallback(() => {
+    if (!bizId) return;
+    
+    if (subscriptionRef.current) {
+      supabase.removeChannel(subscriptionRef.current);
+      subscriptionRef.current = null;
+    }
+
+    const sub = supabase.channel(`biz-${bizId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records', filter: `business_id=eq.${bizId}` }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_photos' }, () => fetchData(true))
+      .subscribe((status: string) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Realtime error, retrying...');
+          setTimeout(() => setupSubscription(), 3000);
+        }
+      });
+    
+    subscriptionRef.current = sub;
+    return sub;
+  }, [bizId, fetchData]);
 
   useEffect(() => {
-    if (bizId) safeFetch();
-  }, [bizId, safeFetch]);
+    if (bizId) {
+      fetchData();
+      setupSubscription();
+    }
+  }, [bizId, fetchData, setupSubscription]);
+
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!bizId) return;
-    const sub = supabase.channel(`biz-${bizId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records', filter: `business_id=eq.${bizId}` }, () => safeFetch())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_photos' }, () => safeFetch())
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bizId]);
 
-  if (loading) {
+    const handleVisibility = () => {
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+
+      if (document.visibilityState === 'visible') {
+        visibilityTimeoutRef.current = setTimeout(() => {
+          fetchData(true);
+          setupSubscription();
+        }, 500); 
+      } else {
+        if (subscriptionRef.current) {
+          supabase.removeChannel(subscriptionRef.current);
+          subscriptionRef.current = null;
+        }
+      }
+    };
+    
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => { 
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+    };
+  }, [bizId, fetchData, setupSubscription]);
+
+  if (loading && !initialLoadDone.current) {
     return (
       <div className="min-h-screen flex">
         <Sidebar role={profile?.role === 'admin' ? 'admin' : 'client'} />
         <main className="flex-1 lg:ml-72 flex flex-col items-center justify-center bg-[hsl(var(--background))]">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
-          <p className="text-sm font-semibold text-muted-foreground">İşletme Detayları Yükleniyor...</p>
+          <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground italic">Detaylar Hazırlanıyor</p>
         </main>
       </div>
     );
@@ -129,134 +192,171 @@ function DetailContent() {
     <div className="min-h-screen flex">
       <Sidebar role={profile?.role === 'admin' ? 'admin' : 'client'} />
       <main className="flex-1 lg:ml-72 transition-all duration-500 bg-[hsl(var(--background))]">
-        <Topbar title="İşletme Detayları" subtitle={business?.name} />
+        <Topbar 
+          title="İşletme Detayları" 
+          subtitle={isRefreshing ? 'Veriler Yenileniyor...' : (business?.name || 'Veri Kartı')}
+        />
 
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
-          {/* Back Button */}
-          <Link 
-            href={profile?.role === 'admin' ? '/admin/businesses' : '/client/dashboard'} 
-            className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors font-medium w-fit"
-          >
-            <div className="p-1.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
-              <ArrowLeft size={14} />
+          {/* Error Banner */}
+          {fetchError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-500/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
+                  <ShieldAlert size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-400">Veri Hatası</p>
+                  <p className="text-xs text-red-400/70">{fetchError}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => fetchData(true)}
+                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+              >
+                Tekrar Dene
+              </button>
             </div>
-            Geri Dön
-          </Link>
+          )}
+
+          {/* Controls */}
+          <div className="flex items-center justify-between">
+            <Link 
+              href={profile?.role === 'admin' ? '/admin/businesses' : '/client/dashboard'} 
+              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground hover:text-primary transition-colors group"
+            >
+              <div className="p-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] group-hover:bg-primary/10 group-hover:border-primary/20">
+                <ArrowLeft size={16} />
+              </div>
+              Geri Dön
+            </Link>
+
+            <button 
+              onClick={() => fetchData(true)}
+              className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground"
+              title="Yenile"
+            >
+              <RefreshCw size={20} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
+            </button>
+          </div>
 
           {/* Header Card */}
-          <div className="glass rounded-xl p-6 md:p-8 flex flex-col md:flex-row md:items-end justify-between gap-6 border-l-4 border-l-primary">
-            <div className="space-y-4">
-              <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-semibold w-fit">
+          <div className="glass rounded-3xl p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 border border-white/[0.04] bg-gradient-to-br from-white/[0.03] to-transparent shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/[0.02] rounded-bl-full pointer-events-none" />
+            
+            <div className="space-y-4 relative z-10">
+              <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">
                 <ShieldCheck size={14} />
-                İşletme Aktif
+                Doğrulanmış İşletme Kartı
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1">{business?.name}</h1>
-                <p className="text-sm text-muted-foreground">{business?.category || 'Kategori belirtilmemiş'}</p>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase group-hover:text-red-500 transition-colors mb-2">{business?.name || '—'}</h1>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                  <Wrench size={14} className="text-primary" /> {business?.category || 'Sınıflandırılmamış'}
+                </p>
               </div>
             </div>
             
-            <div className="flex gap-4">
-              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] p-4 rounded-lg text-center flex-1 md:min-w-[120px]">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Geçmiş Kayıt</p>
-                <p className="text-2xl font-bold leading-none">{records.length}</p>
+            <div className="grid grid-cols-2 gap-4 relative z-10">
+              <div className="glass bg-white/[0.02] border border-white/[0.04] p-5 rounded-2xl text-center min-w-[130px] shadow-lg">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">Toplam İş Emri</p>
+                <p className="text-3xl font-black tabular-nums leading-none">{records.length}</p>
               </div>
-              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] p-4 rounded-lg text-center flex-1 md:min-w-[120px]">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Son Ziyaret</p>
-                <p className="text-base font-bold leading-none mt-1">
+              <div className="glass bg-white/[0.02] border border-white/[0.04] p-5 rounded-2xl text-center min-w-[130px] shadow-lg">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">Son Operasyon</p>
+                <p className="text-sm font-black mt-2 uppercase tracking-wide">
                   {records[0] ? new Date(records[0].created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : 'Kayıt Yok'}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Records Timeline / Ticket Feed */}
-          <div className="space-y-4">
-            <h2 className="text-base font-semibold flex items-center gap-2 mb-4">
-              <ClipboardList size={18} className="text-muted-foreground" />
-              Saha Servis Raporları
-            </h2>
+          {/* Records Timeline */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 ml-1">
+              <div className="w-1.5 h-6 bg-red-500 rounded-full" />
+              <h2 className="text-lg font-black uppercase tracking-widest">Servis Operasyon Geçmişi</h2>
+            </div>
 
             {records.length === 0 ? (
-              <div className="glass rounded-xl flex flex-col items-center justify-center py-24 gap-3">
-                <ClipboardList className="w-12 h-12 text-muted-foreground/30" />
-                <p className="text-sm font-semibold text-muted-foreground mt-2">Bu işletme için saha operasyon kaydı bulunamadı.</p>
+              <div className="glass rounded-3xl flex flex-col items-center justify-center py-24 gap-4 border border-white/[0.04]">
+                <ClipboardList className="w-16 h-16 text-muted-foreground/10" />
+                <p className="text-sm font-black uppercase tracking-widest text-muted-foreground italic">Henüz bir rapor oluşturulmamış.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {records.map((rec, i) => {
                   const recPhotos = photos[rec.id] || [];
                   const parsed = parseDescription(rec.description);
 
                   return (
-                    <div key={rec.id} className="glass rounded-xl border border-[hsl(var(--border))] p-5 sm:p-6 shadow-sm animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
+                    <div key={rec.id} className="glass rounded-3xl border border-white/[0.04] p-6 sm:p-8 shadow-xl animate-fade-in group/rec hover:bg-white/[0.02] transition-colors" style={{ animationDelay: `${i * 0.05}s` }}>
                       
                       {/* Ticket Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-5 border-b border-[hsl(var(--border))]">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 shrink-0 rounded bg-[hsl(var(--muted))] flex items-center justify-center border border-[hsl(var(--border))]">
-                            <Wrench size={18} className="text-muted-foreground" />
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 pb-6 border-b border-white/[0.04]">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center border border-white/[0.06] group-hover/rec:bg-primary/20 group-hover/rec:border-primary/30 transition-all duration-500">
+                            <Wrench size={24} className="text-muted-foreground group-hover/rec:text-white" />
                           </div>
                           <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground tracking-wider uppercase mb-0.5">İşlem / Kayıt No: TKT-{rec.id.substring(0, 6).toUpperCase()}</p>
-                            <h4 className="font-semibold text-sm">{rec.service_type || 'Genel Bakım'}</h4>
+                            <p className="text-[10px] font-black text-muted-foreground/40 tracking-[0.2em] uppercase mb-1">Fatura/Kayıt: #{rec.id.substring(0, 6).toUpperCase()}</p>
+                            <h4 className="font-black text-lg uppercase tracking-tight">{rec.service_type || 'Genel Bakım'}</h4>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                           <span className={cn("text-[10px] font-bold px-2 py-1 rounded border", getStatusColor(parsed.status))}>
+                        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                           <span className={cn("text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-xl border shadow-sm", getStatusColor(parsed.status))}>
                             {parsed.status}
                           </span>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-[hsl(var(--muted))] px-2.5 py-1.5 rounded-md">
-                            <Calendar size={12} /> {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2 bg-white/[0.03] px-3 py-2 rounded-xl border border-white/5">
+                            <Calendar size={12} className="text-primary" /> {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </span>
                         </div>
                       </div>
 
                       {/* Ticket Body */}
-                      <div className="space-y-4">
-                        <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] p-4 rounded-lg">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Saha Rapor Özeti</p>
-                          <p className="text-sm text-foreground/90 leading-relaxed">
-                            {parsed.text || 'Açıklama belirtilmemiş.'}
+                      <div className="space-y-6">
+                        <div className="bg-white/[0.02] border border-white/[0.04] p-6 rounded-3xl relative overflow-hidden">
+                          <div className="absolute top-0 right-0 p-4 opacity-[0.02] font-black text-4xl select-none uppercase tracking-tighter italic">REPORT</div>
+                          <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] mb-4">Saha Operasyon Detayı</p>
+                          <p className="text-base text-foreground/80 leading-relaxed font-medium">
+                            {parsed.text || 'Operasyon notu eklenmemiş.'}
                           </p>
                         </div>
                         
                         {(parsed.materials || parsed.technician) && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {parsed.materials && (
-                              <div>
-                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Kullanılan Parçalar</p>
-                                <p className="text-sm text-muted-foreground bg-[hsl(var(--muted))] px-3 py-2 rounded-md">{parsed.materials}</p>
+                              <div className="space-y-2">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-1">İkmal & Parçalar</p>
+                                <p className="text-xs font-bold text-foreground bg-white/[0.02] border border-white/[0.04] px-4 py-3 rounded-2xl shadow-inner">{parsed.materials}</p>
                               </div>
                             )}
                             {parsed.technician && (
-                              <div>
-                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Müdahale Eden Personel</p>
-                                <p className="text-sm flex items-center gap-1.5 text-muted-foreground bg-[hsl(var(--muted))] px-3 py-2 rounded-md font-medium">
-                                  <UserCircle size={16} /> {parsed.technician}
+                              <div className="space-y-2">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-1">Saha Personeli</p>
+                                <p className="text-xs font-bold flex items-center gap-2.5 text-foreground bg-white/[0.02] border border-white/[0.04] px-4 py-3 rounded-2xl shadow-inner">
+                                  <UserCircle size={18} className="text-primary" /> {parsed.technician}
                                 </p>
                               </div>
                             )}
                           </div>
                         )}
 
-                        {/* Photos section */}
                         {recPhotos.length > 0 && (
-                          <div className="pt-4 mt-2 border-t border-[hsl(var(--border))]">
-                            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-3">
-                              <ImageIcon size={14} /> Görsel Kanıtlar / Ekler ({recPhotos.length})
+                          <div className="pt-4">
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2 mb-4 ml-1">
+                              <ImageIcon size={14} className="text-primary" /> Görsel Kanıtlar / Ekspertiz ({recPhotos.length})
                             </p>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                               {recPhotos.map((photo) => (
                                 <div 
                                   key={photo.id}
-                                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden cursor-zoom-in group border border-[hsl(var(--border))] relative"
+                                  className="aspect-square rounded-2xl overflow-hidden cursor-zoom-in group/photo border border-white/[0.06] relative bg-white/5"
                                   onClick={() => setSelectedPhoto(photo.photo_url)}
                                 >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={photo.photo_url} alt="Saha Görseli" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                  <div className="absolute inset-0 bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Eye size={16} className="text-foreground" />
+                                  <img src={photo.photo_url} alt="Saha Görseli" className="w-full h-full object-cover group-hover/photo:scale-110 transition-transform duration-700" />
+                                  <div className="absolute inset-0 bg-red-500/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                                    <Eye size={20} className="text-white" />
                                   </div>
                                 </div>
                               ))}
@@ -275,22 +375,23 @@ function DetailContent() {
         {/* Lightbox Modal */}
         {selectedPhoto && (
           <div 
-            className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4 min-h-[100dvh]"
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 min-h-[100dvh] animate-fade-in"
             onClick={() => setSelectedPhoto(null)}
           >
             <button 
-              className="absolute top-4 sm:top-6 right-4 sm:right-6 bg-[hsl(var(--muted))] border border-[hsl(var(--border))] p-2.5 rounded-lg hover:bg-[hsl(var(--card))] transition-colors z-10"
+              className="absolute top-6 right-6 w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center hover:bg-red-500 transition-all z-[110] shadow-2xl"
               onClick={() => setSelectedPhoto(null)}
             >
-              <X size={20} className="text-foreground" />
+              <X size={24} className="text-white" />
             </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src={selectedPhoto} 
-              className="max-w-full max-h-[85vh] rounded-xl shadow-2xl animate-scale-up object-contain border border-[hsl(var(--border))]" 
-              alt="Büyütülmüş Görsel"
-              onClick={e => e.stopPropagation()}
-            />
+            <div className="relative w-full max-w-5xl h-full flex items-center justify-center pointer-events-none">
+               <img 
+                src={selectedPhoto} 
+                className="max-w-full max-h-[90vh] rounded-3xl shadow-2xl animate-scale-up object-contain pointer-events-auto border border-white/5" 
+                alt="Saha Operasyon Görseli"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
           </div>
         )}
       </main>

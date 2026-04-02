@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase, type Profile } from '@/lib/supabase';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 type AuthContextType = {
   user: User | null;
@@ -26,14 +26,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Track if we have already handled the initial session to prevent double-firing
+  const isInitialLoad = useRef(true);
+  const profileFetchedForUser = useRef('');
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-      return data || null;
-    } catch {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[Auth] Profile fetch error:', err);
       return null;
     }
+  };
+
+  const handleAuthChange = async (event: AuthChangeEvent, session: Session | null) => {
+    console.log('[Auth] State Change:', event, session?.user?.id || 'No User');
+    
+    if (session?.user) {
+      setUser(session.user);
+      
+      // Fetch profile if it's a new user or a relevant event
+      if (profileFetchedForUser.current !== session.user.id || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        profileFetchedForUser.current = session.user.id;
+        const prof = await fetchProfile(session.user.id);
+        setProfile(prof);
+      }
+    } else {
+      setUser(null);
+      setProfile(null);
+      profileFetchedForUser.current = '';
+    }
+    
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -41,51 +68,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function initializeAuth() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const prof = await fetchProfile(session.user.id);
-          if (mounted) {
-            setUser(session.user);
-            setProfile(prof);
-          }
-        }
-      } catch (err) {
-        console.error('[Auth] Initial getSession failed', err);
-      } finally {
-        if (mounted) {
+        // Step 1: Subscribe to changes immediately so we don't miss anything during getSession
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+          if (mounted) handleAuthChange(event, session);
+        });
+
+        // Step 2: Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (session?.user && mounted && isInitialLoad.current) {
+          isInitialLoad.current = false;
+          await handleAuthChange('INITIAL_SESSION' as any, session);
+        } else if (mounted) {
           setLoading(false);
         }
+
+        return subscription;
+      } catch (err) {
+        console.error('[Auth] Initialization error:', err);
+        if (mounted) setLoading(false);
+        return null;
       }
     }
 
-    // İlk yükleme - timeout olmadan sabırla veriyi bekle
-    initializeAuth();
-
-    // Dinleyici - tab değiştirme vb. durumlar için
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: Session | null) => {
-      if (!mounted) return;
-
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
-      } else if (event === 'SIGNED_IN' && session?.user) {
-        // Yeni giriş yapıldıysa profili al
-        const prof = await fetchProfile(session.user.id);
-        if (mounted) {
-          setUser(session.user);
-          setProfile(prof);
-          setLoading(false);
-        }
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        // Sessizce user güncelle
-        setUser(session.user);
-      }
-    });
+    const subPromise = initializeAuth();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      subPromise.then(sub => sub?.unsubscribe());
     };
   }, []);
 
@@ -95,7 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    profileFetchedForUser.current = '';
+    setLoading(false);
   };
 
   const refreshProfile = async () => {

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useSafeFetch } from '@/hooks/useSafeFetch';
 import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -9,7 +8,7 @@ import { supabase, type Mall, type Business, type MaintenanceRecord } from '@/li
 import { 
   Building2, PlusCircle, X, Loader2, Upload,
   Edit3, Trash2, Store, Activity,
-  ChevronRight, Printer, FileText, UserCircle
+  ChevronRight, Printer, FileText, UserCircle, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -43,6 +42,8 @@ function DashboardContent() {
   const [malls, setMalls] = useState<Mall[]>([]);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Modals
   const [showAddMall, setShowAddMall] = useState(false);
@@ -69,12 +70,116 @@ function DashboardContent() {
     text: '', 
     technician: '', 
     materials: '', 
-    status: 'Tamamlandı',
+    status: 'Tamamlandı', 
     cost: ''
   });
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
   const [recordPhotos, setRecordPhotos] = useState<File[]>([]);
   const [editingPhotos, setEditingPhotos] = useState<any[]>([]);
+
+  const initialLoadDone = useRef(false);
+  const subscriptionRef = useRef<{ mall: ReturnType<typeof supabase.channel>; rec: ReturnType<typeof supabase.channel> } | null>(null);
+
+  /**
+   * ENHANCED FAILSAFE FETCH PATTERN
+   */
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (!initialLoadDone.current) setLoading(true);
+    if (isRefresh) {
+      setIsRefreshing(true);
+      setFetchError(null);
+    }
+    
+    try {
+      const [bizRes, mallsRes, recRes] = await Promise.all([
+        supabase.from('businesses').select('*'),
+        supabase.from('malls').select('*'),
+        supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(20),
+      ]);
+
+      if (bizRes.error) throw bizRes.error;
+      if (mallsRes.error) throw mallsRes.error;
+      if (recRes.error) throw recRes.error;
+
+      setBusinesses(bizRes.data || []);
+      setMalls(mallsRes.data || []);
+      setRecords(recRes.data || []);
+      initialLoadDone.current = true;
+    } catch (error: any) {
+      console.error('Error fetching dashboard data:', error);
+      setFetchError(`Veri bağlantı hatası: ${error.message || 'Bilinmeyen hata'}`);
+    } finally {
+      setLoading(false);
+      if (isRefresh) setIsRefreshing(false);
+    }
+  }, []);
+
+  const setupSubscriptions = useCallback(() => {
+    if (subscriptionRef.current) {
+      supabase.removeChannel(subscriptionRef.current.mall);
+      supabase.removeChannel(subscriptionRef.current.rec);
+      subscriptionRef.current = null;
+    }
+
+    const mallSub = supabase.channel('mall-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData(true))
+      .subscribe((status: string) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Mall subscription error, retrying...');
+          setTimeout(() => setupSubscriptions(), 3000);
+        }
+      });
+    
+    const recSub = supabase.channel('rec-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData(true))
+      .subscribe((status: string) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Records subscription error, retrying...');
+          setTimeout(() => setupSubscriptions(), 3000);
+        }
+      });
+    
+    subscriptionRef.current = { mall: mallSub, rec: recSub };
+    return { mall: mallSub, rec: recSub };
+  }, [fetchData]);
+
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    fetchData();
+    setupSubscriptions();
+
+    const handleVisibility = () => {
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+
+      if (document.visibilityState === 'visible') {
+        visibilityTimeoutRef.current = setTimeout(() => {
+          fetchData(true);
+          setupSubscriptions();
+        }, 500); 
+      } else {
+        if (subscriptionRef.current) {
+          supabase.removeChannel(subscriptionRef.current.mall);
+          supabase.removeChannel(subscriptionRef.current.rec);
+          subscriptionRef.current = null;
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current.mall);
+        supabase.removeChannel(subscriptionRef.current.rec);
+        subscriptionRef.current = null;
+      }
+    };
+  }, [fetchData, setupSubscriptions]);
 
   const handleDeletePhoto = async (photo: any) => {
     if (!confirm('Bu fotoğrafı kalıcı olarak silmek istediğinizden emin misiniz?')) return;
@@ -112,52 +217,6 @@ function DashboardContent() {
     setShowEditRecord(true);
   };
 
-  const initialLoadDone = useRef(false);
-
-  const fetchData = async (signal: AbortSignal) => {
-    if (!initialLoadDone.current) setLoading(true);
-    
-    try {
-      const [bizRes, mallsRes, recRes] = await Promise.all([
-        supabase.from('businesses').select('*').abortSignal(signal),
-        supabase.from('malls').select('*').abortSignal(signal),
-        supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(20).abortSignal(signal),
-      ]);
-      if (signal.aborted) return;
-
-      setBusinesses(bizRes.data || []);
-      setMalls(mallsRes.data || []);
-      setRecords(recRes.data || []);
-      initialLoadDone.current = true;
-    } catch (error: any) {
-      if (error?.name === 'AbortError') return;
-      console.error('Error fetching data:', error);
-    } finally {
-      if (!signal.aborted) setLoading(false);
-    }
-  };
-
-  const { safeFetch } = useSafeFetch(fetchData);
-
-  useEffect(() => {
-    // RouteGuard zaten auth kontrolü yapıyor — hemen verileri yükle
-    safeFetch();
-
-    // Event abonelikleri
-    const mallSub = supabase.channel('mall-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => safeFetch())
-      .subscribe();
-    
-    const recSub = supabase.channel('rec-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => safeFetch())
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(mallSub);
-      supabase.removeChannel(recSub);
-    };
-  }, [safeFetch]);
-
   const handleAddMall = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -165,6 +224,7 @@ function DashboardContent() {
     setMallForm({ name: '', address: '', contact_person: '' });
     setShowAddMall(false);
     setSaving(false);
+    fetchData(true);
   };
 
   const handleAddRecord = async (e: React.FormEvent) => {
@@ -215,7 +275,7 @@ function DashboardContent() {
       setRecordForm({ mall_id: '', business_id: '', service_type: '', text: '', technician: '', materials: '', status: 'Tamamlandı', cost: '' });
       setRecordPhotos([]);
       setShowAddRecord(false);
-      safeFetch();
+      fetchData(true);
     } catch (error) {
       console.error(error);
       alert('Kayıt eklenirken bir hata oluştu');
@@ -268,7 +328,7 @@ function DashboardContent() {
       setShowEditRecord(false);
       setEditingRecord(null);
       setRecordPhotos([]);
-      safeFetch();
+      fetchData(true);
     } catch (error) {
       console.error(error);
       alert('Kayıt güncellenirken hata oluştu');
@@ -280,6 +340,7 @@ function DashboardContent() {
   const handleDeleteRecord = async (id: string) => {
     if (!confirm('Bu operasyon kaydını kalıcı olarak silmek istediğinize emin misiniz?')) return;
     await supabase.from('maintenance_records').delete().eq('id', id);
+    fetchData(true);
   };
 
   const thisMonthCount = records.filter(r => new Date(r.created_at).getMonth() === new Date().getMonth()).length;
@@ -298,15 +359,47 @@ function DashboardContent() {
     <div className="min-h-screen flex">
       <Sidebar role="admin" />
       <main className="flex-1 lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
-        <Topbar title="Operasyon Komuta Merkezi" subtitle={`Yönetici: ${profile?.full_name || 'Admin'}`} />
+        <Topbar 
+          title="Operasyon Komuta Merkezi" 
+          subtitle={isRefreshing ? 'Yenileniyor...' : `Yönetici: ${profile?.full_name || 'Admin'}`} 
+        />
 
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+          {/* Error Banner */}
+          {fetchError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-500/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
+                  <ShieldAlert size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-400">Bağlantı Sorunu</p>
+                  <p className="text-xs text-red-400/70">{fetchError}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => fetchData(true)}
+                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+              >
+                Tekrar Dene
+              </button>
+            </div>
+          )}
+
           {/* Page Header */}
           <PageHeader 
             title="Saha Operasyonları"
             description="Gerçek zamanlı servis biletlerini izleyin, yeni operasyonlar oluşturun ve müşteri kayıtlarını yönetin."
             actions={
-              <>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => fetchData(true)}
+                  className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground group"
+                  title="Yenile"
+                >
+                  <RefreshCw size={18} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
+                </button>
+                <div className="h-8 w-px bg-white/[0.06] mx-1" />
                 <button 
                   onClick={() => setShowAddMall(true)} 
                   className="btn-secondary h-10 px-4 text-xs font-semibold"
@@ -321,7 +414,7 @@ function DashboardContent() {
                   <PlusCircle size={16} />
                   İş Emri Oluştur
                 </button>
-              </>
+              </div>
             }
           />
 
@@ -362,69 +455,75 @@ function DashboardContent() {
           </div>
 
           {/* Records Table */}
-          <div className="glass overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="glass rounded-3xl overflow-hidden shadow-2xl border border-white/[0.04]">
+            <div className="p-4 sm:p-5 border-b border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white/[0.01]">
               <div>
                 <h3 className="text-base font-semibold flex items-center gap-2">
                   <FileText size={16} className="text-muted-foreground" />
                   Son İş Emirleri
                 </h3>
               </div>
-              <Link href="/admin/history" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
-                Tümünü Gör <ChevronRight size={14} />
+              <Link href="/admin/history" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 group">
+                Tümünü Gör <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
             
             <div className="overflow-x-auto">
-              {loading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              {loading && !initialLoadDone.current ? (
+                <div className="flex items-center justify-center py-24">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               ) : records.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--muted))] flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-muted-foreground" />
+                <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] flex items-center justify-center mb-2">
+                    <FileText className="w-8 h-8 text-muted-foreground/30" />
                   </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-sm">İşlem Bulunamadı</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Henüz iş emri oluşturulmamış.</p>
+                  <div>
+                    <p className="font-bold text-base">İşlem Bulunamadı</p>
+                    <p className="text-xs text-muted-foreground mt-1">Henüz iş emri oluşturulmamış.</p>
                   </div>
                 </div>
               ) : (
-                <table className="table-modern">
+                <table className="table-modern text-left">
                   <thead>
-                    <tr>
-                      <th className="w-20">No</th>
-                      <th className="w-28">Tarih</th>
-                      <th>İşletme</th>
-                      <th className="w-28">Hizmet Türü</th>
-                      <th className="hidden md:table-cell">Notlar</th>
-                      <th className="w-24">Durum</th>
-                      <th className="w-24 text-center">İşlem</th>
+                    <tr className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold border-b border-white/[0.04]">
+                      <th className="px-6 py-4">No</th>
+                      <th className="px-6 py-4">Tarih</th>
+                      <th className="px-6 py-4">İşletme</th>
+                      <th className="px-6 py-4">Hizmet Türü</th>
+                      <th className="px-6 py-4 hidden lg:table-cell">İçerik Özeti</th>
+                      <th className="px-6 py-4">Durum</th>
+                      <th className="px-6 py-4 text-center">İşlem</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {records.map((rec) => {
+                  <tbody className="divide-y divide-white/[0.02]">
+                    {records.map((rec, i) => {
                       const parsed = parseDescription(rec.description);
                       return (
-                        <tr key={rec.id}>
-                          <td className="font-mono text-xs text-muted-foreground">#{rec.id.substring(0, 6).toUpperCase()}</td>
-                          <td className="whitespace-nowrap text-xs">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
-                          <td className="font-semibold">{(rec as any).businesses?.name || '—'}</td>
-                          <td className="text-primary/80 font-medium text-xs">{rec.service_type || 'BAKIM'}</td>
-                          <td className="hidden md:table-cell text-muted-foreground text-xs italic max-w-xs truncate">{parsed.text}</td>
-                          <td>
-                            <span className={cn("badge", getStatusColor(parsed.status))}>{parsed.status}</span>
+                        <tr key={rec.id} className="hover:bg-white/[0.01] transition-colors group animate-fade-in" style={{ animationDelay: `${i * 0.03}s` }}>
+                          <td className="px-6 py-5 font-mono text-[10px] text-muted-foreground">#{rec.id.substring(0, 6).toUpperCase()}</td>
+                          <td className="px-6 py-5 whitespace-nowrap text-xs font-medium">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
+                          <td className="px-6 py-5">
+                            <span className="text-sm font-bold tracking-tight">{(rec as any).businesses?.name || '—'}</span>
                           </td>
-                          <td>
-                            <div className="flex items-center justify-center gap-1">
-                              <button onClick={() => handleEditClick(rec)} className="btn-icon w-8 h-8" title="Düzenle">
+                          <td className="px-6 py-5">
+                            <span className="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">{rec.service_type || 'BAKIM'}</span>
+                          </td>
+                          <td className="px-6 py-5 hidden lg:table-cell max-w-xs">
+                            <p className="text-xs text-muted-foreground truncate italic">{parsed.text}</p>
+                          </td>
+                          <td className="px-6 py-5">
+                            <span className={cn("badge text-[10px] font-bold", getStatusColor(parsed.status))}>{parsed.status}</span>
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => handleEditClick(rec)} className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] transition-all flex items-center justify-center text-muted-foreground" title="Düzenle">
                                 <Edit3 size={14} />
                               </button>
-                              <Link href={`/admin/history?id=${rec.id}`} className="btn-icon w-8 h-8" title="Yazdır">
+                              <Link href={`/admin/history?id=${rec.id}`} className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] transition-all flex items-center justify-center text-muted-foreground" title="Yazdır">
                                 <Printer size={14} />
                               </Link>
-                              <button onClick={() => handleDeleteRecord(rec.id)} className="btn-icon w-8 h-8 hover:text-red-500 hover:border-red-500/30" title="Sil">
+                              <button onClick={() => handleDeleteRecord(rec.id)} className="w-8 h-8 rounded-lg bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-all flex items-center justify-center text-red-400 group-hover:scale-105" title="Sil">
                                 <Trash2 size={14} />
                               </button>
                             </div>
@@ -444,48 +543,33 @@ function DashboardContent() {
         {/* Add Mall Modal */}
         {showAddMall && (
           <div className="modal-overlay" onClick={() => setShowAddMall(false)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--border))]">
-                <h3 className="text-lg font-semibold">Yeni AVM Tanımla</h3>
-                <button onClick={() => setShowAddMall(false)} className="btn-icon">
-                  <X size={18} />
-                </button>
+            <div className="modal-content glass-strong border border-white/[0.08] shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-6 border-b border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
+                    <Building2 size={20} />
+                  </div>
+                  <h3 className="text-xl font-black tracking-tight">Yeni AVM Tanımla</h3>
+                </div>
+                <button onClick={() => setShowAddMall(false)} className="w-10 h-10 rounded-xl hover:bg-white/[0.05] transition-colors"><X size={20} /></button>
               </div>
-              <form onSubmit={handleAddMall} className="p-5 space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">AVM Adı *</label>
-                  <input 
-                    value={mallForm.name} 
-                    onChange={e => setMallForm({...mallForm, name: e.target.value})} 
-                    required 
-                    className="input-premium" 
-                    placeholder="Örn: Akasya AVM" 
-                  />
+              <form onSubmit={handleAddMall} className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">AVM Adı *</label>
+                  <input value={mallForm.name} onChange={e => setMallForm({...mallForm, name: e.target.value})} required className="input-premium h-12 px-4 w-full" placeholder="Örn: Akasya AVM" />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Lokasyon / Adres</label>
-                  <input 
-                    value={mallForm.address} 
-                    onChange={e => setMallForm({...mallForm, address: e.target.value})} 
-                    className="input-premium" 
-                    placeholder="Şehir, İlçe vs." 
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Lokasyon / Adres</label>
+                  <input value={mallForm.address} onChange={e => setMallForm({...mallForm, address: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Şehir, İlçe vs." />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Sorumlu Kişi</label>
-                  <input 
-                    value={mallForm.contact_person} 
-                    onChange={e => setMallForm({...mallForm, contact_person: e.target.value})} 
-                    className="input-premium" 
-                    placeholder="İsim Soyisim" 
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Sorumlu Kişi</label>
+                  <input value={mallForm.contact_person} onChange={e => setMallForm({...mallForm, contact_person: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="İsim Soyisim" />
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <button type="button" onClick={() => setShowAddMall(false)} className="btn-secondary h-10 px-4">
-                    İptal
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary h-10 px-4">
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'Kaydet'}
+                <div className="flex justify-end gap-3 pt-6 border-t border-white/[0.06]">
+                  <button type="button" onClick={() => setShowAddMall(false)} className="px-6 h-12 rounded-2xl bg-white/[0.03] text-sm font-bold hover:bg-white/[0.05] transition-colors">İptal</button>
+                  <button type="submit" disabled={saving} className="px-6 h-12 btn-primary rounded-2xl text-sm font-bold min-w-[120px]">
+                    {saving ? <Loader2 size={18} className="animate-spin" /> : 'Kaydet'}
                   </button>
                 </div>
               </form>
@@ -496,141 +580,86 @@ function DashboardContent() {
         {/* Add Record Modal */}
         {showAddRecord && (
           <div className="modal-overlay" onClick={() => setShowAddRecord(false)}>
-            <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--border))]">
-                <div>
-                  <h3 className="text-lg font-semibold">Yeni İş Emri</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Sisteme detaylı bir operasyon fişi ekleyin.</p>
-                </div>
-                <button onClick={() => setShowAddRecord(false)} className="btn-icon">
-                  <X size={18} />
-                </button>
-              </div>
-              <form onSubmit={handleAddRecord} className="p-5 space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="modal-content max-w-2xl glass-strong border border-white/[0.08] shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-6 border-b border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-500">
+                    <PlusCircle size={20} />
+                  </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Hedef AVM *</label>
-                    <select 
-                      value={recordForm.mall_id} 
-                      onChange={e => setRecordForm({...recordForm, mall_id: e.target.value, business_id: ''})} 
-                      required 
-                      className="input-premium"
-                    >
+                    <h3 className="text-xl font-black tracking-tight">Yeni İş Emri</h3>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Operasyon Fişi Kaydı</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowAddRecord(false)} className="w-10 h-10 rounded-xl hover:bg-white/[0.05]"><X size={20} /></button>
+              </div>
+              <form onSubmit={handleAddRecord} className="p-6 space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Hedef AVM *</label>
+                    <select value={recordForm.mall_id} onChange={e => setRecordForm({...recordForm, mall_id: e.target.value, business_id: ''})} required className="input-premium h-12 px-4 w-full">
                       <option value="">AVM Seçin</option>
                       {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Hedef İşletme *</label>
-                    <select 
-                      value={recordForm.business_id} 
-                      onChange={e => setRecordForm({...recordForm, business_id: e.target.value})} 
-                      required 
-                      disabled={!recordForm.mall_id}
-                      className="input-premium"
-                    >
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Hedef İşletme *</label>
+                    <select value={recordForm.business_id} onChange={e => setRecordForm({...recordForm, business_id: e.target.value})} required disabled={!recordForm.mall_id} className="input-premium h-12 px-4 w-full disabled:opacity-50">
                       <option value="">{recordForm.mall_id ? 'İşletme Seçin' : 'Önce AVM Seçin'}</option>
-                      {businesses
-                        .filter(b => b.mall_id === recordForm.mall_id)
-                        .map(b => <option key={b.id} value={b.id}>{b.name}</option>)
-                      }
+                      {businesses.filter(b => b.mall_id === recordForm.mall_id).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Türü</label>
-                    <input 
-                      list="svc" 
-                      value={recordForm.service_type} 
-                      onChange={e => setRecordForm({...recordForm, service_type: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Örn: Genel Bakım" 
-                    />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">İşlem Türü</label>
+                    <input list="svc" value={recordForm.service_type} onChange={e => setRecordForm({...recordForm, service_type: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Örn: Genel Bakım" />
                     <datalist id="svc">
-                      <option value="Genel Bakım" />
-                      <option value="Yangın Sistemi Kontrolü" />
-                      <option value="Baca Temizliği" />
-                      <option value="Arıza Tespiti & Onarım" />
+                      <option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" /><option value="Baca Temizliği" /><option value="Arıza Tespiti & Onarım" />
                     </datalist>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Durumu</label>
-                    <select 
-                      value={recordForm.status} 
-                      onChange={e => setRecordForm({...recordForm, status: e.target.value})} 
-                      className="input-premium"
-                    >
-                      <option value="Tamamlandı">Tamamlandı</option>
-                      <option value="Devam Ediyor">Devam Ediyor</option>
-                      <option value="İptal / Ertelendi">İptal / Ertelendi</option>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">İşlem Durumu</label>
+                    <select value={recordForm.status} onChange={e => setRecordForm({...recordForm, status: e.target.value})} className="input-premium h-12 px-4 w-full">
+                      <option value="Tamamlandı">Tamamlandı</option><option value="Devam Ediyor">Devam Ediyor</option><option value="İptal / Ertelendi">İptal / Ertelendi</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
-                    <div className="relative">
-                      <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input 
-                        value={recordForm.technician} 
-                        onChange={e => setRecordForm({...recordForm, technician: e.target.value})} 
-                        className="input-premium pl-9" 
-                        placeholder="Personel" 
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Teknisyen</label>
+                    <input value={recordForm.technician} onChange={e => setRecordForm({...recordForm, technician: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Personel" />
                   </div>
-                  <div className="sm:col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar</label>
-                    <input 
-                      value={recordForm.materials} 
-                      onChange={e => setRecordForm({...recordForm, materials: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Örn: 2 Adet Tüp" 
-                    />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Parçalar</label>
+                    <input value={recordForm.materials} onChange={e => setRecordForm({...recordForm, materials: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Örn: 2 Tüp" />
                   </div>
-                  <div className="sm:col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet (Opsiyonel)</label>
-                    <input 
-                      value={recordForm.cost} 
-                      onChange={e => setRecordForm({...recordForm, cost: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Örn: 2500 TL" 
-                    />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Maliyet</label>
+                    <input value={recordForm.cost} onChange={e => setRecordForm({...recordForm, cost: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Opsiyonel" />
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Saha Notları *</label>
-                  <textarea 
-                    value={recordForm.text} 
-                    onChange={e => setRecordForm({...recordForm, text: e.target.value})} 
-                    required 
-                    rows={3} 
-                    className="input-premium resize-none" 
-                    placeholder="Yapılan işlemi detaylı şekilde özetleyin..." 
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Saha Notları *</label>
+                  <textarea value={recordForm.text} onChange={e => setRecordForm({...recordForm, text: e.target.value})} required rows={3} className="input-premium p-4 w-full resize-none" placeholder="Yapılan işlemi detaylı şekilde özetleyin..." />
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Fotoğraf Yükle</label>
-                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed border-[hsl(var(--border))] hover:border-primary/50 cursor-pointer transition-colors bg-[hsl(var(--muted))]/30">
-                    <Upload size={24} className="text-muted-foreground/50" />
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Seçildi` : 'Tıkla veya Sürükle'}
-                    </span>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Görsel Kanıt Yükle</label>
+                  <label className="flex flex-col items-center justify-center gap-2 w-full py-8 rounded-2xl border-2 border-dashed border-white/[0.08] hover:border-primary/50 cursor-pointer transition-all bg-white/[0.02]">
+                    <Upload size={28} className="text-muted-foreground/30" />
+                    <span className="text-sm font-bold text-muted-foreground/50">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Seçildi` : 'Görsel Seç'}</span>
                     <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
                   </label>
                 </div>
                 
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setShowAddRecord(false)} className="btn-secondary h-10 px-4">
-                    İptal
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary h-10 px-4">
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'Kaydet'}
+                <div className="flex justify-end gap-3 pt-6 border-t border-white/[0.06]">
+                  <button type="button" onClick={() => setShowAddRecord(false)} className="px-6 h-12 rounded-2xl bg-white/[0.03] text-sm font-bold hover:bg-white/[0.05]">İptal</button>
+                  <button type="submit" disabled={saving} className="px-6 h-12 btn-primary rounded-2xl text-sm font-bold min-w-[120px]">
+                    {saving ? <Loader2 size={18} className="animate-spin" /> : 'Kaydet'}
                   </button>
                 </div>
               </form>
@@ -641,120 +670,75 @@ function DashboardContent() {
         {/* Edit Record Modal */}
         {showEditRecord && (
           <div className="modal-overlay" onClick={() => setShowEditRecord(false)}>
-            <div className="modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--border))]">
-                <h3 className="text-lg font-semibold">İş Emrini Düzenle</h3>
-                <button onClick={() => setShowEditRecord(false)} className="btn-icon">
-                  <X size={18} />
-                </button>
+            <div className="modal-content max-w-2xl glass-strong border border-white/[0.08] shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-6 border-b border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-500">
+                    <Edit3 size={20} />
+                  </div>
+                  <h3 className="text-lg font-black tracking-tight">İş Emrini Düzenle</h3>
+                </div>
+                <button onClick={() => setShowEditRecord(false)} className="w-10 h-10 rounded-xl hover:bg-white/[0.05]"><X size={20} /></button>
               </div>
-              <form onSubmit={handleUpdateRecord} className="p-5 space-y-5">
+              <form onSubmit={handleUpdateRecord} className="p-6 space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Türü</label>
-                    <input 
-                      list="svc2" 
-                      value={editRecordForm.service_type} 
-                      onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} 
-                      className="input-premium" 
-                    />
-                    <datalist id="svc2">
-                      <option value="Genel Bakım" />
-                      <option value="Yangın Sistemi Kontrolü" />
-                    </datalist>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">İşlem Türü</label>
+                    <input list="svc2" value={editRecordForm.service_type} onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} className="input-premium h-12 px-4 w-full" />
+                    <datalist id="svc2"><option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" /></datalist>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Görevli Teknisyen</label>
-                    <input 
-                      value={editRecordForm.technician} 
-                      onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Personel seçin/yazın" 
-                    />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Teknisyen</label>
+                    <input value={editRecordForm.technician} onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} className="input-premium h-12 px-4 w-full" />
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">İşlem Durumu</label>
-                    <select 
-                      value={editRecordForm.status} 
-                      onChange={e => setEditRecordForm({...editRecordForm, status: e.target.value})} 
-                      className="input-premium"
-                    >
-                      <option value="Tamamlandı">Tamamlandı</option>
-                      <option value="Devam Ediyor">Devam Ediyor</option>
-                      <option value="İptal / Ertelendi">İptal / Ertelendi</option>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">İşlem Durumu</label>
+                    <select value={editRecordForm.status} onChange={e => setEditRecordForm({...editRecordForm, status: e.target.value})} className="input-premium h-12 px-4 w-full">
+                      <option value="Tamamlandı">Tamamlandı</option><option value="Devam Ediyor">Devam Ediyor</option><option value="İptal / Ertelendi">İptal / Ertelendi</option>
                     </select>
                   </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Maliyet</label>
+                    <input value={editRecordForm.cost} onChange={e => setEditRecordForm({...editRecordForm, cost: e.target.value})} className="input-premium h-12 px-4 w-full" />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Açıklama / Saha Notları</label>
-                  <textarea 
-                    value={editRecordForm.text} 
-                    onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} 
-                    rows={3} 
-                    className="input-premium resize-none" 
-                    placeholder="Yapılan işlemi detaylandırın..." 
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Açıklama / Saha Notları</label>
+                  <textarea value={editRecordForm.text} onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} rows={3} className="input-premium p-4 w-full resize-none" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Kullanılan Parçalar</label>
-                    <input 
-                      value={editRecordForm.materials} 
-                      onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Örn: 2 Adet Yangın Tüpü" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Maliyet</label>
-                    <input 
-                      value={editRecordForm.cost} 
-                      onChange={e => setEditRecordForm({...editRecordForm, cost: e.target.value})} 
-                      className="input-premium" 
-                      placeholder="Örn: 2500 TL" 
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Kullanılan Parçalar</label>
+                  <input value={editRecordForm.materials} onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} className="input-premium h-12 px-4 w-full" />
                 </div>
 
                 {editingPhotos.length > 0 && (
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-2 block">Mevcut Fotoğraflar</label>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                      {editingPhotos.map((ph) => (
-                        <div key={ph.id} className="relative aspect-square rounded-lg overflow-hidden border border-[hsl(var(--border))] group">
-                          <img src={ph.photo_url} className="w-full h-full object-cover" alt="Fotoğraf" />
-                          <button 
-                            type="button"
-                            onClick={() => handleDeletePhoto(ph)}
-                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    {editingPhotos.map(p => (
+                      <div key={p.id} className="relative group aspect-square rounded-lg overflow-hidden border border-white/[0.06]">
+                        <img src={p.photo_url} alt="Ek" className="w-full h-full object-cover" />
+                        <button type="button" onClick={() => handleDeletePhoto(p)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-red-500 rounded p-1 text-white"><Trash2 size={12} /></button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Yeni Fotoğraf Ekle</label>
-                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed border-[hsl(var(--border))] hover:border-primary/50 cursor-pointer transition-colors bg-[hsl(var(--muted))]/30">
-                    <Upload size={24} className="text-muted-foreground/50" />
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {recordPhotos.length > 0 ? `${recordPhotos.length} Yeni Dosya` : 'Tıkla veya Sürükle'}
-                    </span>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Ek Görsel Ekle</label>
+                  <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-2xl border-2 border-dashed border-white/[0.08] hover:border-primary/50 cursor-pointer transition-all bg-white/[0.02]">
+                    <span className="text-xs font-bold text-muted-foreground/50">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya` : '+ Görsel Seç'}</span>
                     <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
                   </label>
                 </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => { setShowEditRecord(false); setRecordPhotos([]); }} className="btn-secondary h-10 px-4">
-                    İptal
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary h-10 px-4">
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : 'Güncelle'}
+                
+                <div className="flex justify-end gap-3 pt-6 border-t border-white/[0.06]">
+                  <button type="button" onClick={() => setShowEditRecord(false)} className="px-6 h-12 rounded-2xl bg-white/[0.03] text-sm font-bold">İptal</button>
+                  <button type="submit" disabled={saving} className="px-6 h-12 btn-primary rounded-2xl text-sm font-bold min-w-[120px]">
+                    {saving ? <Loader2 size={18} className="animate-spin" /> : 'Güncelle'}
                   </button>
                 </div>
               </form>
@@ -766,7 +750,7 @@ function DashboardContent() {
   );
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboardPage() {
   return (
     <RouteGuard requiredRole="admin">
       <DashboardContent />
