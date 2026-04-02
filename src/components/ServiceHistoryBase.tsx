@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import { supabase, type MaintenanceRecord } from '@/lib/supabase';
 import { 
@@ -58,8 +58,10 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
     service_type: '', text: '', technician: '', materials: '', status: 'Tamamlandı', cost: ''
   });
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    if (!initialLoadDone.current) setLoading(true);
     try {
       let query = supabase.from('maintenance_records').select('*, businesses:business_id(name, mall_id, mall:mall_id(name))').order('created_at', { ascending: false });
       if (role === 'client' && businessId) query = query.eq('business_id', businessId);
@@ -74,6 +76,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
         const { data: photoData } = await supabase.from('maintenance_photos').select('*').eq('record_id', targetId);
         setPhotos(photoData || []);
       }
+      initialLoadDone.current = true;
     } catch (err) { console.error(err); } finally { setLoading(false); }
   }, [role, businessId, targetId]);
 

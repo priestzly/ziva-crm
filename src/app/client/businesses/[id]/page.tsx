@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -56,33 +56,39 @@ function DetailContent() {
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = async () => {
-    setLoading(true);
-    const [bizRes, recsRes] = await Promise.all([
-      supabase.from('businesses').select('*').eq('id', bizId).single(),
-      supabase.from('maintenance_records').select('*').eq('business_id', bizId).order('created_at', { ascending: false }),
-    ]);
+    if (!initialLoadDone.current) setLoading(true);
+    try {
+      const [bizRes, recsRes] = await Promise.all([
+        supabase.from('businesses').select('*').eq('id', bizId).single(),
+        supabase.from('maintenance_records').select('*').eq('business_id', bizId).order('created_at', { ascending: false }),
+      ]);
 
-    setBusiness(bizRes.data);
-    const recs = recsRes.data || [];
-    setRecords(recs);
+      setBusiness(bizRes.data);
+      const recs = recsRes.data || [];
+      setRecords(recs);
 
-    // Fetch photos for all records
-    if (recs.length > 0) {
-      const { data: photoData } = await supabase
-        .from('maintenance_photos')
-        .select('*')
-        .in('record_id', recs.map((r: MaintenanceRecord) => r.id));
+      if (recs.length > 0) {
+        const { data: photoData } = await supabase
+          .from('maintenance_photos')
+          .select('*')
+          .in('record_id', recs.map((r: MaintenanceRecord) => r.id));
 
-      const grouped: Record<string, MaintenancePhoto[]> = {};
-      (photoData || []).forEach((p: MaintenancePhoto) => {
-        if (!grouped[p.record_id]) grouped[p.record_id] = [];
-        grouped[p.record_id].push(p);
-      });
-      setPhotos(grouped);
+        const grouped: Record<string, MaintenancePhoto[]> = {};
+        (photoData || []).forEach((p: MaintenancePhoto) => {
+          if (!grouped[p.record_id]) grouped[p.record_id] = [];
+          grouped[p.record_id].push(p);
+        });
+        setPhotos(grouped);
+      }
+      initialLoadDone.current = true;
+    } catch (err) {
+      console.error('Error fetching business detail:', err);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {

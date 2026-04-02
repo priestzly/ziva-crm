@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -27,15 +27,23 @@ function BusinessesContent() {
   const [bizForm, setBizForm] = useState({ name: '', category: '', mall_id: '' });
   const [saving, setSaving] = useState(false);
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = async () => {
-    setLoading(true);
-    const [bizRes, mallsRes] = await Promise.all([
-      supabase.from('businesses').select('*, malls(name)').order('name'),
-      supabase.from('malls').select('*').order('name'),
-    ]);
-    setBusinesses(bizRes.data || []);
-    setMalls(mallsRes.data || []);
-    setLoading(false);
+    if (!initialLoadDone.current) setLoading(true);
+    try {
+      const [bizRes, mallsRes] = await Promise.all([
+        supabase.from('businesses').select('*, malls(name)').order('name'),
+        supabase.from('malls').select('*').order('name'),
+      ]);
+      setBusinesses(bizRes.data || []);
+      setMalls(mallsRes.data || []);
+      initialLoadDone.current = true;
+    } catch (err) {
+      console.error('Error fetching businesses:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

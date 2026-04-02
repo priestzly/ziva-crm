@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -29,12 +29,14 @@ function ClientContent() {
   const [page, setPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'none'>('all');
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = useCallback(async () => {
     if (!profile?.mall_id) { 
       setLoading(false); 
       return; 
     }
-    setLoading(true);
+    if (!initialLoadDone.current) setLoading(true);
     try {
       const [mallRes, bizRes, recsRes] = await Promise.all([
         supabase.from('malls').select('*').eq('id', profile.mall_id).single(),
@@ -47,6 +49,7 @@ function ClientContent() {
       setMall(mallRes.data);
       setBusinesses(bizRes.data || []);
       setRecords(recsRes.data || []);
+      initialLoadDone.current = true;
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {

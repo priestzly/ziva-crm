@@ -26,7 +26,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // İşlem kilitleri — çift çağrıları ve race condition'ları engeller
   const initialized = useRef(false);
+  const processing = useRef(false);
+  const mounted = useRef(true);
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
@@ -35,7 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('id', userId)
         .single();
-
       if (error) {
         console.warn('[Auth] Profile fetch error:', error.message);
         return null;
@@ -47,78 +50,98 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Kullanıcı ve profili set et — tek bir yerden yapılır
-  const setSession = useCallback(async (session: Session | null) => {
-    if (session?.user) {
-      setUser(session.user);
-      const prof = await fetchProfile(session.user.id);
-      setProfile(prof);
-    } else {
-      setUser(null);
-      setProfile(null);
+  // Session'ı işle — processing kilidi ile çift çağrıları engelle
+  const processSession = useCallback(async (session: Session | null) => {
+    // Zaten işlem devam ediyorsa veya component unmount olduysa atla
+    if (processing.current || !mounted.current) return;
+    processing.current = true;
+
+    try {
+      if (session?.user) {
+        const prof = await fetchProfile(session.user.id);
+        if (!mounted.current) return;
+        setUser(session.user);
+        setProfile(prof);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+    } finally {
+      processing.current = false;
+      if (mounted.current) setLoading(false);
     }
-    setLoading(false);
   }, [fetchProfile]);
 
   useEffect(() => {
-    // 1. Manuel getSession kontrolü (onAuthStateChange tetiklenene kadar beklemeden ilk durumu al)
-    const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await setSession(session);
-      } else {
-        setLoading(false);
+    mounted.current = true;
+
+    // 1. İlk oturumu hemen al — en hızlı yol
+    const init = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted.current) return;
+        await processSession(session);
+      } catch {
+        if (mounted.current) setLoading(false);
       }
       initialized.current = true;
     };
 
-    initSession();
+    init();
 
-    // 2. onAuthStateChange dinleyicisi
+    // 2. Auth değişikliklerini dinle
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
+        if (!mounted.current) return;
         console.log('[Auth] Event:', event, session?.user?.email);
-        
-        // Herhangi bir event geldiğinde initialized'ı onaylıyoruz
-        initialized.current = true;
 
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-          await setSession(session);
+        // INITIAL_SESSION zaten getSession() ile ele alındı — atla
+        if (event === 'INITIAL_SESSION') {
+          initialized.current = true;
+          return;
+        }
+
+        if (event === 'SIGNED_IN') {
+          // Eğer zaten initialized ve user aynıysa tekrar işleme gerek yok
+          if (initialized.current && user?.id === session?.user?.id) return;
+          await processSession(session);
         } else if (event === 'SIGNED_OUT') {
+          processing.current = false; // Kilidi aç
           setUser(null);
           setProfile(null);
           setLoading(false);
         } else if (event === 'TOKEN_REFRESHED') {
-          if (session?.user) {
+          // Token yenilendiğinde sadece user'ı sessizce güncelle
+          if (session?.user && mounted.current) {
             setUser(session.user);
           }
         }
       }
     );
 
-    // Güvenlik: 5 saniye içinde hiçbir şey initialized olmadıysa loading'i kapat
+    // Güvenlik timeout
     const timeout = setTimeout(() => {
-      if (!initialized.current) {
-        console.warn('[Auth] Timeout: No initial auth state determined in 5s');
+      if (!initialized.current && mounted.current) {
+        console.warn('[Auth] Timeout: Auth initialization took too long');
         setLoading(false);
       }
     }, 5000);
 
     return () => {
+      mounted.current = false;
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, [setSession]);
+  }, [processSession]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
+      // Sign in öncesi initialized'ı sıfırla, yeni session'ı kabul etsin
+      initialized.current = false;
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        return { error: error.message };
-      }
-      // onAuthStateChange -> SIGNED_IN event profili otomatik çekecek
+      if (error) return { error: error.message };
       return { error: null };
-    } catch (err) {
+    } catch {
       return { error: 'Beklenmeyen bir hata oluştu' };
     }
   }, []);
@@ -126,10 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       await supabase.auth.signOut();
-      // onAuthStateChange -> SIGNED_OUT event state'i temizleyecek
     } catch (err) {
       console.error('[Auth] Sign out error:', err);
-      // Logout'ta hata olsa bile state'i temizle
       setUser(null);
       setProfile(null);
     }
@@ -138,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (user) {
       const prof = await fetchProfile(user.id);
-      setProfile(prof);
+      if (mounted.current) setProfile(prof);
     }
   }, [user, fetchProfile]);
 

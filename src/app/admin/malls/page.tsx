@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -34,15 +34,18 @@ function MallsContent() {
   const [showEditBiz, setShowEditBiz] = useState(false);
   const [editBizForm, setEditBizForm] = useState({ name: '', category: '' });
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!initialLoadDone.current) setLoading(true);
       const [mallRes, bizRes] = await Promise.all([
         supabase.from('malls').select('*').order('name'),
         supabase.from('businesses').select('*').order('name'),
       ]);
       setMalls(mallRes.data || []);
       setBusinesses(bizRes.data || []);
+      initialLoadDone.current = true;
     } catch (err) {
       console.error('Fetch Error:', err);
     } finally {

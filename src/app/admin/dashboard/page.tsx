@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -111,8 +111,11 @@ function DashboardContent() {
     setShowEditRecord(true);
   };
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    // İlk yüklemede spinner göster, sonraki güncellemelerde sessizce güncelle
+    if (!initialLoadDone.current) setLoading(true);
     
     try {
       const [bizRes, mallsRes, recRes] = await Promise.all([
@@ -124,6 +127,7 @@ function DashboardContent() {
       setBusinesses(bizRes.data || []);
       setMalls(mallsRes.data || []);
       setRecords(recRes.data || []);
+      initialLoadDone.current = true;
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {

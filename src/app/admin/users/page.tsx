@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -27,15 +27,23 @@ function UsersContent() {
   const [editForm, setEditForm] = useState({ full_name: '', mall_id: '', password: '' });
   const [infoMsg, setInfoMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = async () => {
-    setLoading(true);
-    const [profRes, mallsRes] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('malls').select('*').order('name'),
-    ]);
-    setProfiles(profRes.data || []);
-    setMalls(mallsRes.data || []);
-    setLoading(false);
+    if (!initialLoadDone.current) setLoading(true);
+    try {
+      const [profRes, mallsRes] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('malls').select('*').order('name'),
+      ]);
+      setProfiles(profRes.data || []);
+      setMalls(mallsRes.data || []);
+      initialLoadDone.current = true;
+    } catch (err) {
+      console.error('Error fetching users:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

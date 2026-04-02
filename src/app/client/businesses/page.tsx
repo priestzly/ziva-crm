@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar, Topbar } from '@/components/DashboardShell';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
@@ -19,29 +19,31 @@ function ClientBusinessesContent() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
+  const initialLoadDone = useRef(false);
+
   const fetchData = async () => {
     if (!profile) return;
-    setLoading(true);
+    if (!initialLoadDone.current) setLoading(true);
 
-    // 1. Get the mall details if the client is assigned to one
-    if (profile.mall_id) {
-      const { data: mallData } = await supabase.from('malls').select('*').eq('id', profile.mall_id).single();
-      setMall(mallData);
-
-      // 2. Get all businesses in this mall
-      const { data: bizData } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('mall_id', profile.mall_id)
-        .order('name');
-      setBusinesses(bizData || []);
-    } else {
-      // If no mall_id, maybe show only businesses specifically linked to this user's email/profile?
-      // For now, if no mall_id, we assume they have no access to browse a list.
-      setBusinesses([]);
+    try {
+      if (profile.mall_id) {
+        const { data: mallData } = await supabase.from('malls').select('*').eq('id', profile.mall_id).single();
+        setMall(mallData);
+        const { data: bizData } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('mall_id', profile.mall_id)
+          .order('name');
+        setBusinesses(bizData || []);
+      } else {
+        setBusinesses([]);
+      }
+      initialLoadDone.current = true;
+    } catch (err) {
+      console.error('Error fetching businesses:', err);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
