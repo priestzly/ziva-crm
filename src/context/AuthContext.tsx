@@ -61,24 +61,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile]);
 
   useEffect(() => {
-    // onAuthStateChange TÜM auth eventlerini yakalar
-    // İlk mount'ta INITIAL_SESSION event'i otomatik gelir
+    // 1. Manuel getSession kontrolü (onAuthStateChange tetiklenene kadar beklemeden ilk durumu al)
+    const initSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await setSession(session);
+      } else {
+        setLoading(false);
+      }
+      initialized.current = true;
+    };
+
+    initSession();
+
+    // 2. onAuthStateChange dinleyicisi
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
         console.log('[Auth] Event:', event, session?.user?.email);
+        
+        // Herhangi bir event geldiğinde initialized'ı onaylıyoruz
+        initialized.current = true;
 
-        if (event === 'INITIAL_SESSION') {
-          // İlk yükleme — session varsa profili çek
-          await setSession(session);
-          initialized.current = true;
-        } else if (event === 'SIGNED_IN') {
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
           await setSession(session);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
           setLoading(false);
         } else if (event === 'TOKEN_REFRESHED') {
-          // Token yenilendiğinde sadece user'ı güncelle, profili tekrar çekme
           if (session?.user) {
             setUser(session.user);
           }
@@ -86,10 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Güvenlik: 5 saniye içinde INITIAL_SESSION gelmezse loading'i kapat
+    // Güvenlik: 5 saniye içinde hiçbir şey initialized olmadıysa loading'i kapat
     const timeout = setTimeout(() => {
       if (!initialized.current) {
-        console.warn('[Auth] Timeout: INITIAL_SESSION did not fire in 5s');
+        console.warn('[Auth] Timeout: No initial auth state determined in 5s');
         setLoading(false);
       }
     }, 5000);
