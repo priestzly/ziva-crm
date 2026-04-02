@@ -14,38 +14,34 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
   const { user, profile, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [timedOut, setTimedOut] = useState(false);
-
-  // Timeout fallback: if loading takes too long, redirect to login
-  useEffect(() => {
-    if (!loading) return;
-    
-    const timeout = setTimeout(() => {
-      setTimedOut(true);
-      router.replace('/login');
-    }, 8000); // 8 second timeout
-
-    return () => clearTimeout(timeout);
-  }, [loading, router]);
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    if (loading || timedOut) return;
+    // Loading bitene kadar bekle
+    if (loading) return;
 
-    // No user or no profile found after loading -> Redirect to login
+    // Kullanıcı yoksa login'e yönlendir
     if (!user || !profile) {
       router.replace('/login');
       return;
     }
 
-    // Role boundary checks
+    // Rol kontrolü
     if (requiredRole === 'admin' && profile.role !== 'admin') {
       router.replace('/client/dashboard');
       return;
     }
-  }, [profile, loading, user, requiredRole, router, timedOut]);
+    if (requiredRole === 'client' && profile.role !== 'client') {
+      router.replace('/admin/dashboard');
+      return;
+    }
+
+    // Yetkilendirme başarılı
+    setIsAuthorized(true);
+  }, [loading, user, profile, requiredRole, router]);
 
   // Yüklenirken premium loading ekranı göster
-  if (loading || !user || !profile) {
+  if (loading || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-grid">
         <div className="flex flex-col items-center gap-6 animate-fade-in">
@@ -59,7 +55,7 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
             <h2 className="text-lg font-bold tracking-tight gradient-text">Ziva Yangın</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 size={14} className="animate-spin" />
-              <span>Oturum doğrulanıyor...</span>
+              <span>{loading ? 'Oturum doğrulanıyor...' : 'Yetkilendirme kontrol ediliyor...'}</span>
             </div>
           </div>
           {/* Shimmer bar */}
@@ -69,11 +65,6 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
         </div>
       </div>
     );
-  }
-
-  // Rol kontrolü: admin paneline normal kullanıcı girmeye çalışıyorsa
-  if (requiredRole === 'admin' && profile.role !== 'admin') {
-    return null; // Redirect useEffect'te yapılıyor, sızıntı olmaması için null döndür
   }
 
   return <>{children}</>;

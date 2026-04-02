@@ -30,9 +30,12 @@ function ClientContent() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'none'>('all');
 
   const fetchData = useCallback(async () => {
-    if (!profile?.mall_id) { setLoading(false); return; }
+    if (!profile?.mall_id) { 
+      setLoading(false); 
+      return; 
+    }
     setLoading(true);
-    const runQuery = async () => {
+    try {
       const [mallRes, bizRes, recsRes] = await Promise.all([
         supabase.from('malls').select('*').eq('id', profile.mall_id).single(),
         supabase.from('businesses').select('*').eq('mall_id', profile.mall_id).order('name'),
@@ -41,21 +44,20 @@ function ClientContent() {
           .order('created_at', { ascending: false })
           .limit(200),
       ]);
-      return { mallRes, bizRes, recsRes };
-    };
-    let results = await runQuery();
-    if (!results.bizRes.data?.length && !results.recsRes?.data?.length) {
-      await new Promise(r => setTimeout(r, 1000));
-      results = await runQuery();
+      setMall(mallRes.data);
+      setBusinesses(bizRes.data || []);
+      setRecords(recsRes.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
-    setMall(results.mallRes.data);
-    setBusinesses(results.bizRes.data || []);
-    setRecords(results.recsRes.data || []);
-    setLoading(false);
-  }, [profile]);
+  }, [profile?.mall_id]);
 
   useEffect(() => { 
-    if (profile?.mall_id && !authLoading) fetchData(); 
+    if (profile?.mall_id && !authLoading) {
+      fetchData();
+    }
   }, [fetchData, profile?.mall_id, authLoading]);
 
   useEffect(() => {

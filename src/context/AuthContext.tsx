@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, type Profile } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const initialized = useRef(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
@@ -47,97 +47,123 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-
-    // 1. Initial State Check
-    const checkSession = async () => {
-      // Safety timeout - 3 seconds max
-      const timeoutId = setTimeout(() => {
-        if (mounted && loading) {
-          console.warn('Auth session check timed out, forcing loading to false');
-          setLoading(false);
-        }
-      }, 3000);
-
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-
-        if (mounted) {
-          if (session?.user) {
-            setUser(session.user);
-            const prof = await fetchProfile(session.user.id);
-            if (mounted) {
-              setProfile(prof);
-              setLoading(false);
-            }
-          } else {
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-          }
-        }
-      } catch (err) {
-        console.error('Session check error:', err);
-        if (mounted) {
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-        }
-      } finally {
-        if (mounted) {
-          clearTimeout(timeoutId);
-        }
+  // Session'ı yükle ve state'i güncelle
+  const loadSession = useCallback(async () => {
+    if (sessionChecked) return; // Sadece bir kez çalıştır
+    
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Session error:', error.message);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        setSessionChecked(true);
+        return;
       }
-    };
 
-    checkSession();
+      if (session?.user) {
+        setUser(session.user);
+        const prof = await fetchProfile(session.user.id);
+        setProfile(prof);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+      setLoading(false);
+      setSessionChecked(true);
+    } catch (err) {
+      console.error('Session load error:', err);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      setSessionChecked(true);
+    }
+  }, [fetchProfile, sessionChecked]);
 
-    // 2. Real-time Subscription
+  // Auth state değişikliklerini dinle
+  useEffect(() => {
+    // İlk yükleme
+    loadSession();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        
-        console.log('Auth event:', event);
+      async (event: string, session: Session | null) => {
+        console.log('Auth event:', event, session?.user?.id);
 
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
           setLoading(false);
+          setSessionChecked(true);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            setUser(session.user);
+            const prof = await fetchProfile(session.user.id);
+            setProfile(prof);
+            setLoading(false);
+            setSessionChecked(true);
+          }
+        } else if (event === 'INITIAL_SESSION') {
+          // Initial session zaten loadSession ile kontrol edildi
+          if (!sessionChecked) {
+            if (session?.user) {
+              setUser(session.user);
+              const prof = await fetchProfile(session.user.id);
+              setProfile(prof);
+            }
+            setLoading(false);
+            setSessionChecked(true);
+          }
         } else if (session?.user) {
           setUser(session.user);
           const prof = await fetchProfile(session.user.id);
-          if (mounted) {
-            setProfile(prof);
-            setLoading(false);
-          }
-        } else {
-          // No user session found after event (e.g. INITIAL_SESSION null)
+          setProfile(prof);
           setLoading(false);
+          setSessionChecked(true);
+        } else if (!session) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          setSessionChecked(true);
         }
       }
     );
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [loadSession, fetchProfile, sessionChecked]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        return { error: error.message };
+      }
+      // Auth state değişikliği otomatik olarak onAuthStateChange tarafından yakalanacak
+      return { error: null };
+    } catch (err) {
+      return { error: 'Beklenmeyen bir hata oluştu' };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      // Login sayfasına yönlendirme component tarafından yapılmalı
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+    if (user) {
+      const prof = await fetchProfile(user.id);
+      setProfile(prof);
+    }
   };
 
   return (

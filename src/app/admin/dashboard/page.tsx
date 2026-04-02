@@ -114,39 +114,46 @@ function DashboardContent() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     
-    const runQuery = async () => {
+    try {
       const [bizRes, mallsRes, recRes] = await Promise.all([
         supabase.from('businesses').select('*'),
         supabase.from('malls').select('*'),
         supabase.from('maintenance_records').select('*, businesses(name)').order('created_at', { ascending: false }).limit(20),
       ]);
-      return { bizRes, mallsRes, recRes };
-    };
 
-    let results = await runQuery();
-
-    if (!results.bizRes.data?.length && !results.recRes?.data?.length) {
-      await new Promise(r => setTimeout(r, 1000));
-      results = await runQuery();
+      setBusinesses(bizRes.data || []);
+      setMalls(mallsRes.data || []);
+      setRecords(recRes.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    setBusinesses(results.bizRes.data || []);
-    setMalls(results.mallsRes.data || []);
-    setRecords(results.recRes.data || []);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    if (!profile || authLoading) return;
+    // Auth loading bitmiş ve profile mevcut olmalı
+    if (authLoading || !profile) {
+      return;
+    }
+
+    // Verileri yükle
     fetchData();
-    const mallSub = supabase.channel('mall-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData()).subscribe();
-    const recSub = supabase.channel('rec-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData()).subscribe();
+
+    // Real-time subscriptions
+    const mallSub = supabase.channel('mall-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malls' }, () => fetchData())
+      .subscribe();
+    
+    const recSub = supabase.channel('rec-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_records' }, () => fetchData())
+      .subscribe();
     
     return () => {
       supabase.removeChannel(mallSub);
       supabase.removeChannel(recSub);
     };
-  }, [fetchData, profile, authLoading]);
+  }, [authLoading, profile, fetchData]);
 
   const handleAddMall = async (e: React.FormEvent) => {
     e.preventDefault();

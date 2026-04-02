@@ -72,10 +72,10 @@ function DetailContent() {
       const { data: photoData } = await supabase
         .from('maintenance_photos')
         .select('*')
-        .in('record_id', recs.map(r => r.id));
+        .in('record_id', recs.map((r: MaintenanceRecord) => r.id));
 
       const grouped: Record<string, MaintenancePhoto[]> = {};
-      (photoData || []).forEach(p => {
+      (photoData || []).forEach((p: MaintenancePhoto) => {
         if (!grouped[p.record_id]) grouped[p.record_id] = [];
         grouped[p.record_id].push(p);
       });

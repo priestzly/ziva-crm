@@ -1,4 +1,4 @@
-import { createClient as createBrowserClient } from '@/utils/supabase/client';
+import { createBrowserClient } from '@supabase/ssr';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -7,8 +7,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Supabase credentials missing. Check your .env environment variables.");
 }
 
-// Automatically syncs auth state with SSR cookies
-export const supabase = createBrowserClient();
+// Create a singleton Supabase client for browser use
+// This client automatically syncs auth state with cookies
+let supabaseInstance: ReturnType<typeof createBrowserClient> | null = null;
+
+export function getSupabaseClient() {
+  if (!supabaseInstance) {
+    supabaseInstance = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  }
+  return supabaseInstance;
+}
+
+// Export default instance for convenience
+export const supabase = getSupabaseClient();
 
 // Database types
 export type Mall = {
