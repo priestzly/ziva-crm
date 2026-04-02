@@ -99,6 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
+        console.log('Auth event:', event);
+
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
@@ -110,6 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(prof);
             setLoading(false);
           }
+        } else {
+          // No user session found after event (e.g. INITIAL_SESSION null)
+          setLoading(false);
         }
       }
     );
