@@ -52,13 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 1. Initial State Check
     const checkSession = async () => {
-      // Safety timeout
+      // Safety timeout - 3 seconds max
       const timeoutId = setTimeout(() => {
         if (mounted && loading) {
-          console.warn('Auth session check timed out');
+          console.warn('Auth session check timed out, forcing loading to false');
           setLoading(false);
         }
-      }, 5000);
+      }, 3000);
 
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -68,10 +68,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (session?.user) {
             setUser(session.user);
             const prof = await fetchProfile(session.user.id);
-            if (mounted) setProfile(prof);
+            if (mounted) {
+              setProfile(prof);
+              setLoading(false);
+            }
           } else {
             setUser(null);
             setProfile(null);
+            setLoading(false);
           }
         }
       } catch (err) {
@@ -79,10 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) {
           setUser(null);
           setProfile(null);
+          setLoading(false);
         }
       } finally {
         if (mounted) {
-          setLoading(false);
           clearTimeout(timeoutId);
         }
       }

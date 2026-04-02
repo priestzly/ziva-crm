@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { Flame, Loader2 } from 'lucide-react';
@@ -14,9 +14,22 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
   const { user, profile, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [timedOut, setTimedOut] = useState(false);
+
+  // Timeout fallback: if loading takes too long, redirect to login
+  useEffect(() => {
+    if (!loading) return;
+    
+    const timeout = setTimeout(() => {
+      setTimedOut(true);
+      router.replace('/login');
+    }, 8000); // 8 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading, router]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || timedOut) return;
 
     // No user or no profile found after loading -> Redirect to login
     if (!user || !profile) {
@@ -29,7 +42,7 @@ export default function RouteGuard({ children, requiredRole }: RouteGuardProps) 
       router.replace('/client/dashboard');
       return;
     }
-  }, [profile, loading, user, requiredRole, router]);
+  }, [profile, loading, user, requiredRole, router, timedOut]);
 
   // Yüklenirken premium loading ekranı göster
   if (loading || !user || !profile) {

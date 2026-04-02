@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Flame, Lock, Mail, ArrowRight, Loader2 } from 'lucide-react';
+import { Flame, Lock, Mail, ArrowRight, Loader2, Home } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -16,14 +16,11 @@ export default function LoginPage() {
   // Handle redirection centrally based on the reactive profile state
   React.useEffect(() => {
     if (user && profile) {
-      router.refresh(); // Crucial for @supabase/ssr to sync the cookie into Next.js Server context
-      if (profile.role === 'admin') {
-        router.replace('/admin/dashboard');
-      } else {
-        router.replace('/client/dashboard');
-      }
+      // Use window.location for hard redirect to ensure middleware picks up the new session
+      const targetUrl = profile.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+      window.location.href = targetUrl;
     }
-  }, [user, profile, router]);
+  }, [user, profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +59,15 @@ export default function LoginPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[60%] bg-orange-500/[0.03] rounded-full blur-[140px]" />
         <div className="absolute top-[30%] right-[20%] w-[20%] h-[30%] bg-red-600/[0.02] rounded-full blur-[100px] animate-float" />
       </div>
+
+      {/* Ana Sayfa Butonu */}
+      <a 
+        href="/" 
+        className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/50 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 z-20"
+      >
+        <Home size={14} />
+        <span className="hidden sm:inline">Ana Sayfa</span>
+      </a>
 
       <div className="w-full max-w-[420px] relative z-10">
         {/* Logo */}

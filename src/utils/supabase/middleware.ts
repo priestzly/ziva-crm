@@ -27,52 +27,52 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login');
-  
-  // Protect /admin and /client routes
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-  const isClientRoute = request.nextUrl.pathname.startsWith('/client');
+  const pathname = request.nextUrl.pathname;
+  const isAuthRoute = pathname.startsWith('/login');
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isClientRoute = pathname.startsWith('/client');
   const isProtectedRoute = isAdminRoute || isClientRoute;
   
-  if (!user && isProtectedRoute) {
-    // Session not found or expired, redirect to login
+  // Public routes that should redirect authenticated users
+  const isPublicRoute = isAuthRoute || pathname === '/';
+  
+  if (!user) {
+    // No user - protect authenticated routes
+    if (isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
+    // Allow access to public routes (including landing page and login)
+    return supabaseResponse;
+  }
+
+  // User is authenticated - fetch profile for role-based routing
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+  if (!profile) {
+    // Profile not found - let them through, client-side will handle it
+    return supabaseResponse;
+  }
+
+  // Redirect authenticated users away from public routes
+  if (isPublicRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = '/login';
+    url.pathname = profile.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
     return NextResponse.redirect(url);
   }
 
-  // If user is logged in, handle their role routing
-  if (user) {
-    // Fetch profile to know the role
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-
-    if (profile) {
-      // 1. Logged in user tries to visit login or root
-      if (isAuthRoute || request.nextUrl.pathname === '/') {
-        const url = request.nextUrl.clone();
-        url.pathname = profile.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
-        return NextResponse.redirect(url);
-      }
-
-      // 2. Cross-role boundary checks
-      if (profile.role === 'client' && isAdminRoute) {
-        // Client trying to access admin - Protect Admin Area
-        const url = request.nextUrl.clone();
-        url.pathname = '/client/dashboard';
-        return NextResponse.redirect(url);
-      }
-      
-      // Note: Admin can access both /admin and /client, so no bounce needed for Admins.
-    }
+  // Role boundary checks: clients cannot access admin routes
+  if (profile.role === 'client' && isAdminRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/client/dashboard';
+    return NextResponse.redirect(url);
   }
 
+  // All good - let the request through
   return supabaseResponse;
 }

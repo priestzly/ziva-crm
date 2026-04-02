@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Flame, ArrowRight, ShieldCheck, Settings, Users, 
   MapPin, Phone, Mail, ClipboardCheck, CheckCircle2,
-  Lock, Clock, Building2, Award, ChevronRight
+  Lock, Clock, Building2, Award, ChevronRight, MessageCircle
 } from 'lucide-react';
 
 /* ─── Scroll Reveal Hook ─── */
@@ -72,24 +72,41 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0a0a0f] text-white">
+    <div className="flex flex-col min-h-screen bg-[#0a0a0f] text-white selection:bg-red-500/30">
 
-      {/* ═══ BG GRADIENTS ═══ */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-15%] left-[-10%] w-[500px] h-[500px] bg-red-600/[0.06] rounded-full blur-[120px]" />
-        <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] bg-orange-500/[0.04] rounded-full blur-[100px]" />
+      {/* ═══ LIVING BACKGROUND ═══ */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        {/* Animated Fiery Glows */}
+        <div className="absolute -top-[10%] -left-[10%] w-[80vw] h-[80vw] bg-red-600/[0.1] rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute top-[20%] -right-[15%] w-[60vw] h-[60vw] bg-orange-600/[0.08] rounded-full blur-[100px] animate-glow" />
+        <div className="absolute bottom-[-10%] left-[10%] w-[70vw] h-[70vw] bg-red-500/[0.05] rounded-full blur-[130px]" />
+        
+        {/* Diagonal Technical Stripes */}
+        <div className="absolute inset-0 opacity-[0.05] sm:opacity-[0.03]" 
+             style={{ 
+               backgroundImage: `repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 40px)` 
+             }} 
+        />
+        <div className="absolute inset-0 opacity-[0.03] sm:opacity-[0.02]" 
+             style={{ 
+               backgroundImage: `repeating-linear-gradient(-45deg, #ff0000 0, #ff0000 1px, transparent 0, transparent 100px)` 
+             }} 
+        />
+        
+        {/* Subtle Technical Pattern */}
+        <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:20px_20px]" />
       </div>
 
       {/* ═══ HEADER ═══ */}
-      <header className={`px-6 h-18 flex items-center sticky top-0 z-50 transition-all duration-500 ${scrollY > 30 ? 'bg-[#0a0a0f]/85 backdrop-blur-xl border-b border-white/[0.06]' : ''}`}>
+      <header className={`px-4 sm:px-6 h-18 flex items-center sticky top-0 z-50 transition-all duration-500 ${scrollY > 30 ? 'bg-[#0a0a0f]/85 backdrop-blur-xl border-b border-white/[0.06]' : ''}`}>
         <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
           <Link className="flex items-center gap-3 group" href="/">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-red-500/20 transition-all duration-300">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-red-500/30 transition-all duration-500">
               <Flame className="h-5 w-5 text-white" fill="currentColor" />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-sm tracking-tight group-hover:text-red-400 transition-colors">ZIVA YANGIN</span>
-              <span className="text-[9px] text-white/30 tracking-[0.2em]">GÜVENLİK SİSTEMLERİ</span>
+              <span className="font-black text-sm tracking-tight group-hover:text-red-400 transition-colors">ZIVA YANGIN</span>
+              <span className="text-[9px] text-white/30 tracking-[0.2em] font-bold uppercase">Güvenlik Sistemleri</span>
             </div>
           </Link>
           
@@ -106,9 +123,9 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          <Link href="/login" className="group flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-500 hover:text-white transition-all duration-300 hover:shadow-lg hover:shadow-red-500/20">
-            <Lock size={14} />
-            <span className="hidden sm:inline">Giriş Yap</span>
+          <Link href="/login" className="group flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all duration-500 hover:shadow-lg hover:shadow-red-500/30">
+            <Lock size={13} strokeWidth={3} />
+            <span className="hidden sm:inline">Portal Girişi</span>
           </Link>
         </div>
       </header>
@@ -128,78 +145,95 @@ export default function LandingPage() {
               </Reveal>
 
               <Reveal delay={100}>
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.05] tracking-tight">
-                  Yangın tehlikelerine karşı{' '}
-                  <span className="text-red-500">güvenliğinizi</span>{' '}
+                <h1 className="text-4xl sm:text-5xl lg:text-[68px] font-black leading-[0.95] tracking-tighter">
+                  Yangın tehlikesine karşı{' '}
+                  <span className="relative inline-block">
+                    <span className="bg-gradient-to-r from-red-500 via-orange-500 to-red-600 bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
+                      güvenliğinizi
+                    </span>
+                  </span>{' '}
                   profesyonelce koruyoruz.
                 </h1>
               </Reveal>
 
               <Reveal delay={200}>
-                <p className="text-white/50 text-lg max-w-md leading-relaxed">
-                  25 yılı aşkın sektör deneyimimiz ile konut, ticari ve endüstriyel tesisleriniz için güvenilir çözümler sunuyoruz.
+                <p className="text-white/50 text-lg sm:text-xl max-w-md leading-relaxed font-medium">
+                  25 yılı aşkın sektör deneyimimiz ile ticari ve endüstriyel tesisleriniz için dünya standartlarında çözümler sunuyoruz.
                 </p>
               </Reveal>
 
               <Reveal delay={300}>
-                <div className="flex flex-wrap gap-3">
-                  <a href="tel:+905324790828" className="flex items-center gap-2 bg-red-600 px-6 py-3.5 rounded-xl text-sm font-semibold hover:bg-red-500 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/20 hover:scale-[1.02] active:scale-[0.98]">
-                    <Phone size={16} />
+                <div className="flex flex-wrap gap-4">
+                  <a href="tel:+905324790828" className="flex items-center gap-2.5 bg-red-600 px-8 py-4 rounded-xl text-sm font-black uppercase tracking-tight hover:bg-red-500 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/40 hover:scale-[1.03] active:scale-[0.98]">
+                    <Phone size={18} strokeWidth={3} />
                     Hemen Arayın
                   </a>
-                  <Link href="/login" className="flex items-center gap-2 bg-white/5 border border-white/10 px-6 py-3.5 rounded-xl text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
-                    <ShieldCheck size={16} className="text-emerald-400" />
-                    Portal Girişi
-                  </Link>
+                  <a 
+                    href="https://wa.me/905324790828?text=Merhaba%2C%20yang%C4%B1n%20g%C3%BCvenli%C4%9Fi%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum." 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 bg-emerald-600/10 border border-emerald-600/20 px-8 py-4 rounded-xl text-sm font-black uppercase tracking-tight text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/20 hover:scale-[1.03] active:scale-[0.98]"
+                  >
+                    <MessageCircle size={18} strokeWidth={3} />
+                    WhatsApp
+                  </a>
                 </div>
               </Reveal>
 
-              {/* Mini trust row */}
+              {/* High-end trust row */}
               <Reveal delay={400}>
-                <div className="flex items-center gap-4 text-xs text-white/30 pt-2">
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={14} className="text-white/40" />
-                    <span>7/24 Destek</span>
+                <div className="flex items-center gap-6 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/20 pt-4">
+                  <div className="flex items-center gap-2 group cursor-default">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-red-500/10 transition-colors">
+                       <Clock size={14} className="text-red-500/60" />
+                    </div>
+                    <span className="group-hover:text-white/40 transition-colors">7/24 Teknik Destek</span>
                   </div>
-                  <span className="w-1 h-1 rounded-full bg-white/20" />
-                  <div className="flex items-center gap-1.5">
-                    <ShieldCheck size={14} className="text-blue-400" />
-                    <span>ISO Sertifikalı</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Award size={14} className="text-yellow-400" />
-                    <span>25+ Yıl Tecrübe</span>
+                  <div className="hidden sm:flex items-center gap-2 group cursor-default">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-blue-500/10 transition-colors">
+                       <ShieldCheck size={14} className="text-blue-500/60" />
+                    </div>
+                    <span className="group-hover:text-white/40 transition-colors">TSE & ISO Onaylı</span>
                   </div>
                 </div>
               </Reveal>
             </div>
 
-            {/* Right card */}
-            <div className="hidden lg:flex items-center justify-center">
-              <div className="relative">
-                <div className="absolute -inset-8 bg-gradient-to-br from-red-500/10 to-orange-500/5 rounded-[2.5rem] blur-2xl" />
+            {/* Right card - Fiery Glass */}
+            <div className="hidden lg:flex items-center justify-end">
+              <div className="relative group">
+                <div className="absolute -inset-10 bg-gradient-to-br from-red-600/20 to-orange-600/10 rounded-[3rem] blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-1000" />
                 
-                <div className="relative w-80 h-80 rounded-[2rem] bg-white/[0.04] border border-white/[0.08] flex flex-col items-center justify-center gap-6">
-                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-xl shadow-red-500/30 hover:scale-110 transition-transform duration-500">
-                    <Flame size={44} className="text-white" fill="currentColor" />
+                <div className="relative w-80 h-80 sm:w-96 sm:h-96 rounded-[3rem] bg-white/[0.03] border border-white/[0.08] backdrop-blur-2xl flex flex-col items-center justify-center gap-8 shadow-2xl overflow-hidden">
+                   {/* Inner light sweep */}
+                   <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.02] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                   
+                  <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-2xl shadow-red-500/40 hover:scale-110 transition-transform duration-500">
+                    <Flame size={56} className="text-white drop-shadow-xl" fill="currentColor" />
                   </div>
-                  <div className="text-center">
-                    <p className="text-3xl font-bold">25+ Yıl</p>
-                    <p className="text-[11px] text-white/40 tracking-[0.25em] uppercase mt-1">Sektör Tecrübesi</p>
+                  <div className="text-center space-y-2">
+                    <p className="text-5xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent italic">25+ YIL</p>
+                    <p className="text-xs font-black text-red-500/60 tracking-[0.4em] uppercase">Sektör Tecrübesi</p>
+                  </div>
+
+                  <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2">
+                     {[...Array(3)].map((_, i) => (
+                       <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                     ))}
                   </div>
                 </div>
 
-                {/* Floating badges */}
-                <div className="absolute -top-3 -right-3 bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] px-4 py-2.5 rounded-xl float-animation-1 shadow-lg">
-                  <div className="flex items-center gap-2 text-[11px] font-medium text-white/60">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Aktif Müşteriler
+                {/* Floating mini glass badges */}
+                <div className="absolute -top-6 -right-6 bg-white/[0.06] backdrop-blur-3xl border border-white/[0.1] px-5 py-3 rounded-2xl animate-float shadow-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                    <span className="text-[11px] font-black uppercase tracking-wider text-white/70">%100 Memnuniyet</span>
                   </div>
                 </div>
-                <div className="absolute -bottom-3 -left-6 bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] px-4 py-2.5 rounded-xl float-animation-2 shadow-lg">
-                  <div className="flex items-center gap-2 text-[11px] font-medium text-white/60">
-                    <ClipboardCheck size={12} className="text-blue-400" />
-                    Teknik Raporlama
+                <div className="absolute -bottom-4 -left-10 bg-white/[0.06] backdrop-blur-3xl border border-white/[0.1] px-5 py-3 rounded-2xl animate-float-delayed shadow-2xl">
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck size={14} className="text-blue-400" />
+                    <span className="text-[11px] font-black uppercase tracking-wider text-white/70">Teknik Denetim</span>
                   </div>
                 </div>
               </div>
@@ -207,16 +241,16 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Marquee */}
-        <div className="border-y border-white/[0.05] py-4 overflow-hidden bg-white/[0.01]">
-          <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#0a0a0f] to-transparent z-10" />
-          <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-[#0a0a0f] to-transparent z-10" />
-          <div className="flex animate-[marquee_30s_linear_infinite] whitespace-nowrap">
+        {/* Marquee - Fiery Band */}
+        <div className="relative border-y border-red-500/10 py-6 overflow-hidden bg-red-500/[0.02]">
+          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#0a0a0f] to-transparent z-10" />
+          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#0a0a0f] to-transparent z-10" />
+          <div className="flex animate-[marquee_40s_linear_infinite] whitespace-nowrap">
             {[...Array(2)].map((_, s) => (
               <React.Fragment key={s}>
                 {['Baca Temizliği', 'Yangın Algılama', 'Sprinkler Sistemleri', 'Gazlı Söndürme', 'İtfaiye Onayı', 'İSG Eğitimleri', 'Acil Durum Planı', 'Periyodik Bakım'].map((item, i) => (
-                  <span key={`${s}-${i}`} className="mx-8 text-[11px] font-medium text-white/20 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span className="w-1 h-1 rounded-full bg-red-500/50" />
+                  <span key={`${s}-${i}`} className="mx-12 text-[10px] sm:text-[11px] font-black text-white/30 uppercase tracking-[0.4em] flex items-center gap-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                     {item}
                   </span>
                 ))}
@@ -226,26 +260,29 @@ export default function LandingPage() {
         </div>
 
         {/* ═══ SERVICES ═══ */}
-        <section id="hizmetler" className="py-24">
-          <div className="max-w-6xl mx-auto px-6">
+        <section id="hizmetler" className="py-28 relative">
+          {/* Subtle glow behind services */}
+          <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-red-600/[0.03] rounded-full blur-[120px] pointer-events-none" />
+
+          <div className="max-w-6xl mx-auto px-6 relative">
             <Reveal className="mb-16">
-              <p className="text-red-500 text-xs font-semibold uppercase tracking-[0.3em] mb-3">Hizmetlerimiz</p>
-              <h2 className="text-3xl md:text-4xl font-bold">Neler Yapıyoruz?</h2>
-              <p className="text-white/40 mt-3 max-w-lg">Yangın sistemleri montajı ve baca temizliği konusunda kapsamlı çözümler sunuyoruz.</p>
+              <p className="text-red-500 text-[10px] font-black uppercase tracking-[0.4em] mb-4">Uzmanlık Alanlarımız</p>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight italic">Neler Yapıyoruz?</h2>
+              <p className="text-white/40 mt-5 max-w-lg text-lg font-medium leading-relaxed">Yangın sistemleri montajı ve baca temizliği konusunda kapsamlı, teknolojik ve profesyonel çözümler sunuyoruz.</p>
             </Reveal>
 
-            <div className="grid md:grid-cols-2 gap-5">
+            <div className="grid md:grid-cols-2 gap-6">
               {services.map((service, i) => (
                 <Reveal key={i} delay={i * 100}>
-                  <div className="group p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:bg-white/[0.04]">
-                    <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-[0.06] blur-[80px] transition-opacity duration-700`} />
-                    <div className="relative flex gap-4">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
-                        <service.icon size={20} className="text-white" />
+                  <div className="group relative p-8 rounded-3xl bg-white/[0.02] border border-white/[0.06] hover:border-red-500/20 transition-all duration-500 hover:bg-white/[0.04] overflow-hidden">
+                    <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-[0.08] blur-[100px] transition-opacity duration-700`} />
+                    <div className="relative flex flex-col sm:flex-row gap-6">
+                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${service.gradient} flex items-center justify-center shrink-0 shadow-2xl shadow-black/50 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500`}>
+                        <service.icon size={24} className="text-white" strokeWidth={2.5} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-base mb-1.5 group-hover:text-red-400 transition-colors">{service.title}</h3>
-                        <p className="text-[13px] text-white/40 leading-relaxed">{service.desc}</p>
+                        <h3 className="font-bold text-lg mb-2.5 group-hover:text-red-400 transition-colors uppercase tracking-tight">{service.title}</h3>
+                        <p className="text-sm text-white/40 leading-relaxed font-medium">{service.desc}</p>
                       </div>
                     </div>
                   </div>
