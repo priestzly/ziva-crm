@@ -53,6 +53,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
   const [malls, setMalls] = useState<any[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [includePhotos, setIncludePhotos] = useState(true);
 
   const [showEditRecord, setShowEditRecord] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
@@ -439,7 +440,17 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
                 </div>
                 Arşive Dön
               </Link>
-              <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <label className="flex items-center gap-2 px-4 h-12 rounded-2xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors select-none group">
+                  <input 
+                    type="checkbox" 
+                    checked={includePhotos} 
+                    onChange={e => setIncludePhotos(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/20 bg-transparent text-primary focus:ring-0 focus:ring-offset-0"
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-white transition-colors">Fotoğrafları Dahil Et</span>
+                </label>
+
                 {role === 'admin' && filteredRecords[0] && (
                   <button onClick={() => handleEditClick(filteredRecords[0])} className="h-12 px-6 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] flex items-center gap-2 shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95">
                     <Edit3 size={16} /> Güncelle
@@ -569,79 +580,71 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
               {targetId && filteredRecords.map(rec => {
                 const p = parseDescription(rec.description);
                 return (
-                  <div key={rec.id} className="mx-auto space-y-10 print:m-0" id="print-area" style={{ maxWidth: '900px' }}>
-                    <div className="bg-white text-slate-950 p-10 print:text-black print:p-0 min-h-[1100px] flex flex-col relative">
+                    <div key={rec.id} className="mx-auto space-y-8 print:m-0" id="print-area" style={{ maxWidth: '900px' }}>
+                    <div className="bg-white text-slate-950 p-10 sm:p-16 border-4 border-slate-900 print:text-black print:border-none print:p-0 min-h-[1100px] flex flex-col relative shadow-2xl">
                       <div className="flex justify-between items-end border-b-2 border-slate-900 pb-8 mb-12">
                         <div className="flex items-center gap-4">
-                           <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white p-3 shadow-sm select-none">
-                            <Flame size={32} className="text-red-500" />
+                           <div className="w-16 h-16 bg-white overflow-hidden rounded-2xl flex items-center justify-center p-1 select-none">
+                            <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
                            </div>
                            <div>
                              <h1 className="text-2xl font-black tracking-tighter uppercase leading-none italic">ZIVA <span className="text-red-600">FIRE</span></h1>
-                             <p className="text-[8px] uppercase font-black tracking-[0.4em] text-slate-400 mt-1">TECHNICAL SOLUTIONS BUREAU</p>
+                             <p className="text-[8px] uppercase font-black tracking-[0.3em] text-slate-400 mt-1">TECHNICAL SOLUTIONS BUREAU</p>
                            </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[9px] font-black text-slate-400 mb-1 tracking-[0.2em] uppercase">MÜDAHALE RAPORU</p>
+                          <p className="text-[8px] font-black text-slate-400 mb-1 tracking-[0.2em] uppercase">MÜDAHALE RAPORU</p>
                           <p className="text-base font-black text-slate-900 uppercase tabular-nums">{new Date(rec.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-12 mb-12 py-6 border-b border-slate-100">
+                      <div className="grid grid-cols-2 gap-10 mb-10 py-6 border-b border-slate-100">
                         <div className="space-y-2">
                           <p className="text-[8px] font-black uppercase text-red-600 tracking-[0.2em]">İŞLETME REFERANS</p>
                           <h3 className="text-lg font-black uppercase italic leading-tight">{(rec as any).businesses?.name}</h3>
-                          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                          <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                             <MapPin size={12} className="text-red-600" /> {(rec as any).businesses?.mall?.name || 'SİSTEM KAYDI'}
                           </div>
                         </div>
                         <div className="text-right space-y-2">
                           <p className="text-[8px] font-black uppercase text-red-600 tracking-[0.2em]">SERVİS KATEGORİ</p>
-                          <p className="text-sm font-black text-slate-900 uppercase">{rec.service_type || 'PERİYODİK KONTROL'}</p>
-                          <span className="text-[9px] font-black uppercase text-slate-500 border border-slate-200 px-3 py-1 rounded-md">{p.status}</span>
+                          <p className="text-sm font-black text-slate-900 uppercase mb-1">{rec.service_type || 'PERİYODİK KONTROL'}</p>
+                          <span className="text-[8px] font-black uppercase bg-slate-900 text-white px-3 py-1 rounded">{p.status}</span>
                         </div>
                       </div>
- 
-                      <div className="flex-1 space-y-12">
+
+                      <div className="flex-1 space-y-10">
                          <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-4 bg-red-600" />
-                              <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-[0.2em]">OPERASYONEL ÖZET</h4>
+                            <div className="flex items-center gap-3">
+                              <div className="w-1.5 h-5 bg-red-600" />
+                              <h4 className="text-[9px] font-black uppercase text-slate-900 tracking-[0.3em]">OPERASYONEL ÖZET</h4>
                             </div>
-                            <div className="text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap pb-8 border-b border-slate-50">
-                               {p.text || 'DETAYLI RAPOR GİRİLMEMİŞTİR.'}
+                            <div className="py-4 text-sm leading-relaxed text-slate-900 font-serif italic whitespace-pre-wrap">
+                               "{p.text || 'DETAYLI RAPOR GİRİLMEMİŞTİR.'}"
                             </div>
                          </div>
                          
-                         <div className="grid grid-cols-2 gap-12">
-                           <div className="space-y-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-1 h-3 bg-slate-300" />
-                                <h4 className="text-[8px] font-black uppercase text-slate-400 tracking-widest uppercase">SARF MALZEME / EKİPMAN</h4>
+                         <div className="grid grid-cols-1 gap-8">
+                           <div className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-1 h-3 bg-slate-400" />
+                                <h4 className="text-[8px] font-black uppercase text-slate-500 tracking-widest">SARF MALZEME / EKİPMAN</h4>
                               </div>
-                              <div className="text-[10px] font-medium text-slate-600 uppercase tracking-wide leading-relaxed">
+                              <div className="text-[10px] font-bold uppercase tracking-wide leading-relaxed text-slate-700">
                                 {p.materials || 'STANDART OPERASYON KİTİ'}
                               </div>
                            </div>
-                           <div className="space-y-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-1 h-3 bg-slate-300" />
-                                <h4 className="text-[8px] font-black uppercase text-slate-400 tracking-widest uppercase">TEKNİSYEN / SORUMLU</h4>
-                              </div>
-                              <div className="text-[10px] font-medium text-slate-600 uppercase tracking-wide italic">
-                                {p.technician || 'ZİVA TEKNİK BİRİMİ'}
-                              </div>
-                           </div>
+
                          </div>
                       </div>
- 
-                      <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-center opacity-30">
-                         <p className="text-[7px] font-black uppercase tracking-[0.4em]">ZIVA CRM • SMART FIRE SAFETY SYSTEMS • {new Date().getFullYear()}</p>
-                         <p className="text-[7px] font-black uppercase tracking-[0.4em]">BELGE NO: {rec.id.toUpperCase()}</p>
+
+                      <div className="mt-20 pt-10 border-t-2 border-slate-100 flex justify-between items-center opacity-40">
+                         <p className="text-[8px] font-black uppercase tracking-[0.4em]">ZIVA CRM • SMART FIRE SAFETY SYSTEMS • {new Date().getFullYear()}</p>
+                         <p className="text-[8px] font-black uppercase tracking-[0.4em]">BELGE NO: {rec.id.toUpperCase()}</p>
                       </div>
                     </div>
-                    {photos.length > 0 && (
-                      <div className="space-y-8 pt-10 break-inside-avoid print:pt-20">
+                    {includePhotos && photos.length > 0 && (
+                      <div className="space-y-8 pt-10 break-before-page print:pt-20">
                         <div className="flex items-center justify-center gap-4">
                           <div className="h-px flex-1 bg-slate-200" />
                           <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em]">GÖRSEL EK / EKSPERTİZ DOSYALARI</h4>
@@ -649,7 +652,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId }: Servi
                         </div>
                         <div className="grid grid-cols-2 gap-6">
                           {photos.map((ph, i) => (
-                            <div key={i} className="aspect-video border-4 border-slate-900 overflow-hidden bg-white shadow-2xl relative group">
+                            <div key={i} className="aspect-video border-2 border-slate-900 overflow-hidden bg-white shadow-2xl relative group">
                               <img src={ph.photo_url} className="w-full h-full object-cover" />
                               <div className="absolute bottom-0 left-0 bg-slate-900 text-white text-[8px] font-black px-3 py-1.5 uppercase tracking-widest">FOTO_{i+1}</div>
                             </div>
