@@ -758,12 +758,12 @@ export default function QuoteBuilderPage() {
                           <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                         </div>
                         <div>
-                          <h2 className="text-xl font-black uppercase tracking-tight">ZIVA <span className="text-red-500">BACA YANGIN</span></h2>
-                          <p className="text-[9px] uppercase tracking-[0.3em] text-slate-400 font-bold">Teknik Servis & Güvenlik Sistemleri</p>
+                          <h2 className="text-lg font-black uppercase tracking-tight">ZIVA <span className="text-red-500">BACA YANGIN</span></h2>
+                          <p className="text-[8px] uppercase tracking-[0.3em] text-slate-400 font-bold">Teknik Servis & Güvenlik Sistemleri</p>
                         </div>
                       </div>
                       <div className="text-left sm:text-right">
-                        <p className="text-2xl font-black text-slate-100 uppercase">{quoteData.title}</p>
+                        <p className="text-xl font-black text-slate-950 uppercase">{quoteData.title}</p>
                         <div className="flex flex-wrap gap-4 mt-2">
                           <span className="text-xs font-bold text-slate-500">No: {quoteData.quoteNo}</span>
                           <span className="text-xs font-bold text-slate-500">Tarih: {new Date(quoteData.date).toLocaleDateString('tr-TR')}</span>
@@ -773,80 +773,82 @@ export default function QuoteBuilderPage() {
 
                     {/* Client Info */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 py-8">
-                      <div className="space-y-2">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-red-500">Sayın Müşteri</p>
-                        <p className="text-lg font-black text-slate-900">{quoteData.clientName || '—'}</p>
-                        {quoteData.clientAddress && <p className="text-xs text-slate-500">{quoteData.clientAddress}</p>}
-                        {quoteData.clientPhone && <p className="text-xs text-slate-500 flex items-center gap-1"><Phone size={10} /> {quoteData.clientPhone}</p>}
-                        {quoteData.clientEmail && <p className="text-xs text-slate-500 flex items-center gap-1"><Mail size={10} /> {quoteData.clientEmail}</p>}
-                        {quoteData.clientTaxNo && <p className="text-xs text-slate-500 flex items-center gap-1"><Hash size={10} /> VN: {quoteData.clientTaxNo}</p>}
+                      <div className="space-y-1.5">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-red-500">Sayın Müşteri</p>
+                        <p className="text-base font-black text-slate-900">{quoteData.clientName || '—'}</p>
+                        {quoteData.clientAddress && <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs">{quoteData.clientAddress}</p>}
+                        <div className="flex flex-col gap-1 pt-1">
+                          {quoteData.clientPhone && <p className="text-[10px] text-slate-500 flex items-center gap-1.5"><Phone size={10} className="text-slate-300" /> {quoteData.clientPhone}</p>}
+                          {quoteData.clientEmail && <p className="text-[10px] text-slate-500 flex items-center gap-1.5"><Mail size={10} className="text-slate-300" /> {quoteData.clientEmail}</p>}
+                          {quoteData.clientTaxNo && <p className="text-[10px] text-slate-500 flex items-center gap-1.5"><Hash size={10} className="text-slate-300" /> VN: {quoteData.clientTaxNo}</p>}
+                        </div>
                       </div>
-                      <div className="text-left sm:text-right space-y-2">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-300">Geçerlilik</p>
-                        <p className="text-sm font-bold text-slate-900">{new Date(quoteData.validUntil).toLocaleDateString('tr-TR')}</p>
+                      <div className="text-left sm:text-right space-y-1">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-slate-300">Geçerlilik</p>
+                        <p className="text-xs font-bold text-slate-900">{new Date(quoteData.validUntil).toLocaleDateString('tr-TR')}</p>
                       </div>
                     </div>
 
                     {/* Table */}
                     <div className="rounded-xl overflow-hidden border border-slate-100 my-8">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-[11px]">
                         <thead>
                           <tr className="bg-slate-900 text-white">
-                            <th className="py-3 px-4 text-center font-bold text-[9px] uppercase tracking-wider">#</th>
-                            <th className="py-3 px-4 text-left font-bold text-[9px] uppercase tracking-wider">Ürün / Hizmet</th>
-                            <th className="py-3 px-3 text-center font-bold text-[9px] uppercase tracking-wider">Adet</th>
-                            <th className="py-3 px-3 text-right font-bold text-[9px] uppercase tracking-wider">Birim</th>
+                            <th className="py-2.5 px-4 text-center font-bold text-[8px] uppercase tracking-wider">#</th>
+                            <th className="py-2.5 px-4 text-left font-bold text-[8px] uppercase tracking-wider">Ürün / Hizmet</th>
+                            <th className="py-2.5 px-3 text-center font-bold text-[8px] uppercase tracking-wider">Adet</th>
+                            <th className="py-2.5 px-3 text-right font-bold text-[8px] uppercase tracking-wider">Birim</th>
                             {items.some(i => i.discount > 0) && (
-                              <th className="py-3 px-3 text-center font-bold text-[9px] uppercase tracking-wider">İnd.</th>
+                              <th className="py-2.5 px-3 text-center font-bold text-[8px] uppercase tracking-wider">İnd.</th>
                             )}
-                            <th className="py-3 px-4 text-right font-bold text-[9px] uppercase tracking-wider">Toplam</th>
+                            <th className="py-2.5 px-4 text-right font-bold text-[8px] uppercase tracking-wider">Toplam</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                           {items.map((item, i) => (
                             <tr key={item.id} className="bg-white">
-                              <td className="py-3 px-4 text-center font-bold text-slate-300">{i + 1}</td>
-                              <td className="py-3 px-4">
+                              <td className="py-2.5 px-4 text-center font-bold text-slate-300">{i + 1}</td>
+                              <td className="py-2.5 px-4">
                                 <p className="font-semibold text-slate-900">{item.name || '—'}</p>
-                                {item.description && <p className="text-[10px] text-slate-400">{item.description}</p>}
+                                {item.description && <p className="text-[9px] text-slate-400 mt-0.5">{item.description}</p>}
                               </td>
-                              <td className="py-3 px-3 text-center font-semibold">{item.quantity} {item.unit}</td>
-                              <td className="py-3 px-3 text-right font-semibold">{item.price.toLocaleString('tr-TR')} ₺</td>
+                              <td className="py-2.5 px-3 text-center font-medium">{item.quantity} {item.unit}</td>
+                              <td className="py-2.5 px-3 text-right font-medium">{item.price.toLocaleString('tr-TR')} ₺</td>
                               {items.some(it => it.discount > 0) && (
-                                <td className="py-3 px-3 text-center text-emerald-600 font-semibold">%{item.discount}</td>
+                                <td className="py-2.5 px-3 text-center text-emerald-600 font-medium">%{item.discount}</td>
                               )}
-                              <td className="py-3 px-4 text-right font-bold text-slate-900">{getItemTotal(item).toLocaleString('tr-TR')} ₺</td>
+                              <td className="py-2.5 px-4 text-right font-bold text-slate-900">{getItemTotal(item).toLocaleString('tr-TR')} ₺</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="bg-slate-50">
                             <td colSpan={3}></td>
-                            <td className="py-3 px-4 text-right text-[9px] font-bold uppercase tracking-wider text-slate-500">Ara Toplam</td>
-                            {items.some(i => i.discount > 0) && <td className="py-3 px-4"></td>}
-                            <td className="py-3 px-4 text-right font-bold text-slate-900">{subtotal.toLocaleString('tr-TR')} ₺</td>
+                            <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-slate-500">Ara Toplam</td>
+                            {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
+                            <td className="py-2.5 px-4 text-right font-bold text-slate-900">{subtotal.toLocaleString('tr-TR')} ₺</td>
                           </tr>
                           {totalDiscount > 0 && (
                             <tr className="bg-slate-50/50">
                               <td colSpan={3}></td>
-                              <td className="py-3 px-4 text-right text-[9px] font-bold uppercase tracking-wider text-emerald-600">İndirim</td>
-                              {items.some(i => i.discount > 0) && <td className="py-3 px-4"></td>}
-                              <td className="py-3 px-4 text-right font-bold text-emerald-600">-{totalDiscount.toLocaleString('tr-TR')} ₺</td>
+                              <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-emerald-600">İndirim</td>
+                              {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
+                              <td className="py-2.5 px-4 text-right font-bold text-emerald-600">-{totalDiscount.toLocaleString('tr-TR')} ₺</td>
                             </tr>
                           )}
                           {isTaxIncluded && (
                             <tr className="bg-slate-50/50">
                               <td colSpan={3}></td>
-                              <td className="py-3 px-4 text-right text-[9px] font-bold uppercase tracking-wider text-slate-400">KDV (%{taxRate})</td>
-                              {items.some(i => i.discount > 0) && <td className="py-3 px-4"></td>}
-                              <td className="py-3 px-4 text-right font-bold text-slate-900">{taxAmount.toLocaleString('tr-TR')} ₺</td>
+                              <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-slate-400">KDV (%{taxRate})</td>
+                              {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
+                              <td className="py-2.5 px-4 text-right font-bold text-slate-900">{taxAmount.toLocaleString('tr-TR')} ₺</td>
                             </tr>
                           )}
                           <tr className="bg-slate-900 text-white">
                             <td colSpan={3}></td>
-                            <td className="py-4 px-4 text-right text-[9px] font-bold uppercase tracking-widest">Genel Toplam</td>
-                            {items.some(i => i.discount > 0) && <td className="py-4 px-4"></td>}
-                            <td className="py-4 px-4 text-right text-xl font-black text-red-400">{grandTotal.toLocaleString('tr-TR')} ₺</td>
+                            <td className="py-3 px-4 text-right text-[8px] font-bold uppercase tracking-widest">Genel Toplam</td>
+                            {items.some(i => i.discount > 0) && <td className="py-3 px-4"></td>}
+                            <td className="py-3 px-4 text-right text-lg font-black text-red-400">{grandTotal.toLocaleString('tr-TR')} ₺</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -891,7 +893,7 @@ export default function QuoteBuilderPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-black text-slate-100 uppercase">{quoteData.title}</p>
+                    <p className="text-xl font-black text-slate-950 uppercase tracking-tight">{quoteData.title}</p>
                     <p className="text-xs font-bold text-slate-500">No: {quoteData.quoteNo}</p>
                     <p className="text-xs font-bold text-slate-500">Tarih: {new Date(quoteData.date).toLocaleDateString('tr-TR')}</p>
                   </div>
