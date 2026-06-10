@@ -11,8 +11,11 @@ import {
   MoreVertical, CheckCircle2, RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { MobileBottomSheet } from '@/components/MobileBottomSheet';
 
 function UsersContent() {
+  const isMobile = useIsMobile();
   const { profile: currentAdmin } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [malls, setMalls] = useState<Mall[]>([]);
@@ -199,16 +202,24 @@ function UsersContent() {
     p.full_name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Styling helpers based on viewport
+  const cardClass = isMobile ? 'bg-amoled-card border border-white/5 rounded-2xl overflow-hidden' : 'glass rounded-3xl overflow-hidden shadow-2xl border border-white/[0.04]';
+  const inputClass = isMobile 
+    ? 'w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all'
+    : 'w-full h-12 input-premium px-4';
+  const labelClass = isMobile ? 'text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1' : 'text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1';
+  const borderClass = isMobile ? 'border-white/5' : 'border-white/[0.04]';
+
   return (
-    <div className="min-h-screen flex">
+    <div className={cn("min-h-screen flex", isMobile ? "bg-amoled text-white pb-28" : "")}>
       <Sidebar role="admin" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500">
+      <main className="flex-1 lg:ml-72 pb-24 lg:pb-0 transition-all duration-500 w-full overflow-hidden">
         <Topbar 
           title="Kullanıcı Yönetimi" 
           subtitle={isRefreshing ? 'Yenileniyor...' : 'Sistem erişimlerini ve rolleri yönetin'} 
         />
 
-        <div className="p-6 lg:p-8 space-y-6 max-w-[1200px] mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1200px] mx-auto">
           {/* Error Banner */}
           {fetchError && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-500/5">
@@ -223,7 +234,7 @@ function UsersContent() {
               </div>
               <button 
                 onClick={() => fetchData(true)}
-                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20 cursor-pointer"
               >
                 Tekrar Dene
               </button>
@@ -236,17 +247,23 @@ function UsersContent() {
               <h1 className="text-2xl font-bold tracking-tight">Profiller</h1>
               <p className="text-sm text-muted-foreground mt-0.5">Müşteri hesaplarını buradan direkt oluşturun</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
               <button 
                 onClick={() => fetchData(true)}
-                className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground group"
+                className={cn(
+                  "p-3 rounded-2xl border transition-colors group cursor-pointer",
+                  isMobile ? "bg-white/5 border-white/10 text-white/50" : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06] text-muted-foreground"
+                )}
                 title="Yenile"
               >
                 <RefreshCw size={18} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
               </button>
               <button 
                 onClick={() => { setInfoMsg(null); setShowAddUser(true); }}
-                className="btn-primary h-12 px-6 rounded-2xl flex items-center gap-2 text-sm font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-transform"
+                className={cn(
+                  "h-12 px-6 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold shadow-lg transition-transform active:scale-95 cursor-pointer w-full sm:w-auto",
+                  isMobile ? "bg-red-500 text-white shadow-red-500/20" : "btn-primary shadow-red-500/20"
+                )}
               >
                 <UserPlus size={18} /> Yeni Hesap Oluştur
               </button>
@@ -270,21 +287,100 @@ function UsersContent() {
             <input 
               type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Username veya isim ara..."
-              className="w-full input-premium pl-11 py-3"
+              className={cn(
+                "w-full pl-11 py-3 focus:outline-none focus:ring-2 transition-all rounded-xl",
+                isMobile 
+                  ? "bg-white/5 border border-white/10 text-white placeholder-white/30 focus:ring-red-500/50" 
+                  : "input-premium"
+              )}
             />
           </div>
 
           {/* Users List */}
-          <div className="glass rounded-3xl overflow-hidden shadow-2xl border border-white/[0.04]">
-            {loading && !initialLoadDone.current ? (
-              <div className="flex items-center justify-center py-24">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : (
+          {loading && !initialLoadDone.current ? (
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : isMobile ? (
+            /* AMOLED Mobile Cards Grid */
+            <div className="grid grid-cols-1 gap-3.5 pb-8">
+              {filteredProfiles.length === 0 ? (
+                <div className="py-20 text-center text-white/30 text-sm italic">
+                  Kriterlere uygun kullanıcı bulunamadı.
+                </div>
+              ) : (
+                filteredProfiles.map((p, i) => {
+                  const mall = malls.find(m => m.id === p.mall_id);
+                  return (
+                    <div 
+                      key={p.id}
+                      className="bg-amoled-card border border-white/5 rounded-2xl p-4 space-y-3.5 animate-fade-in"
+                      style={{ animationDelay: `${i * 0.03}s` }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center border transition-all shrink-0",
+                            p.role === 'admin' ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-white/5 border-white/10 text-white/60"
+                          )}>
+                            {p.role === 'admin' ? <ShieldAlert size={18} /> : <Mail size={16} />}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-black text-white leading-tight truncate">{p.email.split('@')[0]}</h4>
+                            <p className="text-[9px] text-white/40 uppercase tracking-widest font-black mt-0.5">{p.role === 'admin' ? 'Sistem Yöneticisi' : 'Saha Müşterisi'}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-1.5">
+                          <button 
+                            onClick={() => handleEditClick(p)}
+                            className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white flex items-center justify-center cursor-pointer"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button 
+                            disabled={p.role === 'admin'}
+                            onClick={() => handleDeleteUser(p)}
+                            className={cn(
+                              "w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer",
+                              p.role === 'admin' 
+                                ? "opacity-20 cursor-not-allowed bg-white/5 text-white/20" 
+                                : "bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20"
+                            )}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="h-px bg-white/5" />
+
+                      <div className="flex flex-col gap-1.5 text-xs text-white/60">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-white/30 w-20">Ad Soyad:</span>
+                          <span className="font-bold text-white/80">{p.full_name || '—'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-white/30 w-20">Yetki AVM:</span>
+                          <div className="flex items-center gap-1.5 text-red-400 font-bold">
+                            <Building2 size={12} />
+                            <span>{mall ? mall.name : 'Bağımsız'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          ) : (
+            /* Desktop Table Layout */
+            <div className={cardClass}>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold border-b border-white/[0.04] bg-white/[0.01]">
+                    <tr className={cn("text-[10px] uppercase tracking-widest text-muted-foreground font-semibold border-b bg-white/[0.01]", borderClass)}>
                       <th className="px-6 py-4 italic">KULLANICI ADI</th>
                       <th className="px-6 py-4">AD SOYAD</th>
                       <th className="px-6 py-4">YETKİLİ OLDUĞU AVM</th>
@@ -339,7 +435,7 @@ function UsersContent() {
                               <div className="flex items-center justify-end gap-2">
                                 <button 
                                   onClick={() => handleEditClick(p)}
-                                  className="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:text-white transition-all flex items-center justify-center text-muted-foreground"
+                                  className="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:text-white transition-all flex items-center justify-center text-muted-foreground cursor-pointer"
                                   title="Düzenle"
                                 >
                                   <Edit3 size={14} />
@@ -348,7 +444,7 @@ function UsersContent() {
                                   disabled={p.role === 'admin'}
                                   onClick={() => handleDeleteUser(p)}
                                   className={cn(
-                                    "w-9 h-9 rounded-xl transition-all flex items-center justify-center",
+                                    "w-9 h-9 rounded-xl transition-all flex items-center justify-center cursor-pointer",
                                     p.role === 'admin' 
                                       ? "opacity-20 cursor-not-allowed bg-white/[0.03] text-muted-foreground" 
                                       : "bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 text-red-400"
@@ -366,144 +462,130 @@ function UsersContent() {
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* CREATE USER MODAL */}
-        {showAddUser && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowAddUser(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up shadow-2xl border border-white/[0.06]" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
-                    <UserPlus size={20} />
-                  </div>
-                  <h3 className="text-2xl font-black tracking-tight">Yeni Profil</h3>
-                </div>
-                <button onClick={() => setShowAddUser(false)} className="w-10 h-10 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
-              </div>
-              
-              <form onSubmit={handleCreateUser} className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Ad Soyad</label>
+        {/* CREATE USER SHEET / MODAL */}
+        <MobileBottomSheet
+          isOpen={showAddUser}
+          onClose={() => setShowAddUser(false)}
+          title="Yeni Profil Oluştur"
+        >
+          <form onSubmit={handleCreateUser} className="space-y-5 text-white pb-6">
+            <div className="space-y-1">
+              <label className={labelClass}>Ad Soyad</label>
+              <input 
+                value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})}
+                placeholder="Örn: Mehmet Mutfak" className={inputClass} required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className={labelClass}>Kullanıcı Adı</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                   <input 
-                    value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})}
-                    placeholder="Örn: Mehmet Mutfak" className="w-full h-12 input-premium px-4" required
+                    value={newUser.username} 
+                    onChange={e => {
+                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+                      setNewUser({...newUser, username: val});
+                    }}
+                    placeholder="kullanıcı" className={cn(inputClass, "pl-11")} required
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Kullanıcı Adı</label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input 
-                        value={newUser.username} 
-                        onChange={e => {
-                          const val = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
-                          setNewUser({...newUser, username: val});
-                        }}
-                        placeholder="username" className="w-full h-12 input-premium pl-11 pr-4" required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Şifre</label>
-                    <div className="relative">
-                      <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input 
-                        type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})}
-                        placeholder="••••" className="w-full h-12 input-premium pl-11 pr-4" required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Müşteri AVM'si (Opsiyonel)</label>
-                  <select 
-                    value={newUser.mall_id} onChange={e => setNewUser({...newUser, mall_id: e.target.value})}
-                    className="w-full h-12 input-premium px-4 appearance-none"
-                  >
-                    <option value="">AVM Seçilmedi (Bağımsız)</option>
-                    {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-
-                <div className="pt-6">
-                  <button 
-                    disabled={creating}
-                    className="w-full h-14 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-2xl flex items-center justify-center gap-3 font-bold text-base shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all"
-                  >
-                    {creating ? <Loader2 size={20} className="animate-spin" /> : <><UserPlus size={20} /> Müşteriyi Oluştur</>}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* EDIT USER MODAL */}
-        {editingProfile && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setEditingProfile(null)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up shadow-2xl border border-white/[0.06]" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-500">
-                    <Edit3 size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black tracking-tight">Profili Düzenle</h3>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{editingProfile.email}</p>
-                  </div>
-                </div>
-                <button onClick={() => setEditingProfile(null)} className="w-10 h-10 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
               </div>
-              
-              <form onSubmit={handleUpdateUser} className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Ad Soyad</label>
+              <div className="space-y-1">
+                <label className={labelClass}>Şifre</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                   <input 
-                    value={editForm.full_name} onChange={e => setEditForm({...editForm, full_name: e.target.value})}
-                    placeholder="Ad Soyad" className="w-full h-12 input-premium px-4" required
+                    type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})}
+                    placeholder="••••" className={cn(inputClass, "pl-11")} required
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Yetkili AVM</label>
-                  <select 
-                    value={editForm.mall_id} onChange={e => setEditForm({...editForm, mall_id: e.target.value})}
-                    className="w-full h-12 input-premium px-4 appearance-none"
-                  >
-                    <option value="">AVM Seçilmedi (Bağımsız)</option>
-                    {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Şifre Değiştir (Opsiyonel)</label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input 
-                      type="password" value={editForm.password} onChange={e => setEditForm({...editForm, password: e.target.value})}
-                      placeholder="Yeni şifre (Boş bırakılırsa aynı kalır)" className="w-full h-12 input-premium pl-11 pr-4"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-6">
-                  <button 
-                    disabled={creating}
-                    className="w-full h-14 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-2xl flex items-center justify-center gap-3 font-bold text-base shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all"
-                  >
-                    {creating ? <Loader2 size={20} className="animate-spin" /> : 'Değişiklikleri Kaydet'}
-                  </button>
-                </div>
-              </form>
+              </div>
             </div>
-          </div>
-        )}
+
+            <div className="space-y-1">
+              <label className={labelClass}>Müşteri AVM'si (Opsiyonel)</label>
+              <select 
+                value={newUser.mall_id} onChange={e => setNewUser({...newUser, mall_id: e.target.value})}
+                className={cn(inputClass, isMobile && "select-premium")}
+              >
+                <option value="">AVM Seçilmedi (Bağımsız)</option>
+                {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+
+            <div className="pt-4">
+              <button 
+                disabled={creating}
+                className={cn(
+                  "w-full h-14 rounded-2xl flex items-center justify-center gap-3 font-bold text-base shadow-lg transition-all active:scale-[0.98] cursor-pointer",
+                  isMobile ? "bg-red-500 text-white shadow-red-500/20" : "bg-red-600 hover:bg-red-700 text-white"
+                )}
+              >
+                {creating ? <Loader2 size={20} className="animate-spin" /> : <><UserPlus size={20} /> Müşteriyi Oluştur</>}
+              </button>
+            </div>
+          </form>
+        </MobileBottomSheet>
+
+        {/* EDIT USER SHEET / MODAL */}
+        <MobileBottomSheet
+          isOpen={!!editingProfile}
+          onClose={() => setEditingProfile(null)}
+          title="Profili Düzenle"
+        >
+          {editingProfile && (
+            <form onSubmit={handleUpdateUser} className="space-y-5 text-white pb-6">
+              <div className="space-y-1">
+                <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mb-1.5">Hesap: {editingProfile.email}</p>
+                <label className={labelClass}>Ad Soyad</label>
+                <input 
+                  value={editForm.full_name} onChange={e => setEditForm({...editForm, full_name: e.target.value})}
+                  placeholder="Ad Soyad" className={inputClass} required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClass}>Yetkili AVM</label>
+                <select 
+                  value={editForm.mall_id} onChange={e => setEditForm({...editForm, mall_id: e.target.value})}
+                  className={cn(inputClass, isMobile && "select-premium")}
+                >
+                  <option value="">AVM Seçilmedi (Bağımsız)</option>
+                  {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClass}>Şifre Değiştir (Opsiyonel)</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <input 
+                    type="password" value={editForm.password} onChange={e => setEditForm({...editForm, password: e.target.value})}
+                    placeholder="Yeni şifre (Boş bırakılırsa aynı kalır)" className={cn(inputClass, "pl-11")}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button 
+                  disabled={creating}
+                  className={cn(
+                    "w-full h-14 rounded-2xl flex items-center justify-center gap-3 font-bold text-base shadow-lg transition-all active:scale-[0.98] cursor-pointer",
+                    isMobile ? "bg-red-500 text-white shadow-red-500/20" : "bg-red-600 hover:bg-red-700 text-white"
+                  )}
+                >
+                  {creating ? <Loader2 size={20} className="animate-spin" /> : 'Değişiklikleri Kaydet'}
+                </button>
+              </div>
+            </form>
+          )}
+        </MobileBottomSheet>
       </main>
     </div>
   );

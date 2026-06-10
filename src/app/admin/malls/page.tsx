@@ -10,8 +10,11 @@ import {
   CheckCircle2, MapPin, User, Store, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { MobileBottomSheet } from '@/components/MobileBottomSheet';
 
 function MallsContent() {
+  const isMobile = useIsMobile();
   const { profile } = useAuth();
   const [malls, setMalls] = useState<Mall[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -175,15 +178,15 @@ function MallsContent() {
   const getMallBiz = (mallId: string) => businesses.filter(b => b.mall_id === mallId);
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-amoled lg:bg-transparent">
       <Sidebar role="admin" />
-      <main className="flex-1 lg:ml-72 transition-all duration-500">
+      <main className="flex-1 lg:ml-72 pb-24 lg:pb-0 transition-all duration-500 w-full overflow-x-hidden">
         <Topbar 
           title="AVM & İşletme Yönetimi" 
           subtitle={isRefreshing ? 'Yenileniyor...' : 'Müşteri şubelerini ve dükkan listelerini düzenleyin'} 
         />
 
-        <div className="p-6 lg:p-8 space-y-6 max-w-[1200px] mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-[1200px] mx-auto">
           {/* Error Banner */}
           {fetchError && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-500/5">
@@ -207,29 +210,29 @@ function MallsContent() {
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">AVM & Şubeler</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Sistemdeki tüm kayıtlı lokasyonlar</p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">AVM & Şubeler</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Sistemdeki tüm kayıtlı lokasyonlar</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <button 
                 onClick={() => fetchData(true)}
-                className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground"
+                className="p-3 rounded-xl sm:rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground"
                 title="Yenile"
               >
-                <RefreshCw size={18} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
+                <RefreshCw size={16} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
               </button>
-              <button onClick={() => setShowAddBiz(true)} className="btn-primary h-12 px-6 rounded-2xl flex items-center gap-2 text-sm font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-transform">
-                <PlusCircle size={18} /> İşletme Ekle
+              <button onClick={() => setShowAddBiz(true)} className="btn-primary h-11 px-4 sm:px-6 rounded-xl sm:rounded-2xl flex items-center gap-2 text-xs sm:text-sm font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-transform">
+                <PlusCircle size={16} /> İşletme Ekle
               </button>
             </div>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
             <input 
               type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="AVM ismine göre filtrele..."
-              className="w-full input-premium pl-11 py-3"
+              className={cn("w-full pl-11 py-3 bg-white/5 border text-sm text-white rounded-xl focus:border-red-500/50 focus:ring-0 outline-none", isMobile ? "bg-amoled-card border-white/5" : "input-premium")}
             />
           </div>
 
@@ -238,82 +241,82 @@ function MallsContent() {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : filteredMalls.length === 0 ? (
-            <div className="glass rounded-3xl flex flex-col items-center justify-center py-20 gap-3 border border-white/[0.04]">
+            <div className={cn("rounded-3xl flex flex-col items-center justify-center py-20 gap-3 border", isMobile ? "bg-amoled-card border-white/5" : "glass border-white/[0.04]")}>
               <Building2 className="w-12 h-12 text-muted-foreground/20" />
               <p className="text-sm text-muted-foreground">Kayıtlı AVM bulunamadı.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filteredMalls.map((mall, i) => {
                 const isOpen = expandedMall === mall.id;
                 const mallBiz = getMallBiz(mall.id);
                 return (
-                  <div key={mall.id} className="glass rounded-3xl overflow-hidden card-hover animate-fade-in group/card" style={{ animationDelay: `${i * 0.04}s` }}>
-                    <div className="flex items-center justify-between">
+                  <div key={mall.id} className={cn("rounded-2xl sm:rounded-3xl overflow-hidden card-hover animate-fade-in group/card border", isMobile ? "bg-amoled-card border-white/5" : "glass border-white/[0.04]")} style={{ animationDelay: `${i * 0.04}s` }}>
+                    <div className="flex items-center justify-between pr-3">
                       <button 
                         onClick={() => setExpandedMall(isOpen ? null : mall.id)}
-                        className="flex-1 px-6 py-5 flex items-center gap-6 text-left"
+                        className="flex-1 px-4 sm:px-6 py-4 sm:py-5 flex items-center gap-4 sm:gap-6 text-left"
                       >
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500/15 to-orange-500/10 border border-primary/10 flex items-center justify-center text-primary group-hover/card:scale-110 transition-transform">
-                          <Building2 size={24} />
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-red-500/15 to-orange-500/10 border border-primary/10 flex items-center justify-center text-primary group-hover/card:scale-110 transition-transform">
+                          <Building2 size={20} className="sm:hidden" /><Building2 size={24} className="hidden sm:block" />
                         </div>
-                        <div>
-                          <h3 className="font-bold text-lg leading-tight group-hover:text-red-400 transition-colors uppercase tracking-tight">{mall.name}</h3>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 font-medium"><MapPin size={12} className="text-red-400/60" /> {mall.address || 'Adres bilgisi yok'}</p>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-sm sm:text-base leading-tight group-hover:text-red-400 transition-colors uppercase tracking-tight truncate">{mall.name}</h3>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 mt-1 font-medium truncate"><MapPin size={10} className="text-red-400/60" /> {mall.address || 'Adres bilgisi yok'}</p>
                         </div>
-                        <div className="ml-auto flex items-center gap-4">
-                          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                            <Store size={12} /> {getBizCount(mall.id)} Kayıtlı Birim
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[9px] uppercase font-bold tracking-widest text-white/50">
+                            <Store size={10} /> {getBizCount(mall.id)} Birim
                           </div>
-                          <ChevronDown size={20} className={cn("text-muted-foreground transition-transform duration-300", isOpen && "rotate-180")} />
+                          <ChevronDown size={18} className={cn("text-white/40 transition-transform duration-300", isOpen && "rotate-180")} />
                         </div>
                       </button>
-                      <div className="pr-6 flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-all">
+                      <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-all shrink-0">
                         <button 
                           onClick={() => { setEditingMall(mall); setEditMallForm({ name: mall.name, address: mall.address || '', contact_person: mall.contact_person || '' }); setShowEditMall(true); }}
-                          className="p-2.5 rounded-xl hover:bg-white/[0.05] text-muted-foreground hover:text-red-400 font-bold"
+                          className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-white"
                         >
-                          <Edit3 size={16} />
+                          <Edit3 size={14} />
                         </button>
                         <button 
                           onClick={() => handleDeleteMall(mall.id)}
-                          className="p-2.5 rounded-xl hover:bg-white/[0.05] text-muted-foreground hover:text-red-400"
+                          className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-red-500"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
 
                     {isOpen && (
-                      <div className="border-t border-white/[0.04] p-6 pt-2 bg-gradient-to-b from-white/[0.02] to-transparent">
+                      <div className="border-t border-white/5 p-4 sm:p-6 pt-2 bg-gradient-to-b from-white/[0.01] to-transparent">
                         {mallBiz.length === 0 ? (
-                          <div className="py-8 text-center bg-white/[0.01] rounded-2xl border border-dashed border-white/[0.06]">
-                            <Store className="w-8 h-8 text-muted-foreground/10 mx-auto mb-2" />
-                            <p className="text-xs text-muted-foreground font-medium">Bu AVM henüz boş görünüyor</p>
+                          <div className="py-6 text-center bg-white/[0.01] rounded-xl border border-dashed border-white/5">
+                            <Store className="w-6 h-6 text-white/10 mx-auto mb-1.5" />
+                            <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Boş Mağaza Listesi</p>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                             {mallBiz.map(biz => (
-                              <div key={biz.id} className="flex items-center justify-between px-5 py-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-all group/biz">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
-                                  <div>
-                                    <p className="text-sm font-bold text-foreground/90 uppercase tracking-tight">{biz.name}</p>
-                                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">{biz.category || 'Dükkan'}</p>
+                              <div key={biz.id} className={cn("flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all group/biz", isMobile ? "bg-black/40 border-white/5" : "bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.04]")}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)] shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-white uppercase tracking-tight truncate">{biz.name}</p>
+                                    <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider mt-0.5">{biz.category || 'Dükkan'}</p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover/biz:opacity-100 transition-all">
+                                <div className="flex items-center gap-1 opacity-0 group-hover/biz:opacity-100 transition-all shrink-0">
                                   <button 
                                     onClick={() => { setEditingBiz(biz); setEditBizForm({ name: biz.name, category: biz.category || '' }); setShowEditBiz(true); }}
-                                    className="p-2 rounded-lg hover:bg-white/[0.05] text-muted-foreground hover:text-red-400"
+                                    className="p-1.5 rounded hover:bg-white/5 text-white/40 hover:text-white"
                                   >
-                                    <Edit3 size={13} />
+                                    <Edit3 size={12} />
                                   </button>
                                   <button 
                                     onClick={() => handleDeleteBiz(biz.id)}
-                                    className="p-2 rounded-lg hover:bg-white/[0.05] text-muted-foreground hover:text-red-400"
+                                    className="p-1.5 rounded hover:bg-white/5 text-white/40 hover:text-red-500"
                                   >
-                                    <Trash2 size={13} />
+                                    <Trash2 size={12} />
                                   </button>
                                 </div>
                               </div>
@@ -329,70 +332,60 @@ function MallsContent() {
           )}
         </div>
 
-        {/* MODALS */}
-        {showAddBiz && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowAddBiz(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-bold tracking-tight">İşletme Ekle</h3>
-                <button onClick={() => setShowAddBiz(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
-              </div>
-              <form onSubmit={handleAddBiz} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Konum (AVM) *</label>
-                  <select value={bizForm.mall_id} onChange={e => setBizForm({...bizForm, mall_id: e.target.value})} required className="w-full h-12 input-premium px-4 appearance-none">
-                    <option value="">AVM Seçin</option>
-                    {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">İşletme Adı *</label>
-                  <input value={bizForm.name} onChange={e => setBizForm({...bizForm, name: e.target.value})} required className="w-full h-12 input-premium px-4" placeholder="Örn: Burger King" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Kategori</label>
-                  <input value={bizForm.category} onChange={e => setBizForm({...bizForm, category: e.target.value})} className="w-full h-12 input-premium px-4" placeholder="Gıda / Mutfak" />
-                </div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4 shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all">
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /> Kaydet</>}
-                </button>
-              </form>
+        {/* Add Business Sheet / Modal */}
+        <MobileBottomSheet
+          isOpen={showAddBiz}
+          onClose={() => setShowAddBiz(false)}
+          title="İşletme Ekle"
+        >
+          <form onSubmit={handleAddBiz} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Konum (AVM) *</label>
+              <select value={bizForm.mall_id} onChange={e => setBizForm({...bizForm, mall_id: e.target.value})} required className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white select-premium">
+                <option value="">AVM Seçin</option>
+                {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
             </div>
-          </div>
-        )}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">İşletme Adı *</label>
+              <input value={bizForm.name} onChange={e => setBizForm({...bizForm, name: e.target.value})} required className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" placeholder="Örn: Burger King" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Kategori</label>
+              <input value={bizForm.category} onChange={e => setBizForm({...bizForm, category: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" placeholder="Gıda / Mutfak" />
+            </div>
+            <button type="submit" disabled={saving} className="w-full bg-red-500 text-white h-12 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer">
+              {saving ? <Loader2 size={18} className="animate-spin" /> : <><CheckCircle2 size={18} /> Kaydet</>}
+            </button>
+          </form>
+        </MobileBottomSheet>
 
-        {showEditMall && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowEditMall(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up border border-white/[0.06]" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-bold tracking-tight">AVM Bilgilerini Güncelle</h3>
-                <button onClick={() => setShowEditMall(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
-              </div>
-              <form onSubmit={handleUpdateMall} className="space-y-4">
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">AVM İsim</label><input value={editMallForm.name} onChange={e => setEditMallForm({...editMallForm, name: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">Adres</label><input value={editMallForm.address} onChange={e => setEditMallForm({...editMallForm, address: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">Yetkili</label><input value={editMallForm.contact_person} onChange={e => setEditMallForm({...editMallForm, contact_person: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4 shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all">{saving ? <Loader2 size={18} className="animate-spin" /> : 'Değişiklikleri Kaydet'}</button>
-              </form>
-            </div>
-          </div>
-        )}
+        {/* Edit Mall Sheet / Modal */}
+        <MobileBottomSheet
+          isOpen={showEditMall}
+          onClose={() => setShowEditMall(false)}
+          title="AVM Bilgilerini Güncelle"
+        >
+          <form onSubmit={handleUpdateMall} className="space-y-4">
+            <div className="space-y-1"><label className="text-[10px] font-bold uppercase text-white/40 ml-1">AVM İsim</label><input value={editMallForm.name} onChange={e => setEditMallForm({...editMallForm, name: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" /></div>
+            <div className="space-y-1"><label className="text-[10px] font-bold uppercase text-white/40 ml-1">Adres</label><input value={editMallForm.address} onChange={e => setEditMallForm({...editMallForm, address: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" /></div>
+            <div className="space-y-1"><label className="text-[10px] font-bold uppercase text-white/40 ml-1">Yetkili</label><input value={editMallForm.contact_person} onChange={e => setEditMallForm({...editMallForm, contact_person: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" /></div>
+            <button type="submit" disabled={saving} className="w-full bg-red-500 text-white h-12 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer">{saving ? <Loader2 size={18} className="animate-spin" /> : 'Değişiklikleri Kaydet'}</button>
+          </form>
+        </MobileBottomSheet>
 
-        {showEditBiz && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowEditBiz(false)}>
-            <div className="glass-strong rounded-3xl p-8 w-full max-w-md animate-scale-up border border-white/[0.06]" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-bold tracking-tight">İşletmeyi Düzenle</h3>
-                <button onClick={() => setShowEditBiz(false)} className="p-2.5 rounded-2xl hover:bg-white/[0.05] transition-colors flex items-center justify-center"><X size={20} /></button>
-              </div>
-              <form onSubmit={handleUpdateBiz} className="space-y-4">
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">İşletme Adı</label><input value={editBizForm.name} onChange={e => setEditBizForm({...editBizForm, name: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
-                <div className="space-y-1.5"><label className="text-xs font-bold uppercase text-muted-foreground ml-1">Kategori</label><input value={editBizForm.category} onChange={e => setEditBizForm({...editBizForm, category: e.target.value})} className="w-full h-12 input-premium px-4" /></div>
-                <button type="submit" disabled={saving} className="w-full btn-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 mt-4 shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all">{saving ? <Loader2 size={18} className="animate-spin" /> : 'Güncelle'}</button>
-              </form>
-            </div>
-          </div>
-        )}
+        {/* Edit Business Sheet / Modal */}
+        <MobileBottomSheet
+          isOpen={showEditBiz}
+          onClose={() => setShowEditBiz(false)}
+          title="İşletmeyi Düzenle"
+        >
+          <form onSubmit={handleUpdateBiz} className="space-y-4">
+            <div className="space-y-1"><label className="text-[10px] font-bold uppercase text-white/40 ml-1">İşletme Adı</label><input value={editBizForm.name} onChange={e => setEditBizForm({...editBizForm, name: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" /></div>
+            <div className="space-y-1"><label className="text-[10px] font-bold uppercase text-white/40 ml-1">Kategori</label><input value={editBizForm.category} onChange={e => setEditBizForm({...editBizForm, category: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" /></div>
+            <button type="submit" disabled={saving} className="w-full bg-red-500 text-white h-12 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer">{saving ? <Loader2 size={18} className="animate-spin" /> : 'Güncelle'}</button>
+          </form>
+        </MobileBottomSheet>
       </main>
     </div>
   );
@@ -401,3 +394,4 @@ function MallsContent() {
 export default function AdminMalls() {
   return <RouteGuard requiredRole="admin"><MallsContent /></RouteGuard>;
 }
+

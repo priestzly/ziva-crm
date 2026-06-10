@@ -35,15 +35,11 @@ export async function middleware(request: NextRequest) {
   const url = new URL(request.url);
   const pathname = url.pathname;
 
-  // Public route'lar — auth gerekmez
-  const publicPaths = ['/', '/login', '/signup', '/forgot-password'];
-  const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'));
-
-  // API route'lar da public
-  const isApiPath = pathname.startsWith('/api');
+  // Sadece /admin ve /client altındaki dashboard sayfalarını koruyalım
+  const isProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/client');
 
   // Protected route'lara session olmadan erişim → login'e yönlendir
-  if (!isPublicPath && !isApiPath && (!user || error)) {
+  if (isProtectedRoute && (!user || error)) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(redirectUrl);

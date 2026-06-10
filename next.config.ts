@@ -11,6 +11,45 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/contact-us',
+        destination: '/#iletisim',
+        permanent: true,
+      },
+      {
+        source: '/contact',
+        destination: '/#iletisim',
+        permanent: true,
+      },
+      {
+        source: '/about-us',
+        destination: '/#hakkimizda',
+        permanent: true,
+      },
+      {
+        source: '/about',
+        destination: '/#hakkimizda',
+        permanent: true,
+      },
+      {
+        source: '/building-maintenance',
+        destination: '/#hizmetler',
+        permanent: true,
+      },
+      {
+        source: '/kadromuz',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/yangin-sondurme-sistemleri',
+        destination: '/#hizmetler',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -9,6 +9,9 @@ import {
   Check, Eye, Edit3, ArrowUpRight, Download, Copy, Sparkles,
   GripVertical, ArrowDown, ArrowUp, Info, AlertCircle
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { MobileBottomSheet } from '@/components/MobileBottomSheet';
+import { cn } from '@/lib/utils';
 
 interface QuoteItem {
   id: string;
@@ -23,9 +26,24 @@ interface QuoteItem {
 type QuoteStep = 'client' | 'items' | 'preview';
 
 export default function QuoteBuilderPage() {
+  const isMobile = useIsMobile();
+  const [showMobilePreviewSheet, setShowMobilePreviewSheet] = useState(false);
   const [currentStep, setCurrentStep] = useState<QuoteStep>('client');
   const [isGenerating, setIsGenerating] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Styling helpers based on viewport
+  const cardClass = isMobile ? 'bg-amoled-card border border-white/5 rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-slate-100 overflow-hidden';
+  const inputClass = isMobile 
+    ? 'w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-white placeholder-white/30 transition-all'
+    : 'w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all text-slate-900 placeholder-slate-400';
+  const textareaClass = isMobile
+    ? 'w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-white placeholder-white/30 transition-all resize-none'
+    : 'w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all text-slate-900 placeholder-slate-400 resize-none';
+  const labelClass = isMobile ? 'text-[10px] font-bold text-white/40 uppercase tracking-widest' : 'text-xs font-semibold text-slate-500 uppercase tracking-wider';
+  const headerTextClass = isMobile ? 'font-bold text-white' : 'font-bold text-slate-900';
+  const sublabelTextClass = isMobile ? 'text-xs text-white/40' : 'text-xs text-slate-400';
+  const borderClass = isMobile ? 'border-white/5' : 'border-slate-50';
 
   // Form State
   const [quoteData, setQuoteData] = useState({
@@ -122,7 +140,7 @@ export default function QuoteBuilderPage() {
     <RouteGuard requiredRole="admin">
       <div className="min-h-screen flex bg-[hsl(var(--background))] print:bg-white">
         <Sidebar role="admin" />
-        <main className="flex-1 lg:ml-72 w-full overflow-hidden print:ml-0">
+        <main className="flex-1 lg:ml-72 pb-24 lg:pb-0 w-full overflow-hidden print:ml-0">
           <div className="print:hidden">
             <Topbar title="Teklif Oluşturucu" subtitle="Profesyonel fiyat teklifleri hazırlayın" />
           </div>
@@ -130,8 +148,11 @@ export default function QuoteBuilderPage() {
           <div className="p-4 lg:p-6 max-w-[1400px] mx-auto print:p-0">
             
             {/* Mobile Step Indicator */}
-            <div className="lg:hidden mb-6 print:hidden">
-              <div className="flex items-center justify-between bg-white rounded-2xl p-2 border border-slate-100">
+            <div className="lg:hidden mb-6 print:hidden animate-fade-in">
+              <div className={cn(
+                "flex items-center justify-between p-2 rounded-2xl border transition-all",
+                isMobile ? "bg-white/5 border-white/10" : "bg-white border-slate-100"
+              )}>
                 {steps.map((step, index) => {
                   const Icon = step.icon;
                   const isActive = step.id === currentStep;
@@ -140,13 +161,14 @@ export default function QuoteBuilderPage() {
                     <button
                       key={step.id}
                       onClick={() => setCurrentStep(step.id)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
                         isActive 
-                          ? 'bg-slate-900 text-white shadow-lg' 
+                          ? isMobile ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-slate-900 text-white shadow-lg' 
                           : isCompleted
-                            ? 'bg-slate-100 text-slate-600'
-                            : 'text-slate-400'
-                      }`}
+                            ? isMobile ? 'bg-white/10 text-white/80' : 'bg-slate-100 text-slate-600'
+                            : isMobile ? 'text-white/30' : 'text-slate-400'
+                      )}
                     >
                       <Icon size={14} />
                       <span className="hidden sm:inline">{step.label}</span>
@@ -200,53 +222,53 @@ export default function QuoteBuilderPage() {
                   {/* Main Form */}
                   <div className="lg:col-span-2 space-y-6">
                     {/* Teklif Bilgileri */}
-                    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                      <div className="p-5 border-b border-slate-50 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <div className={cardClass}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-blue-500/10 text-blue-400" : "bg-blue-55 text-blue-600 bg-blue-50")}>
                           <FileText size={18} />
                         </div>
                         <div>
-                          <h3 className="font-bold text-slate-900">Teklif Bilgileri</h3>
-                          <p className="text-xs text-slate-400">Teklif numarası ve tarih bilgileri</p>
+                          <h3 className={cn("font-bold", headerTextClass)}>Teklif Bilgileri</h3>
+                          <p className={sublabelTextClass}>Teklif numarası ve tarih bilgileri</p>
                         </div>
                       </div>
                       <div className="p-5 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Form Başlığı</label>
+                            <label className={labelClass}>Form Başlığı</label>
                             <input
                               value={quoteData.title}
                               onChange={e => setQuoteData({...quoteData, title: e.target.value})}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                              className={inputClass}
                               placeholder="TEKLİF FORMU"
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Teklif No</label>
+                            <label className={labelClass}>Teklif No</label>
                             <input
                               value={quoteData.quoteNo}
                               onChange={e => setQuoteData({...quoteData, quoteNo: e.target.value})}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                              className={inputClass}
                             />
                           </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tarih</label>
+                            <label className={labelClass}>Tarih</label>
                             <input
                               type="date"
                               value={quoteData.date}
                               onChange={e => setQuoteData({...quoteData, date: e.target.value})}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                              className={inputClass}
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Geçerlilik Tarihi</label>
+                            <label className={labelClass}>Geçerlilik Tarihi</label>
                             <input
                               type="date"
                               value={quoteData.validUntil}
                               onChange={e => setQuoteData({...quoteData, validUntil: e.target.value})}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                              className={inputClass}
                             />
                           </div>
                         </div>
@@ -254,72 +276,72 @@ export default function QuoteBuilderPage() {
                     </div>
 
                     {/* Müşteri Bilgileri */}
-                    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                      <div className="p-5 border-b border-slate-50 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <div className={cardClass}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600")}>
                           <User size={18} />
                         </div>
                         <div>
-                          <h3 className="font-bold text-slate-900">Müşteri Bilgileri</h3>
-                          <p className="text-xs text-slate-400">Teklif yapılacak müşteri detayları</p>
+                          <h3 className={cn("font-bold", headerTextClass)}>Müşteri Bilgileri</h3>
+                          <p className={sublabelTextClass}>Teklif yapılacak müşteri detayları</p>
                         </div>
                       </div>
                       <div className="p-5 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2 sm:col-span-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Firma / Ad Soyad</label>
+                            <label className={labelClass}>Firma / Ad Soyad</label>
                             <input
                               value={quoteData.clientName}
                               onChange={e => setQuoteData({...quoteData, clientName: e.target.value})}
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                              className={inputClass}
                               placeholder="Müşteri firma adı veya kişi adı"
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Telefon</label>
+                            <label className={labelClass}>Telefon</label>
                             <div className="relative">
-                              <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
                               <input
                                 value={quoteData.clientPhone}
                                 onChange={e => setQuoteData({...quoteData, clientPhone: e.target.value})}
-                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                                className={cn(inputClass, "pl-11")}
                                 placeholder="0(5XX) XXX XX XX"
                               />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">E-posta</label>
+                            <label className={labelClass}>E-posta</label>
                             <div className="relative">
-                              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
                               <input
                                 type="email"
                                 value={quoteData.clientEmail}
                                 onChange={e => setQuoteData({...quoteData, clientEmail: e.target.value})}
-                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                                className={cn(inputClass, "pl-11")}
                                 placeholder="ornek@email.com"
                               />
                             </div>
                           </div>
                           <div className="space-y-2 sm:col-span-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Adres</label>
+                            <label className={labelClass}>Adres</label>
                             <div className="relative">
-                              <MapPin size={16} className="absolute left-4 top-4 text-slate-400" />
+                              <MapPin size={16} className="absolute left-4 top-4 text-slate-400/80" />
                               <textarea
                                 value={quoteData.clientAddress}
                                 onChange={e => setQuoteData({...quoteData, clientAddress: e.target.value})}
-                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all resize-none h-24"
+                                className={cn(textareaClass, "pl-11 h-24")}
                                 placeholder="Müşteri adresi..."
                               />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Vergi No</label>
+                            <label className={labelClass}>Vergi No</label>
                             <div className="relative">
-                              <Hash size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <Hash size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
                               <input
                                 value={quoteData.clientTaxNo}
                                 onChange={e => setQuoteData({...quoteData, clientTaxNo: e.target.value})}
-                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                                className={cn(inputClass, "pl-11")}
                                 placeholder="Vergi numarası"
                               />
                             </div>
@@ -332,39 +354,43 @@ export default function QuoteBuilderPage() {
                   {/* Sidebar */}
                   <div className="space-y-6">
                     {/* KDV Ayarları */}
-                    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                      <div className="p-5 border-b border-slate-50 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <div className={cardClass}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-600")}>
                           <Settings size={18} />
                         </div>
                         <div>
-                          <h3 className="font-bold text-slate-900">Vergi Ayarları</h3>
-                          <p className="text-xs text-slate-400">KDV oranı ve uygulama</p>
+                          <h3 className={cn("font-bold", headerTextClass)}>Vergi Ayarları</h3>
+                          <p className={sublabelTextClass}>KDV oranı ve uygulama</p>
                         </div>
                       </div>
                       <div className="p-5 space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                        <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-white/5 border border-white/10" : "bg-slate-50")}>
                           <div>
-                            <p className="text-sm font-semibold text-slate-700">KDV Uygula</p>
-                            <p className="text-xs text-slate-400">Fi yatlara KDV dahil mi?</p>
+                            <p className={cn("text-sm font-semibold", isMobile ? "text-white" : "text-slate-700")}>KDV Uygula</p>
+                            <p className="text-xs text-muted-foreground">Fiyatlara KDV dahil mi?</p>
                           </div>
                           <button
+                            type="button"
                             onClick={() => setIsTaxIncluded(!isTaxIncluded)}
-                            className={`w-12 h-7 rounded-full transition-all relative ${
-                              isTaxIncluded ? 'bg-emerald-500' : 'bg-slate-300'
-                            }`}
+                            className={cn(
+                              "w-12 h-7 rounded-full transition-all relative cursor-pointer",
+                              isTaxIncluded ? 'bg-red-500' : 'bg-slate-300 dark:bg-white/10'
+                            )}
                           >
-                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm ${
+                            <div className={cn(
+                              "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
                               isTaxIncluded ? 'left-6' : 'left-1'
-                            }`} />
+                            )} />
                           </button>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">KDV Oranı (%)</label>
+                          <label className={labelClass}>KDV Oranı (%)</label>
                           <div className="flex items-center gap-3">
                             <button 
+                              type="button"
                               onClick={() => setTaxRate(Math.max(0, taxRate - 1))}
-                              className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors"
+                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-white/5 border border-white/10 text-white hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                             >
                               -
                             </button>
@@ -372,11 +398,15 @@ export default function QuoteBuilderPage() {
                               type="number"
                               value={taxRate}
                               onChange={e => setTaxRate(Number(e.target.value))}
-                              className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                              className={cn(
+                                "flex-1 px-4 py-3 text-center text-lg font-bold focus:outline-none focus:ring-2 transition-all rounded-xl",
+                                isMobile ? "bg-white/5 border border-white/10 text-white focus:ring-red-500/50" : "bg-slate-50 border border-slate-100 focus:ring-slate-900/10 focus:border-slate-900"
+                              )}
                             />
                             <button 
+                              type="button"
                               onClick={() => setTaxRate(taxRate + 1)}
-                              className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors"
+                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-white/5 border border-white/10 text-white hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                             >
                               +
                             </button>
@@ -386,32 +416,32 @@ export default function QuoteBuilderPage() {
                     </div>
 
                     {/* Notlar */}
-                    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                      <div className="p-5 border-b border-slate-50 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <div className={cardClass}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-purple-500/10 text-purple-400" : "bg-purple-50 text-purple-600")}>
                           <FileText size={18} />
                         </div>
                         <div>
-                          <h3 className="font-bold text-slate-900">Notlar & Şartlar</h3>
-                          <p className="text-xs text-slate-400">Teklif alt bilgisi</p>
+                          <h3 className={cn("font-bold", headerTextClass)}>Notlar & Şartlar</h3>
+                          <p className={sublabelTextClass}>Teklif alt bilgisi</p>
                         </div>
                       </div>
                       <div className="p-5 space-y-4">
                         <div className="space-y-2">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Notlar</label>
+                          <label className={labelClass}>Notlar</label>
                           <textarea
                             value={quoteData.notes}
                             onChange={e => setQuoteData({...quoteData, notes: e.target.value})}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all resize-none h-20"
+                            className={cn(textareaClass, "h-20")}
                             placeholder="Ek notlar..."
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Şartlar</label>
+                          <label className={labelClass}>Şartlar</label>
                           <textarea
                             value={quoteData.terms}
                             onChange={e => setQuoteData({...quoteData, terms: e.target.value})}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all resize-none h-20"
+                            className={cn(textareaClass, "h-20")}
                             placeholder="Teklif şartları..."
                           />
                         </div>
@@ -424,7 +454,12 @@ export default function QuoteBuilderPage() {
                 <div className="mt-6 flex justify-end print:hidden">
                   <button
                     onClick={() => setCurrentStep('items')}
-                    className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-[0.98]"
+                    className={cn(
+                      "flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] cursor-pointer shadow-xl",
+                      isMobile 
+                        ? "bg-red-500 text-white hover:bg-red-600 shadow-red-500/20 w-full justify-center" 
+                        : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/10"
+                    )}
                   >
                     Devam Et <ChevronRight size={18} />
                   </button>
@@ -435,21 +470,26 @@ export default function QuoteBuilderPage() {
             {/* STEP 2: ITEMS */}
             {currentStep === 'items' && (
               <div className="animate-fade-in print:hidden">
-                <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                <div className={cardClass}>
                   {/* Header */}
-                  <div className="p-5 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className={cn("p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4", borderClass, isMobile && "bg-white/[0.01]")}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-red-500/10 text-red-500" : "bg-slate-900 text-white")}>
                         <FileText size={18} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900">Teklif Kalemleri</h3>
-                        <p className="text-xs text-slate-400">{items.length} kalem • Toplam: {grandTotal.toLocaleString('tr-TR')} ₺</p>
+                        <h3 className={cn("font-bold", headerTextClass)}>Teklif Kalemleri</h3>
+                        <p className={sublabelTextClass}>{items.length} kalem • Toplam: {grandTotal.toLocaleString('tr-TR')} ₺</p>
                       </div>
                     </div>
                     <button
                       onClick={addItem}
-                      className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all active:scale-95"
+                      className={cn(
+                        "flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 cursor-pointer",
+                        isMobile
+                          ? "bg-red-500 text-white shadow-lg shadow-red-500/20 w-full sm:w-auto justify-center"
+                          : "bg-slate-900 text-white hover:bg-slate-800"
+                      )}
                     >
                       <Plus size={16} /> Yeni Kalem
                     </button>
@@ -467,9 +507,9 @@ export default function QuoteBuilderPage() {
                   </div>
 
                   {/* Items List */}
-                  <div className="divide-y divide-slate-50">
+                  <div className={cn("divide-y", isMobile ? "divide-white/5" : "divide-slate-50")}>
                     {items.map((item, index) => (
-                      <div key={item.id} className="group p-4 lg:px-5 lg:py-4 hover:bg-slate-50/50 transition-colors">
+                      <div key={item.id} className={cn("group p-4 lg:px-5 lg:py-4 transition-colors", isMobile ? "hover:bg-white/[0.01]" : "hover:bg-slate-50/50")}>
                         {/* Mobile Layout */}
                         <div className="lg:hidden space-y-4">
                           <div className="flex items-center justify-between">
@@ -478,32 +518,32 @@ export default function QuoteBuilderPage() {
                                 <button 
                                   onClick={() => moveItem(index, 'up')}
                                   disabled={index === 0}
-                                  className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 transition-colors"
+                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-white disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
                                 >
                                   <ArrowUp size={14} />
                                 </button>
                                 <button 
                                   onClick={() => moveItem(index, 'down')}
                                   disabled={index === items.length - 1}
-                                  className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 transition-colors"
+                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-white disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
                                 >
                                   <ArrowDown size={14} />
                                 </button>
                               </div>
-                              <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                              <span className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold", isMobile ? "bg-white/5 text-white/60 border border-white/5" : "bg-slate-100 text-slate-500")}>
                                 {index + 1}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <button 
                                 onClick={() => duplicateItem(item.id)}
-                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500 rounded-lg transition-colors"
+                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-blue-400 hover:bg-white/5" : "text-slate-300 hover:text-blue-500")}
                               >
                                 <Copy size={14} />
                               </button>
                               <button 
                                 onClick={() => removeItem(item.id)}
-                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg transition-colors"
+                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-red-400 hover:bg-white/5" : "text-slate-300 hover:text-red-500")}
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -512,31 +552,36 @@ export default function QuoteBuilderPage() {
                           
                           <input
                             placeholder="Ürün / Hizmet adı"
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                            className={inputClass}
                             value={item.name}
                             onChange={e => updateItem(item.id, 'name', e.target.value)}
                           />
                           <input
                             placeholder="Açıklama (opsiyonel)"
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                            className={inputClass}
                             value={item.description}
                             onChange={e => updateItem(item.id, 'description', e.target.value)}
                           />
                           
                           <div className="grid grid-cols-3 gap-3">
                             <div>
-                              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Adet</label>
+                              <label className={labelClass}>Adet</label>
                               <input
                                 type="number"
-                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                                className={inputClass}
                                 value={item.quantity}
                                 onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Birim</label>
+                              <label className={labelClass}>Birim</label>
                               <select
-                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                                className={cn(
+                                  "w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all",
+                                  isMobile 
+                                    ? "bg-white/5 border border-white/10 text-white focus:ring-red-500/50 select-premium" 
+                                    : "bg-slate-50 border border-slate-100 focus:ring-slate-900/10 focus:border-slate-900 text-slate-900"
+                                )}
                                 value={item.unit}
                                 onChange={e => updateItem(item.id, 'unit', e.target.value)}
                               >
@@ -550,10 +595,10 @@ export default function QuoteBuilderPage() {
                               </select>
                             </div>
                             <div>
-                              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">İndirim %</label>
+                              <label className={labelClass}>İndirim %</label>
                               <input
                                 type="number"
-                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                                className={inputClass}
                                 value={item.discount}
                                 onChange={e => updateItem(item.id, 'discount', Number(e.target.value))}
                               />
@@ -561,18 +606,18 @@ export default function QuoteBuilderPage() {
                           </div>
                           
                           <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Birim Fiyat (₺)</label>
+                            <label className={labelClass}>Birim Fiyat (₺)</label>
                             <input
                               type="number"
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm text-right focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+                              className={inputClass}
                               value={item.price}
                               onChange={e => updateItem(item.id, 'price', Number(e.target.value))}
                             />
                           </div>
                           
-                          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                            <span className="text-xs font-semibold text-slate-500">Satır Toplamı</span>
-                            <span className="text-xl font-black text-slate-900">{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
+                          <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-white/5 border border-white/10" : "bg-slate-55 bg-slate-50")}>
+                            <span className={cn("text-xs font-semibold", isMobile ? "text-white/40" : "text-slate-500")}>Satır Toplamı</span>
+                            <span className={cn("text-xl font-black", isMobile ? "text-white" : "text-slate-900")}>{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
                           </div>
                         </div>
 
@@ -582,14 +627,14 @@ export default function QuoteBuilderPage() {
                             <button 
                               onClick={() => moveItem(index, 'up')}
                               disabled={index === 0}
-                              className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 rounded-lg transition-colors"
+                              className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
                             >
                               <ArrowUp size={14} />
                             </button>
                             <button 
                               onClick={() => moveItem(index, 'down')}
                               disabled={index === items.length - 1}
-                              className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 rounded-lg transition-colors"
+                              className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
                             >
                               <ArrowDown size={14} />
                             </button>
@@ -657,13 +702,13 @@ export default function QuoteBuilderPage() {
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button 
                                 onClick={() => duplicateItem(item.id)}
-                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500 rounded-lg transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500 rounded-lg transition-colors cursor-pointer"
                               >
                                 <Copy size={14} />
                               </button>
                               <button 
                                 onClick={() => removeItem(item.id)}
-                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg transition-colors"
+                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -675,15 +720,15 @@ export default function QuoteBuilderPage() {
                   </div>
 
                   {/* Summary */}
-                  <div className="p-5 bg-slate-50 border-t border-slate-100">
+                  <div className={cn("p-5 border-t", isMobile ? "bg-white/[0.01] border-white/5" : "bg-slate-50 border-slate-100")}>
                     <div className="max-w-sm ml-auto space-y-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-500">Ara Toplam</span>
-                        <span className="font-bold text-slate-900">{subtotal.toLocaleString('tr-TR')} ₺</span>
+                        <span className={isMobile ? "text-white/40" : "text-slate-500"}>Ara Toplam</span>
+                        <span className={cn("font-bold", isMobile ? "text-white" : "text-slate-900")}>{subtotal.toLocaleString('tr-TR')} ₺</span>
                       </div>
                       {totalDiscount > 0 && (
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-emerald-600 flex items-center gap-1">
+                          <span className="text-emerald-600 flex items-center gap-1 font-bold">
                             <ArrowDown size={12} /> İndirim
                           </span>
                           <span className="font-bold text-emerald-600">-{totalDiscount.toLocaleString('tr-TR')} ₺</span>
@@ -691,13 +736,13 @@ export default function QuoteBuilderPage() {
                       )}
                       {isTaxIncluded && (
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-500">KDV (%{taxRate})</span>
-                          <span className="font-bold text-slate-900">{taxAmount.toLocaleString('tr-TR')} ₺</span>
+                          <span className={isMobile ? "text-white/40" : "text-slate-500"}>KDV (%{taxRate})</span>
+                          <span className={cn("font-bold", isMobile ? "text-white" : "text-slate-900")}>{taxAmount.toLocaleString('tr-TR')} ₺</span>
                         </div>
                       )}
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-                        <span className="text-base font-bold text-slate-700">Genel Toplam</span>
-                        <span className="text-3xl font-black text-slate-900">{grandTotal.toLocaleString('tr-TR')} ₺</span>
+                      <div className={cn("flex items-center justify-between pt-3 border-t", isMobile ? "border-white/10" : "border-slate-200")}>
+                        <span className={cn("text-base font-bold", isMobile ? "text-white/60" : "text-slate-700")}>Genel Toplam</span>
+                        <span className={cn("text-3xl font-black", isMobile ? "text-white font-black" : "text-slate-900 font-black")}>{grandTotal.toLocaleString('tr-TR')} ₺</span>
                       </div>
                     </div>
                   </div>
@@ -707,13 +752,23 @@ export default function QuoteBuilderPage() {
                 <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4 print:hidden">
                   <button
                     onClick={() => setCurrentStep('client')}
-                    className="flex items-center justify-center gap-2 px-6 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all"
+                    className={cn(
+                      "flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all cursor-pointer",
+                      isMobile 
+                        ? "bg-white/5 border border-white/10 text-white hover:bg-white/10 w-full" 
+                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    )}
                   >
                     <ChevronLeft size={18} /> Geri
                   </button>
                   <button
                     onClick={() => setCurrentStep('preview')}
-                    className="flex items-center justify-center gap-2 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
+                    className={cn(
+                      "flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-sm transition-all shadow-xl cursor-pointer",
+                      isMobile 
+                        ? "bg-red-500 text-white hover:bg-red-600 shadow-red-500/20 w-full" 
+                        : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/10"
+                    )}
                   >
                     Önizle <Eye size={18} />
                   </button>
@@ -728,15 +783,34 @@ export default function QuoteBuilderPage() {
                 <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
                   <button
                     onClick={() => setCurrentStep('items')}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all"
+                    className={cn(
+                      "flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer",
+                      isMobile 
+                        ? "bg-white/5 border border-white/10 text-white hover:bg-white/10 w-full" 
+                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    )}
                   >
                     <ChevronLeft size={18} /> Düzenle
                   </button>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {isMobile && (
+                      <button
+                        type="button"
+                        onClick={() => setShowMobilePreviewSheet(true)}
+                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-500/20 transition-all active:scale-[0.98] cursor-pointer"
+                      >
+                        <Eye size={18} /> A4 Belgeyi Önizle
+                      </button>
+                    )}
                     <button
                       onClick={handlePrint}
                       disabled={isGenerating}
-                      className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-[0.98] disabled:opacity-50"
+                      className={cn(
+                        "flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 cursor-pointer",
+                        isMobile 
+                          ? "flex-1 bg-red-500 text-white shadow-red-500/20" 
+                          : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/10"
+                      )}
                     >
                       {isGenerating ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -748,133 +822,291 @@ export default function QuoteBuilderPage() {
                   </div>
                 </div>
 
-                {/* Preview Card */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden">
-                  <div ref={printRef} id="quote-preview" className="p-8 md:p-12 lg:p-16">
-                    {/* Header */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-8 pb-8 border-b-2 border-slate-900">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-white border border-slate-100 rounded-xl p-1">
-                          <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
-                        </div>
-                        <div>
-                          <h2 className="text-lg font-black uppercase tracking-tight">ZIVA <span className="text-red-500">FIRE</span></h2>
-                          <p className="text-[8px] uppercase tracking-[0.3em] text-slate-400 font-bold">Teknik Servis & Güvenlik Sistemleri</p>
+                {isMobile ? (
+                  /* AMOLED Mobile Summary Card */
+                  <div className="space-y-4 animate-fade-in">
+                    <div className={cardClass}>
+                      <div className="p-5 border-b border-white/5 bg-white/[0.01]">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-red-500">Özet Rapor</p>
+                        <h3 className="text-lg font-black text-white mt-1 uppercase">{quoteData.title}</h3>
+                        <div className="flex justify-between items-center text-xs text-white/40 mt-2">
+                          <span>No: {quoteData.quoteNo}</span>
+                          <span>Tarih: {new Date(quoteData.date).toLocaleDateString('tr-TR')}</span>
                         </div>
                       </div>
-                      <div className="text-left sm:text-right">
-                        <p className="text-xl font-black text-slate-900 uppercase">{quoteData.title}</p>
-                        <div className="flex flex-wrap gap-4 mt-1">
-                          <span className="text-[10px] font-bold text-slate-500">No: {quoteData.quoteNo}</span>
-                          <span className="text-[10px] font-bold text-slate-500">Tarih: {new Date(quoteData.date).toLocaleDateString('tr-TR')}</span>
+                      
+                      <div className="p-5 space-y-4">
+                        {/* Client details summary */}
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Müşteri</p>
+                          <p className="text-base font-black text-white">{quoteData.clientName || '—'}</p>
+                          {quoteData.clientAddress && <p className="text-sm text-white/60">{quoteData.clientAddress}</p>}
+                          {(quoteData.clientPhone || quoteData.clientEmail) && (
+                            <div className="text-xs text-white/40 space-y-0.5 mt-2">
+                              {quoteData.clientPhone && <p>Tel: {quoteData.clientPhone}</p>}
+                              {quoteData.clientEmail && <p>E-posta: {quoteData.clientEmail}</p>}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Client Info */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 py-8">
-                      <div className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-red-500">Sayın Müşteri</p>
-                        <p className="text-base font-black text-slate-900">{quoteData.clientName || '—'}</p>
-                        {quoteData.clientAddress && <p className="text-[11px] text-slate-500">{quoteData.clientAddress}</p>}
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                          {quoteData.clientPhone && <p className="text-[11px] text-slate-500 flex items-center gap-1"><Phone size={10} /> {quoteData.clientPhone}</p>}
-                          {quoteData.clientEmail && <p className="text-[11px] text-slate-500 flex items-center gap-1"><Mail size={10} /> {quoteData.clientEmail}</p>}
-                          {quoteData.clientTaxNo && <p className="text-[11px] text-slate-500 flex items-center gap-1"><Hash size={10} /> VN: {quoteData.clientTaxNo}</p>}
-                        </div>
-                      </div>
-                      <div className="text-left sm:text-right space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-slate-300">Geçerlilik</p>
-                        <p className="text-[11px] font-bold text-slate-900">{new Date(quoteData.validUntil).toLocaleDateString('tr-TR')}</p>
-                      </div>
-                    </div>
+                        <div className="h-px bg-white/5" />
 
-                    {/* Table */}
-                    <div className="rounded-xl overflow-hidden border border-slate-100 my-8">
-                      <table className="w-full text-[11px]">
-                        <thead>
-                          <tr className="bg-slate-900 text-white">
-                            <th className="py-2.5 px-4 text-center font-bold text-[8px] uppercase tracking-wider">#</th>
-                            <th className="py-2.5 px-4 text-left font-bold text-[8px] uppercase tracking-wider">Ürün / Hizmet</th>
-                            <th className="py-2.5 px-3 text-center font-bold text-[8px] uppercase tracking-wider">Adet</th>
-                            <th className="py-2.5 px-3 text-right font-bold text-[8px] uppercase tracking-wider">Birim</th>
-                            {items.some(i => i.discount > 0) && (
-                              <th className="py-2.5 px-3 text-center font-bold text-[8px] uppercase tracking-wider">İnd.</th>
-                            )}
-                            <th className="py-2.5 px-4 text-right font-bold text-[8px] uppercase tracking-wider">Toplam</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {items.map((item, i) => (
-                            <tr key={item.id} className="bg-white">
-                              <td className="py-2.5 px-4 text-center font-bold text-slate-300">{i + 1}</td>
-                              <td className="py-2.5 px-4">
-                                <p className="font-semibold text-slate-900">{item.name || '—'}</p>
-                                {item.description && <p className="text-[9px] text-slate-400">{item.description}</p>}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-semibold">{item.quantity} {item.unit}</td>
-                              <td className="py-2.5 px-3 text-right font-semibold">{item.price.toLocaleString('tr-TR')} ₺</td>
-                              {items.some(it => it.discount > 0) && (
-                                <td className="py-2.5 px-3 text-center text-emerald-600 font-semibold text-[10px]">%{item.discount}</td>
-                              )}
-                              <td className="py-2.5 px-4 text-right font-bold text-slate-900">{getItemTotal(item).toLocaleString('tr-TR')} ₺</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-slate-50">
-                            <td colSpan={3}></td>
-                            <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-slate-500">Ara Toplam</td>
-                            {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
-                            <td className="py-2.5 px-4 text-right font-bold text-slate-900">{subtotal.toLocaleString('tr-TR')} ₺</td>
-                          </tr>
+                        {/* Items list summary */}
+                        <div className="space-y-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Kalemler ({items.length})</p>
+                          <div className="space-y-2">
+                            {items.map((item, idx) => (
+                              <div key={item.id} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex justify-between items-center text-sm">
+                                <div className="min-w-0 flex-1 pr-3">
+                                  <p className="font-bold text-white truncate">{item.name || `Kalem #${idx+1}`}</p>
+                                  <p className="text-xs text-white/40 truncate">{item.quantity} {item.unit} x {item.price.toLocaleString('tr-TR')} ₺ {item.discount > 0 && `( -%${item.discount} )`}</p>
+                                </div>
+                                <span className="font-black text-white shrink-0">{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="h-px bg-white/5" />
+
+                        {/* Totals summary */}
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between text-white/40">
+                            <span>Ara Toplam</span>
+                            <span>{subtotal.toLocaleString('tr-TR')} ₺</span>
+                          </div>
                           {totalDiscount > 0 && (
-                            <tr className="bg-slate-50/50">
-                              <td colSpan={3}></td>
-                              <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-emerald-600">İndirim</td>
-                              {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
-                              <td className="py-2.5 px-4 text-right font-bold text-emerald-600">-{totalDiscount.toLocaleString('tr-TR')} ₺</td>
-                            </tr>
+                            <div className="flex justify-between text-emerald-400 font-bold">
+                              <span>İndirim</span>
+                              <span>-{totalDiscount.toLocaleString('tr-TR')} ₺</span>
+                            </div>
                           )}
                           {isTaxIncluded && (
-                            <tr className="bg-slate-50/50">
-                              <td colSpan={3}></td>
-                              <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-slate-400">KDV (%{taxRate})</td>
-                              {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
-                              <td className="py-2.5 px-4 text-right font-bold text-slate-900">{taxAmount.toLocaleString('tr-TR')} ₺</td>
-                            </tr>
+                            <div className="flex justify-between text-white/40">
+                              <span>KDV (%{taxRate})</span>
+                              <span>{taxAmount.toLocaleString('tr-TR')} ₺</span>
+                            </div>
                           )}
-                          <tr className="bg-slate-900 text-white">
-                            <td colSpan={3}></td>
-                            <td className="py-3 px-4 text-right text-[8px] font-bold uppercase tracking-widest">Genel Toplam</td>
-                            {items.some(i => i.discount > 0) && <td className="py-3 px-4"></td>}
-                            <td className="py-3 px-4 text-right text-lg font-black text-red-400">{grandTotal.toLocaleString('tr-TR')} ₺</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-
-                    {/* Notes & KDV Status */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 pt-8 border-t border-slate-100">
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Ödeme & Vergi</p>
-                        <p className="text-xs text-slate-600 font-bold">* Bu teklifteki tutarlara KDV {isTaxIncluded ? 'dahildir' : 'dahil değildir'}.</p>
-                        {quoteData.notes && <p className="text-xs text-slate-600 italic mt-2">{quoteData.notes}</p>}
-                      </div>
-                      {quoteData.terms && (
-                        <div>
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Şartlar</p>
-                          <p className="text-xs text-slate-600 italic">{quoteData.terms}</p>
+                          <div className="flex justify-between items-center pt-2 border-t border-white/10 text-white font-black text-lg">
+                            <span>Genel Toplam</span>
+                            <span className="text-2xl text-red-400">{grandTotal.toLocaleString('tr-TR')} ₺</span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="mt-12 pt-6 border-t border-slate-100 text-center">
-                      <p className="text-[9px] text-slate-400 font-bold">Ziva Fire Sistemleri • 0850 123 45 67 • info@zivafire.com</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Preview Card */
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden text-slate-900">
+                    <div ref={printRef} id="quote-preview" className="p-8 md:p-12 lg:p-16">
+                      {/* Header */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-8 pb-8 border-b-2 border-slate-900">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 bg-white border border-slate-100 rounded-xl p-1">
+                            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                          </div>
+                          <div>
+                            <h2 className="text-lg font-black uppercase tracking-tight">ZIVA <span className="text-red-500">FIRE</span></h2>
+                            <p className="text-[8px] uppercase tracking-[0.3em] text-slate-400 font-bold">Teknik Servis & Güvenlik Sistemleri</p>
+                          </div>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <p className="text-xl font-black text-slate-900 uppercase">{quoteData.title}</p>
+                          <div className="flex flex-wrap gap-4 mt-1">
+                            <span className="text-[10px] font-bold text-slate-500">No: {quoteData.quoteNo}</span>
+                            <span className="text-[10px] font-bold text-slate-500">Tarih: {new Date(quoteData.date).toLocaleDateString('tr-TR')}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Client Info */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 py-8">
+                        <div className="space-y-1">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-red-500">Sayın Müşteri</p>
+                          <p className="text-base font-black text-slate-900">{quoteData.clientName || '—'}</p>
+                          {quoteData.clientAddress && <p className="text-[11px] text-slate-500">{quoteData.clientAddress}</p>}
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                            {quoteData.clientPhone && <p className="text-[11px] text-slate-500 flex items-center gap-1"><Phone size={10} /> {quoteData.clientPhone}</p>}
+                            {quoteData.clientEmail && <p className="text-[11px] text-slate-500 flex items-center gap-1"><Mail size={10} /> {quoteData.clientEmail}</p>}
+                            {quoteData.clientTaxNo && <p className="text-[11px] text-slate-500 flex items-center gap-1"><Hash size={10} /> VN: {quoteData.clientTaxNo}</p>}
+                          </div>
+                        </div>
+                        <div className="text-left sm:text-right space-y-1">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-300">Geçerlilik</p>
+                          <p className="text-[11px] font-bold text-slate-900">{new Date(quoteData.validUntil).toLocaleDateString('tr-TR')}</p>
+                        </div>
+                      </div>
+
+                      {/* Table */}
+                      <div className="rounded-xl overflow-hidden border border-slate-100 my-8">
+                        <table className="w-full text-[11px]">
+                          <thead>
+                            <tr className="bg-slate-900 text-white">
+                              <th className="py-2.5 px-4 text-center font-bold text-[8px] uppercase tracking-wider">#</th>
+                              <th className="py-2.5 px-4 text-left font-bold text-[8px] uppercase tracking-wider">Ürün / Hizmet</th>
+                              <th className="py-2.5 px-3 text-center font-bold text-[8px] uppercase tracking-wider">Adet</th>
+                              <th className="py-2.5 px-3 text-right font-bold text-[8px] uppercase tracking-wider">Birim</th>
+                              {items.some(i => i.discount > 0) && (
+                                <th className="py-2.5 px-3 text-center font-bold text-[8px] uppercase tracking-wider">İnd.</th>
+                              )}
+                              <th className="py-2.5 px-4 text-right font-bold text-[8px] uppercase tracking-wider">Toplam</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {items.map((item, i) => (
+                              <tr key={item.id} className="bg-white">
+                                <td className="py-2.5 px-4 text-center font-bold text-slate-300">{i + 1}</td>
+                                <td className="py-2.5 px-4">
+                                  <p className="font-semibold text-slate-900">{item.name || '—'}</p>
+                                  {item.description && <p className="text-[9px] text-slate-400">{item.description}</p>}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-semibold">{item.quantity} {item.unit}</td>
+                                <td className="py-2.5 px-3 text-right font-semibold">{item.price.toLocaleString('tr-TR')} ₺</td>
+                                {items.some(it => it.discount > 0) && (
+                                  <td className="py-2.5 px-3 text-center text-emerald-600 font-semibold text-[10px]">%{item.discount}</td>
+                                )}
+                                <td className="py-2.5 px-4 text-right font-bold text-slate-900">{getItemTotal(item).toLocaleString('tr-TR')} ₺</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-50">
+                              <td colSpan={3}></td>
+                              <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-slate-500">Ara Toplam</td>
+                              {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
+                              <td className="py-2.5 px-4 text-right font-bold text-slate-900">{subtotal.toLocaleString('tr-TR')} ₺</td>
+                            </tr>
+                            {totalDiscount > 0 && (
+                              <tr className="bg-slate-50/50">
+                                <td colSpan={3}></td>
+                                <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-emerald-600">İndirim</td>
+                                {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
+                                <td className="py-2.5 px-4 text-right font-bold text-emerald-600">-{totalDiscount.toLocaleString('tr-TR')} ₺</td>
+                              </tr>
+                            )}
+                            {isTaxIncluded && (
+                              <tr className="bg-slate-50/50">
+                                <td colSpan={3}></td>
+                                <td className="py-2.5 px-4 text-right text-[8px] font-bold uppercase tracking-wider text-slate-400">KDV (%{taxRate})</td>
+                                {items.some(i => i.discount > 0) && <td className="py-2.5 px-4"></td>}
+                                <td className="py-2.5 px-4 text-right font-bold text-slate-900">{taxAmount.toLocaleString('tr-TR')} ₺</td>
+                              </tr>
+                            )}
+                            <tr className="bg-slate-900 text-white">
+                              <td colSpan={3}></td>
+                              <td className="py-3 px-4 text-right text-[8px] font-bold uppercase tracking-widest">Genel Toplam</td>
+                              {items.some(i => i.discount > 0) && <td className="py-3 px-4"></td>}
+                              <td className="py-3 px-4 text-right text-lg font-black text-red-400">{grandTotal.toLocaleString('tr-TR')} ₺</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+
+                      {/* Notes & KDV Status */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 pt-8 border-t border-slate-100">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Ödeme & Vergi</p>
+                          <p className="text-xs text-slate-600 font-bold">* Bu teklifteki tutarlara KDV {isTaxIncluded ? 'dahildir' : 'dahil değildir'}.</p>
+                          {quoteData.notes && <p className="text-xs text-slate-600 italic mt-2">{quoteData.notes}</p>}
+                        </div>
+                        {quoteData.terms && (
+                          <div>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Şartlar</p>
+                            <p className="text-xs text-slate-600 italic">{quoteData.terms}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="mt-12 pt-6 border-t border-slate-100 text-center">
+                        <p className="text-[9px] text-slate-400 font-bold">Ziva Fire Sistemleri • 0850 123 45 67 • info@zivafire.com</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mobile Preview Bottom Sheet */}
+                {isMobile && (
+                  <MobileBottomSheet
+                    isOpen={showMobilePreviewSheet}
+                    onClose={() => setShowMobilePreviewSheet(false)}
+                    title="A4 Fatura Önizlemesi"
+                  >
+                    <div className="overflow-auto max-h-[70vh] bg-white text-slate-900 p-4 rounded-2xl border border-white/10 scrollbar-none shadow-2xl scale-[0.98] origin-top">
+                      <div ref={printRef} id="quote-preview-mobile" className="p-4 md:p-8 text-[10px] sm:text-xs">
+                        {/* Header */}
+                        <div className="flex justify-between items-start pb-4 border-b-2 border-slate-900 mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white border border-slate-100 rounded-lg p-0.5">
+                              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                            </div>
+                            <div>
+                              <h2 className="text-xs font-black uppercase">ZIVA <span className="text-red-500">FIRE</span></h2>
+                              <p className="text-[7px] uppercase tracking-wider text-slate-400 font-bold">Teknik Servis & Güvenlik</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-slate-900 uppercase">{quoteData.title}</p>
+                            <p className="text-[8px] font-bold text-slate-500">No: {quoteData.quoteNo}</p>
+                          </div>
+                        </div>
+
+                        {/* Client details */}
+                        <div className="mb-4 text-[9px] text-slate-700">
+                          <p className="text-[7px] font-black uppercase text-red-500">Müşteri Detail</p>
+                          <p className="font-bold text-slate-900">{quoteData.clientName || '—'}</p>
+                          {quoteData.clientAddress && <p>{quoteData.clientAddress}</p>}
+                        </div>
+
+                        {/* Items Table */}
+                        <table className="w-full text-[9px] mb-4 border-collapse">
+                          <thead>
+                            <tr className="bg-slate-900 text-white text-left">
+                              <th className="p-1 text-center font-bold">#</th>
+                              <th className="p-1 font-bold">Hizmet / Ürün</th>
+                              <th className="p-1 text-center font-bold">Adet</th>
+                              <th className="p-1 text-right font-bold">Birim</th>
+                              <th className="p-1 text-right font-bold">Toplam</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {items.map((item, idx) => (
+                              <tr key={item.id}>
+                                <td className="p-1 text-center text-slate-300 font-bold">{idx + 1}</td>
+                                <td className="p-1">
+                                  <p className="font-bold text-slate-900">{item.name || '—'}</p>
+                                  {item.description && <p className="text-[8px] text-slate-400">{item.description}</p>}
+                                </td>
+                                <td className="p-1 text-center">{item.quantity} {item.unit}</td>
+                                <td className="p-1 text-right">{item.price.toLocaleString('tr-TR')} ₺</td>
+                                <td className="p-1 text-right font-bold text-slate-900">{getItemTotal(item).toLocaleString('tr-TR')} ₺</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-50 text-[9px] font-bold">
+                              <td colSpan={3}></td>
+                              <td className="p-1 text-right text-slate-500">Ara Toplam</td>
+                              <td className="p-1 text-right">{subtotal.toLocaleString('tr-TR')} ₺</td>
+                            </tr>
+                            {totalDiscount > 0 && (
+                              <tr className="bg-slate-50 text-[9px] font-bold text-emerald-600">
+                                <td colSpan={3}></td>
+                                <td className="p-1 text-right">İndirim</td>
+                                <td className="p-1 text-right">-{totalDiscount.toLocaleString('tr-TR')} ₺</td>
+                              </tr>
+                            )}
+                            <tr className="bg-slate-900 text-white text-[9px] font-black">
+                              <td colSpan={3}></td>
+                              <td className="p-1.5 text-right uppercase">Genel Toplam</td>
+                              <td className="p-1.5 text-right text-red-400">{grandTotal.toLocaleString('tr-TR')} ₺</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  </MobileBottomSheet>
+                )}
               </div>
             )}
 

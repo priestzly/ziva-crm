@@ -23,16 +23,18 @@ export default function RootLayout({
   return (
     <html lang="tr" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
                   const theme = localStorage.getItem('ziva-theme') || 'dark';
-                  if (theme === 'light') {
-                    document.documentElement.classList.add('light');
-                  } else {
-                    document.documentElement.classList.remove('light');
+                  document.documentElement.classList.remove('light', 'fluent', 'cyberpunk');
+                  if (theme !== 'dark') {
+                    document.documentElement.classList.add(theme);
                   }
                 } catch (e) {}
               })()
