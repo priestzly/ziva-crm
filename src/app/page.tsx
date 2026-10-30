@@ -441,7 +441,7 @@ export default function LandingPage() {
                 <Mail size={14} className="text-red-400" />
                 admin@zivabacayangin.com
               </a>
-              <a href="https://maps.google.com/?q=BALABAN+MAH.+BOYALIK+CAD.+NO:70/A+ARNAVUTKÖY+İSTANBUL" target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 text-sm text-white/50 hover:text-white transition-colors group">
+              <a href="https://maps.app.goo.gl/dccgVUdVCitdABAn8" target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 text-sm text-white/50 hover:text-white transition-colors group">
                 <MapPin size={14} className="text-red-400 shrink-0 mt-0.5" />
                 <div>
                   <span className="block font-medium text-white/80 group-hover:text-white">BALABAN MAH. BOYALIK CAD. NO:70/A</span>
@@ -476,7 +476,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <a
-                href="https://maps.google.com/?q=BALABAN+MAH.+BOYALIK+CAD.+NO:70/A+ARNAVUTKÖY+İSTANBUL"
+                href="https://maps.app.goo.gl/dccgVUdVCitdABAn8"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-red-600/20 hover:shadow-red-500/30 transition-all duration-300 active:scale-95"
@@ -490,7 +490,7 @@ export default function LandingPage() {
             <div className="relative w-full h-72 sm:h-96 bg-[#0a0a0f]">
               <iframe
                 title="Ziva Yangın Google Harita Konumu"
-                src="https://maps.google.com/maps?q=BALABAN+MAH.+BOYALIK+CAD.+NO:70/A+ARNAVUTKÖY+İSTANBUL&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                src="https://maps.google.com/maps?q=41.3101786,28.6125898&hl=tr&z=16&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
