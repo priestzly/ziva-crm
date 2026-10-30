@@ -1,0 +1,24 @@
+{
+  "name": "Ziva CRM",
+  "short_name": "Ziva",
+  "description": "Ziva CRM - Servis Takip ve Müşteri İlişkileri Yönetimi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050508",
+  "theme_color": "#050508",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

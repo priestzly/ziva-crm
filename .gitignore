@@ -20,9 +20,11 @@
 # production
 /build
 
-# misc
-.DS_Store
-*.pem
+# archives
+*.rar
+*.zip
+*.tar.gz
+*.7z
 
 # debug
 npm-debug.log*

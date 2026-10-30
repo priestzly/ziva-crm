@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Flame, ArrowRight, ShieldCheck, Settings, Users, 
   MapPin, Phone, Mail, ClipboardCheck, CheckCircle2,
-  Lock, Clock, Building2, Award, ChevronRight, MessageCircle
+  Lock, Clock, Building2, Award, ChevronRight, MessageCircle, ExternalLink
 } from 'lucide-react';
 
 /* ─── Scroll Reveal Hook ─── */
@@ -441,10 +441,16 @@ export default function LandingPage() {
                 <Mail size={14} className="text-red-400" />
                 admin@zivabacayangin.com
               </a>
-              <div className="flex items-start gap-2 text-sm text-white/50">
+              <a href="https://maps.google.com/?q=BALABAN+MAH.+BOYALIK+CAD.+NO:70/A+ARNAVUTKÖY+İSTANBUL" target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 text-sm text-white/50 hover:text-white transition-colors group">
                 <MapPin size={14} className="text-red-400 shrink-0 mt-0.5" />
-                <span>Kazım Karabekir Mah. 859. Cad. No:1A<br />Gaziosmanpaşa / İstanbul</span>
-              </div>
+                <div>
+                  <span className="block font-medium text-white/80 group-hover:text-white">BALABAN MAH. BOYALIK CAD. NO:70/A</span>
+                  <span className="text-xs text-white/40 block">ARNAVUTKÖY / İSTANBUL</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-red-400 mt-1 font-semibold group-hover:underline">
+                    Google Haritalar'da Aç <ExternalLink size={10} />
+                  </span>
+                </div>
+              </a>
             </div>
 
             <div className="space-y-3">
@@ -454,6 +460,48 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
+          {/* ═══ GOOGLE HARİTALAR KONUM KARTI ═══ */}
+          <div className="mb-12 rounded-2xl overflow-hidden border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-b border-white/[0.06] bg-white/[0.01]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+                  <MapPin size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    Ofis & Atölye Konumu
+                    <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-medium">Merkez</span>
+                  </h4>
+                  <p className="text-xs text-white/40">BALABAN MAH. BOYALIK CAD. NO:70/A, ARNAVUTKÖY / İSTANBUL</p>
+                </div>
+              </div>
+              <a
+                href="https://maps.google.com/?q=BALABAN+MAH.+BOYALIK+CAD.+NO:70/A+ARNAVUTKÖY+İSTANBUL"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-red-600/20 hover:shadow-red-500/30 transition-all duration-300 active:scale-95"
+              >
+                <MapPin size={13} />
+                <span>Google Haritalar'da Yol Tarifi Al</span>
+                <ExternalLink size={12} />
+              </a>
+            </div>
+            
+            <div className="relative w-full h-72 sm:h-96 bg-[#0a0a0f]">
+              <iframe
+                title="Ziva Yangın Google Harita Konumu"
+                src="https://maps.google.com/maps?q=BALABAN+MAH.+BOYALIK+CAD.+NO:70/A+ARNAVUTKÖY+İSTANBUL&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="w-full h-full opacity-90 contrast-[1.05]"
+              />
+            </div>
+          </div>
+
 
           <div className="border-t border-white/[0.06] pt-6 text-center text-xs text-white/20">
             © {new Date().getFullYear()} Ziva Baca Yangın Ltd. Şti. Tüm hakları saklıdır.

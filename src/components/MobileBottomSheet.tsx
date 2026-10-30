@@ -38,7 +38,7 @@ export function MobileBottomSheet({
 
   if (isMobile) {
     return (
-      <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+      <div className="fixed inset-0 z-[100] flex flex-col justify-end print:hidden">
         {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300 animate-fade-in"
@@ -74,7 +74,7 @@ export function MobileBottomSheet({
 
   // Desktop View: Render as standard modal
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay print:hidden" onClick={onClose}>
       <div
         className={cn(
           "modal-content bg-card border border-border shadow-2xl animate-scale-up max-w-md",

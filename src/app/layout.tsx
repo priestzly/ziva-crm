@@ -11,6 +11,21 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Ziva Yangın | Servis Takip & CRM",
   description: "Ziva Yangın profesyonel bakım, onarım ve yangın sistemi takip platformu.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Ziva CRM",
+  },
+};
+
+export const viewport = {
+  themeColor: "#050508",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -37,6 +52,16 @@ export default function RootLayout({
                     document.documentElement.classList.add(theme);
                   }
                 } catch (e) {}
+                
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                      console.log('SW scope:', reg.scope);
+                    }).catch(function(err) {
+                      console.error('SW failed:', err);
+                    });
+                  });
+                }
               })()
             `,
           }}

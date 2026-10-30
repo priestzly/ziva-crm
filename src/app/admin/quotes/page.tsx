@@ -33,17 +33,17 @@ export default function QuoteBuilderPage() {
   const printRef = useRef<HTMLDivElement>(null);
 
   // Styling helpers based on viewport
-  const cardClass = isMobile ? 'bg-amoled-card border border-white/5 rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-slate-100 overflow-hidden';
+  const cardClass = isMobile ? 'bg-card border border-border rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-slate-100 overflow-hidden';
   const inputClass = isMobile 
-    ? 'w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-white placeholder-white/30 transition-all'
+    ? 'w-full px-4 py-3 bg-muted border border-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-foreground placeholder-muted-foreground/50 transition-all'
     : 'w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all text-slate-900 placeholder-slate-400';
   const textareaClass = isMobile
-    ? 'w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-white placeholder-white/30 transition-all resize-none'
+    ? 'w-full px-4 py-3 bg-muted border border-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-foreground placeholder-muted-foreground/50 transition-all resize-none'
     : 'w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all text-slate-900 placeholder-slate-400 resize-none';
-  const labelClass = isMobile ? 'text-[10px] font-bold text-white/40 uppercase tracking-widest' : 'text-xs font-semibold text-slate-500 uppercase tracking-wider';
-  const headerTextClass = isMobile ? 'font-bold text-white' : 'font-bold text-slate-900';
-  const sublabelTextClass = isMobile ? 'text-xs text-white/40' : 'text-xs text-slate-400';
-  const borderClass = isMobile ? 'border-white/5' : 'border-slate-50';
+  const labelClass = isMobile ? 'text-[10px] font-bold text-muted-foreground uppercase tracking-widest' : 'text-xs font-semibold text-slate-500 uppercase tracking-wider';
+  const headerTextClass = isMobile ? 'font-bold text-foreground' : 'font-bold text-slate-900';
+  const sublabelTextClass = isMobile ? 'text-xs text-muted-foreground' : 'text-xs text-slate-400';
+  const borderClass = isMobile ? 'border-border' : 'border-slate-50';
 
   // Form State
   const [quoteData, setQuoteData] = useState({
@@ -151,7 +151,7 @@ export default function QuoteBuilderPage() {
             <div className="lg:hidden mb-6 print:hidden animate-fade-in">
               <div className={cn(
                 "flex items-center justify-between p-2 rounded-2xl border transition-all",
-                isMobile ? "bg-white/5 border-white/10" : "bg-white border-slate-100"
+                isMobile ? "bg-muted border border-border" : "bg-white border-slate-100"
               )}>
                 {steps.map((step, index) => {
                   const Icon = step.icon;
@@ -166,8 +166,8 @@ export default function QuoteBuilderPage() {
                         isActive 
                           ? isMobile ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-slate-900 text-white shadow-lg' 
                           : isCompleted
-                            ? isMobile ? 'bg-white/10 text-white/80' : 'bg-slate-100 text-slate-600'
-                            : isMobile ? 'text-white/30' : 'text-slate-400'
+                            ? isMobile ? 'bg-secondary text-foreground' : 'bg-slate-100 text-slate-600'
+                            : isMobile ? 'text-muted-foreground/45' : 'text-slate-400'
                       )}
                     >
                       <Icon size={14} />
@@ -223,7 +223,7 @@ export default function QuoteBuilderPage() {
                   <div className="lg:col-span-2 space-y-6">
                     {/* Teklif Bilgileri */}
                     <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-blue-500/10 text-blue-400" : "bg-blue-55 text-blue-600 bg-blue-50")}>
                           <FileText size={18} />
                         </div>
@@ -277,7 +277,7 @@ export default function QuoteBuilderPage() {
 
                     {/* Müşteri Bilgileri */}
                     <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600")}>
                           <User size={18} />
                         </div>
@@ -355,7 +355,7 @@ export default function QuoteBuilderPage() {
                   <div className="space-y-6">
                     {/* KDV Ayarları */}
                     <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-600")}>
                           <Settings size={18} />
                         </div>
@@ -365,9 +365,9 @@ export default function QuoteBuilderPage() {
                         </div>
                       </div>
                       <div className="p-5 space-y-4">
-                        <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-white/5 border border-white/10" : "bg-slate-50")}>
+                        <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-muted border border-border" : "bg-slate-50")}>
                           <div>
-                            <p className={cn("text-sm font-semibold", isMobile ? "text-white" : "text-slate-700")}>KDV Uygula</p>
+                            <p className={cn("text-sm font-semibold", isMobile ? "text-foreground" : "text-slate-700")}>KDV Uygula</p>
                             <p className="text-xs text-muted-foreground">Fiyatlara KDV dahil mi?</p>
                           </div>
                           <button
@@ -390,7 +390,7 @@ export default function QuoteBuilderPage() {
                             <button 
                               type="button"
                               onClick={() => setTaxRate(Math.max(0, taxRate - 1))}
-                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-white/5 border border-white/10 text-white hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-muted border border-border text-foreground hover:bg-secondary" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                             >
                               -
                             </button>
@@ -400,13 +400,13 @@ export default function QuoteBuilderPage() {
                               onChange={e => setTaxRate(Number(e.target.value))}
                               className={cn(
                                 "flex-1 px-4 py-3 text-center text-lg font-bold focus:outline-none focus:ring-2 transition-all rounded-xl",
-                                isMobile ? "bg-white/5 border border-white/10 text-white focus:ring-red-500/50" : "bg-slate-50 border border-slate-100 focus:ring-slate-900/10 focus:border-slate-900"
+                                isMobile ? "bg-muted border border-border text-foreground focus:ring-red-500/50" : "bg-slate-50 border border-slate-100 focus:ring-slate-900/10 focus:border-slate-900"
                               )}
                             />
                             <button 
                               type="button"
                               onClick={() => setTaxRate(taxRate + 1)}
-                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-white/5 border border-white/10 text-white hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-muted border border-border text-foreground hover:bg-secondary" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                             >
                               +
                             </button>
@@ -417,7 +417,7 @@ export default function QuoteBuilderPage() {
 
                     {/* Notlar */}
                     <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-white/[0.01]")}>
+                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-purple-500/10 text-purple-400" : "bg-purple-50 text-purple-600")}>
                           <FileText size={18} />
                         </div>
@@ -472,7 +472,7 @@ export default function QuoteBuilderPage() {
               <div className="animate-fade-in print:hidden">
                 <div className={cardClass}>
                   {/* Header */}
-                  <div className={cn("p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4", borderClass, isMobile && "bg-white/[0.01]")}>
+                  <div className={cn("p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4", borderClass, isMobile && "bg-muted/10")}>
                     <div className="flex items-center gap-3">
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-red-500/10 text-red-500" : "bg-slate-900 text-white")}>
                         <FileText size={18} />
@@ -507,9 +507,9 @@ export default function QuoteBuilderPage() {
                   </div>
 
                   {/* Items List */}
-                  <div className={cn("divide-y", isMobile ? "divide-white/5" : "divide-slate-50")}>
+                  <div className={cn("divide-y", isMobile ? "divide-border" : "divide-slate-50")}>
                     {items.map((item, index) => (
-                      <div key={item.id} className={cn("group p-4 lg:px-5 lg:py-4 transition-colors", isMobile ? "hover:bg-white/[0.01]" : "hover:bg-slate-50/50")}>
+                      <div key={item.id} className={cn("group p-4 lg:px-5 lg:py-4 transition-colors", isMobile ? "hover:bg-muted/10" : "hover:bg-slate-50/50")}>
                         {/* Mobile Layout */}
                         <div className="lg:hidden space-y-4">
                           <div className="flex items-center justify-between">
@@ -518,32 +518,32 @@ export default function QuoteBuilderPage() {
                                 <button 
                                   onClick={() => moveItem(index, 'up')}
                                   disabled={index === 0}
-                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-white disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
+                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-foreground disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
                                 >
                                   <ArrowUp size={14} />
                                 </button>
                                 <button 
                                   onClick={() => moveItem(index, 'down')}
                                   disabled={index === items.length - 1}
-                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-white disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
+                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-foreground disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
                                 >
                                   <ArrowDown size={14} />
                                 </button>
                               </div>
-                              <span className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold", isMobile ? "bg-white/5 text-white/60 border border-white/5" : "bg-slate-100 text-slate-500")}>
+                              <span className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold", isMobile ? "bg-muted text-foreground border border-border" : "bg-slate-100 text-slate-500")}>
                                 {index + 1}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <button 
                                 onClick={() => duplicateItem(item.id)}
-                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-blue-400 hover:bg-white/5" : "text-slate-300 hover:text-blue-500")}
+                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-blue-400 hover:bg-muted" : "text-slate-300 hover:text-blue-500")}
                               >
                                 <Copy size={14} />
                               </button>
                               <button 
                                 onClick={() => removeItem(item.id)}
-                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-white/40 hover:text-red-400 hover:bg-white/5" : "text-slate-300 hover:text-red-500")}
+                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-red-400 hover:bg-muted" : "text-slate-300 hover:text-red-500")}
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -579,7 +579,7 @@ export default function QuoteBuilderPage() {
                                 className={cn(
                                   "w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all",
                                   isMobile 
-                                    ? "bg-white/5 border border-white/10 text-white focus:ring-red-500/50 select-premium" 
+                                    ? "bg-muted border border-border text-foreground focus:ring-red-500/50 select-premium" 
                                     : "bg-slate-50 border border-slate-100 focus:ring-slate-900/10 focus:border-slate-900 text-slate-900"
                                 )}
                                 value={item.unit}
@@ -615,9 +615,9 @@ export default function QuoteBuilderPage() {
                             />
                           </div>
                           
-                          <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-white/5 border border-white/10" : "bg-slate-55 bg-slate-50")}>
-                            <span className={cn("text-xs font-semibold", isMobile ? "text-white/40" : "text-slate-500")}>Satır Toplamı</span>
-                            <span className={cn("text-xl font-black", isMobile ? "text-white" : "text-slate-900")}>{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
+                          <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-muted border border-border" : "bg-slate-50 border border-slate-100")}>
+                            <span className={cn("text-xs font-semibold", isMobile ? "text-muted-foreground" : "text-slate-500")}>Satır Toplamı</span>
+                            <span className={cn("text-xl font-black", isMobile ? "text-foreground" : "text-slate-900")}>{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
                           </div>
                         </div>
 
@@ -720,11 +720,11 @@ export default function QuoteBuilderPage() {
                   </div>
 
                   {/* Summary */}
-                  <div className={cn("p-5 border-t", isMobile ? "bg-white/[0.01] border-white/5" : "bg-slate-50 border-slate-100")}>
+                  <div className={cn("p-5 border-t", isMobile ? "bg-muted/10 border-border" : "bg-slate-50 border-slate-100")}>
                     <div className="max-w-sm ml-auto space-y-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className={isMobile ? "text-white/40" : "text-slate-500"}>Ara Toplam</span>
-                        <span className={cn("font-bold", isMobile ? "text-white" : "text-slate-900")}>{subtotal.toLocaleString('tr-TR')} ₺</span>
+                        <span className={isMobile ? "text-muted-foreground" : "text-slate-500"}>Ara Toplam</span>
+                        <span className={cn("font-bold", isMobile ? "text-foreground" : "text-slate-900")}>{subtotal.toLocaleString('tr-TR')} ₺</span>
                       </div>
                       {totalDiscount > 0 && (
                         <div className="flex items-center justify-between text-sm">
@@ -736,13 +736,13 @@ export default function QuoteBuilderPage() {
                       )}
                       {isTaxIncluded && (
                         <div className="flex items-center justify-between text-sm">
-                          <span className={isMobile ? "text-white/40" : "text-slate-500"}>KDV (%{taxRate})</span>
-                          <span className={cn("font-bold", isMobile ? "text-white" : "text-slate-900")}>{taxAmount.toLocaleString('tr-TR')} ₺</span>
+                          <span className={isMobile ? "text-muted-foreground" : "text-slate-500"}>KDV (%{taxRate})</span>
+                          <span className={cn("font-bold", isMobile ? "text-foreground" : "text-slate-900")}>{taxAmount.toLocaleString('tr-TR')} ₺</span>
                         </div>
                       )}
-                      <div className={cn("flex items-center justify-between pt-3 border-t", isMobile ? "border-white/10" : "border-slate-200")}>
-                        <span className={cn("text-base font-bold", isMobile ? "text-white/60" : "text-slate-700")}>Genel Toplam</span>
-                        <span className={cn("text-3xl font-black", isMobile ? "text-white font-black" : "text-slate-900 font-black")}>{grandTotal.toLocaleString('tr-TR')} ₺</span>
+                      <div className={cn("flex items-center justify-between pt-3 border-t", isMobile ? "border-border" : "border-slate-200")}>
+                        <span className={cn("text-base font-bold", isMobile ? "text-muted-foreground" : "text-slate-700")}>Genel Toplam</span>
+                        <span className={cn("text-3xl font-black", isMobile ? "text-foreground font-black" : "text-slate-900 font-black")}>{grandTotal.toLocaleString('tr-TR')} ₺</span>
                       </div>
                     </div>
                   </div>
@@ -755,7 +755,7 @@ export default function QuoteBuilderPage() {
                     className={cn(
                       "flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all cursor-pointer",
                       isMobile 
-                        ? "bg-white/5 border border-white/10 text-white hover:bg-white/10 w-full" 
+                        ? "bg-muted border border-border text-foreground hover:bg-secondary w-full" 
                         : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                     )}
                   >
@@ -786,7 +786,7 @@ export default function QuoteBuilderPage() {
                     className={cn(
                       "flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer",
                       isMobile 
-                        ? "bg-white/5 border border-white/10 text-white hover:bg-white/10 w-full" 
+                        ? "bg-muted border border-border text-foreground hover:bg-secondary w-full" 
                         : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                     )}
                   >
@@ -826,10 +826,10 @@ export default function QuoteBuilderPage() {
                   /* AMOLED Mobile Summary Card */
                   <div className="space-y-4 animate-fade-in">
                     <div className={cardClass}>
-                      <div className="p-5 border-b border-white/5 bg-white/[0.01]">
+                      <div className="p-5 border-b border-border bg-muted/20">
                         <p className="text-[10px] font-black uppercase tracking-widest text-red-500">Özet Rapor</p>
-                        <h3 className="text-lg font-black text-white mt-1 uppercase">{quoteData.title}</h3>
-                        <div className="flex justify-between items-center text-xs text-white/40 mt-2">
+                        <h3 className="text-lg font-black text-foreground mt-1 uppercase">{quoteData.title}</h3>
+                        <div className="flex justify-between items-center text-xs text-muted-foreground mt-2">
                           <span>No: {quoteData.quoteNo}</span>
                           <span>Tarih: {new Date(quoteData.date).toLocaleDateString('tr-TR')}</span>
                         </div>
@@ -838,58 +838,58 @@ export default function QuoteBuilderPage() {
                       <div className="p-5 space-y-4">
                         {/* Client details summary */}
                         <div className="space-y-1">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Müşteri</p>
-                          <p className="text-base font-black text-white">{quoteData.clientName || '—'}</p>
-                          {quoteData.clientAddress && <p className="text-sm text-white/60">{quoteData.clientAddress}</p>}
+                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Müşteri</p>
+                          <p className="text-base font-black text-foreground">{quoteData.clientName || '—'}</p>
+                          {quoteData.clientAddress && <p className="text-sm text-muted-foreground">{quoteData.clientAddress}</p>}
                           {(quoteData.clientPhone || quoteData.clientEmail) && (
-                            <div className="text-xs text-white/40 space-y-0.5 mt-2">
+                            <div className="text-xs text-muted-foreground space-y-0.5 mt-2">
                               {quoteData.clientPhone && <p>Tel: {quoteData.clientPhone}</p>}
                               {quoteData.clientEmail && <p>E-posta: {quoteData.clientEmail}</p>}
                             </div>
                           )}
                         </div>
 
-                        <div className="h-px bg-white/5" />
+                        <div className="h-px bg-border" />
 
                         {/* Items list summary */}
                         <div className="space-y-3">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Kalemler ({items.length})</p>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Kalemler ({items.length})</p>
                           <div className="space-y-2">
                             {items.map((item, idx) => (
-                              <div key={item.id} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex justify-between items-center text-sm">
+                              <div key={item.id} className="bg-muted/30 border border-border rounded-xl p-3 flex justify-between items-center text-sm">
                                 <div className="min-w-0 flex-1 pr-3">
-                                  <p className="font-bold text-white truncate">{item.name || `Kalem #${idx+1}`}</p>
-                                  <p className="text-xs text-white/40 truncate">{item.quantity} {item.unit} x {item.price.toLocaleString('tr-TR')} ₺ {item.discount > 0 && `( -%${item.discount} )`}</p>
+                                  <p className="font-bold text-foreground truncate">{item.name || `Kalem #${idx+1}`}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{item.quantity} {item.unit} x {item.price.toLocaleString('tr-TR')} ₺ {item.discount > 0 && `( -%${item.discount} )`}</p>
                                 </div>
-                                <span className="font-black text-white shrink-0">{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
+                                <span className="font-black text-foreground shrink-0">{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
                               </div>
                             ))}
                           </div>
                         </div>
 
-                        <div className="h-px bg-white/5" />
+                        <div className="h-px bg-border" />
 
                         {/* Totals summary */}
                         <div className="space-y-2 text-sm">
-                          <div className="flex justify-between text-white/40">
+                          <div className="flex justify-between text-muted-foreground">
                             <span>Ara Toplam</span>
                             <span>{subtotal.toLocaleString('tr-TR')} ₺</span>
                           </div>
                           {totalDiscount > 0 && (
-                            <div className="flex justify-between text-emerald-400 font-bold">
+                            <div className="flex justify-between text-emerald-500 font-bold">
                               <span>İndirim</span>
                               <span>-{totalDiscount.toLocaleString('tr-TR')} ₺</span>
                             </div>
                           )}
                           {isTaxIncluded && (
-                            <div className="flex justify-between text-white/40">
+                            <div className="flex justify-between text-muted-foreground">
                               <span>KDV (%{taxRate})</span>
                               <span>{taxAmount.toLocaleString('tr-TR')} ₺</span>
                             </div>
                           )}
-                          <div className="flex justify-between items-center pt-2 border-t border-white/10 text-white font-black text-lg">
+                          <div className="flex justify-between items-center pt-2 border-t border-border text-foreground font-black text-lg">
                             <span>Genel Toplam</span>
-                            <span className="text-2xl text-red-400">{grandTotal.toLocaleString('tr-TR')} ₺</span>
+                            <span className="text-2xl text-red-500">{grandTotal.toLocaleString('tr-TR')} ₺</span>
                           </div>
                         </div>
                       </div>
@@ -1019,7 +1019,7 @@ export default function QuoteBuilderPage() {
 
                       {/* Footer */}
                       <div className="mt-12 pt-6 border-t border-slate-100 text-center">
-                        <p className="text-[9px] text-slate-400 font-bold">Ziva Fire Sistemleri • 0850 123 45 67 • info@zivafire.com</p>
+                        <p className="text-[9px] text-slate-400 font-bold">Ziva Fire Sistemleri • Balaban Mah. Boyalık Cad. No:70/A Arnavutköy / İstanbul • 0850 123 45 67 • info@zivafire.com</p>
                       </div>
                     </div>
                   </div>
@@ -1219,6 +1219,11 @@ export default function QuoteBuilderPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Print Footer */}
+                <div className="mt-8 pt-4 border-t border-slate-200 text-center">
+                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Ziva Fire Sistemleri • Balaban Mah. Boyalık Cad. No:70/A Arnavutköy / İstanbul • 0850 123 45 67</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1227,8 +1232,9 @@ export default function QuoteBuilderPage() {
         <style jsx global>{`
           @media print {
             @page { size: A4; margin: 1cm; }
-            html, body { 
+            html, body, .min-h-screen, main, #print-area, #quote-preview, #quote-preview-mobile { 
               background: white !important; 
+              background-color: white !important;
               color: black !important;
               margin: 0 !important; 
               padding: 0 !important;
@@ -1236,7 +1242,13 @@ export default function QuoteBuilderPage() {
               color-adjust: exact;
             }
             aside, nav, button, .print\\:hidden { display: none !important; }
-            main { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+            main { 
+              margin: 0 !important; 
+              padding: 0 !important; 
+              width: 100% !important; 
+              background: white !important;
+              background-color: white !important;
+            }
             .shadow-xl, .shadow-2xl { box-shadow: none !important; }
           }
           @keyframes fade-in {

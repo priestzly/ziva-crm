@@ -48,6 +48,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
   const isMobile = useIsMobile();
   const [viewingRecordMobile, setViewingRecordMobile] = useState<MaintenanceRecord | null>(null);
   const [mobilePhotos, setMobilePhotos] = useState<any[]>([]);
+  const [activePrintRecordId, setActivePrintRecordId] = useState<string | null>(null);
 
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
@@ -209,6 +210,15 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
     setMobilePhotos([]);
     const { data } = await supabase.from('maintenance_photos').select('*').eq('record_id', rec.id);
     setMobilePhotos(data || []);
+  };
+
+  const handleMobilePrint = (rec: MaintenanceRecord) => {
+    setPhotos(mobilePhotos);
+    setActivePrintRecordId(rec.id);
+    setTimeout(() => {
+      window.print();
+      setActivePrintRecordId(null);
+    }, 250);
   };
 
   const handleEditClick = async (rec: any) => {
@@ -569,7 +579,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
             </div>
           )}
 
-          {targetId && (
+          {(targetId || activePrintRecordId) && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 print:hidden">
               <Link href={role === 'admin' ? "/admin/history" : "/client/history"} className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 group">
                 <div className="p-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] group-hover:bg-primary/10 group-hover:border-primary/20">
@@ -704,10 +714,10 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
               )}
 
               {/* SINGLE REPORT / PDF VIEW */}
-              {targetId && filteredRecords.map(rec => {
+              {(targetId || activePrintRecordId) && filteredRecords.filter(rec => targetId ? rec.id === targetId : rec.id === activePrintRecordId).map(rec => {
                 const p = parseDescription(rec.description);
                 return (
-                  <div key={rec.id} className="mx-auto space-y-10 print:m-0" id="print-area" style={{ maxWidth: '900px' }}>
+                  <div key={rec.id} className="mx-auto space-y-10 print:m-0 bg-white text-slate-950 print:bg-white print:text-black" id="print-area" style={{ maxWidth: '900px' }}>
                     <div className="bg-white text-slate-950 p-6 sm:p-20 border-4 sm:border-8 border-slate-900 print:text-black print:border-none print:p-0 min-h-[1100px] flex flex-col relative shadow-2xl">
                       <div className="flex justify-between items-end border-b-4 border-slate-900 pb-8 sm:pb-12 mb-10 sm:mb-16">
                         <div className="flex items-center gap-4 sm:gap-6">
@@ -782,7 +792,7 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
                       </div>
                     </div>
                     {photos.length > 0 && (
-                      <div className="space-y-6 sm:space-y-8 pt-6 sm:pt-10 break-inside-avoid print:pt-20">
+                      <div className="space-y-6 sm:space-y-8 pt-6 sm:pt-10 break-inside-avoid print:pt-20 bg-white text-slate-950 print:bg-white print:text-black">
                         <div className="flex items-center justify-center gap-4">
                           <div className="h-px flex-1 bg-slate-200" />
                           <h4 className="text-[8px] sm:text-[10px] font-black uppercase text-slate-400 tracking-[0.4em] text-center">GÖRSEL EK / EKSPERTİZ DOSYALARI</h4>
@@ -905,8 +915,8 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
             onClose={() => setViewingRecordMobile(null)}
             title="Servis Detayı"
           >
-            <div className="space-y-5 text-white">
-              <div className="border-b border-white/5 pb-3">
+            <div className="space-y-5 text-foreground">
+              <div className="border-b border-border pb-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
                     {viewingRecordMobile.service_type || 'Servis'}
@@ -918,35 +928,35 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
                     {parseDescription(viewingRecordMobile.description).status}
                   </span>
                 </div>
-                <h3 className="text-sm font-black uppercase tracking-tight text-white leading-tight">
+                <h3 className="text-sm font-black uppercase tracking-tight text-foreground leading-tight">
                   {(viewingRecordMobile as any).businesses?.name}
                 </h3>
-                <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest flex items-center gap-1.5 mt-1">
+                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest flex items-center gap-1.5 mt-1">
                   <MapPin size={9} className="text-red-500" />
                   {(viewingRecordMobile as any).businesses?.mall?.name || 'ZIVA'}
-                  <span className="text-white/20">•</span>
+                  <span className="text-muted-foreground/30">•</span>
                   {new Date(viewingRecordMobile.created_at).toLocaleDateString('tr-TR')}
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Yapılan Müdahale</h4>
-                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3.5 text-xs text-white/80 leading-relaxed font-serif italic whitespace-pre-wrap">
+                  <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Yapılan Müdahale</h4>
+                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 text-xs text-foreground leading-relaxed font-serif italic whitespace-pre-wrap">
                     "{parseDescription(viewingRecordMobile.description).text || 'Detaylı açıklama bulunmuyor.'}"
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Teknisyen</h4>
-                    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/80 font-bold truncate">
+                    <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Teknisyen</h4>
+                    <div className="bg-muted/30 border border-border rounded-xl p-3 text-[11px] text-foreground font-bold truncate">
                       {parseDescription(viewingRecordMobile.description).technician || 'Ziva Teknik Birimi'}
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Malzemeler</h4>
-                    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/80 font-bold truncate">
+                    <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Malzemeler</h4>
+                    <div className="bg-muted/30 border border-border rounded-xl p-3 text-[11px] text-foreground font-bold truncate">
                       {parseDescription(viewingRecordMobile.description).materials || 'Standart Ekipman'}
                     </div>
                   </div>
@@ -954,8 +964,8 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
 
                 {role === 'admin' && parseDescription(viewingRecordMobile.description).cost && (
                   <div className="space-y-1">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Operasyon Maliyeti</h4>
-                    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/80 font-bold">
+                    <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Operasyon Maliyeti</h4>
+                    <div className="bg-muted/30 border border-border rounded-xl p-3 text-[11px] text-foreground font-bold">
                       {parseDescription(viewingRecordMobile.description).cost}
                     </div>
                   </div>
@@ -963,15 +973,15 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Görsel Eklentiler</h4>
+                <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Görsel Eklentiler</h4>
                 {mobilePhotos.length === 0 ? (
-                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-5 text-center text-[10px] text-white/30 font-bold uppercase tracking-wider">
+                  <div className="bg-muted/30 border border-border rounded-xl p-5 text-center text-[10px] text-muted-foreground/60 font-bold uppercase tracking-wider">
                     Fotoğraf bulunmuyor.
                   </div>
                 ) : (
                   <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
                     {mobilePhotos.map((ph, idx) => (
-                      <div key={idx} className="relative shrink-0 w-40 aspect-video rounded-xl border border-white/10 overflow-hidden bg-black shadow-lg">
+                      <div key={idx} className="relative shrink-0 w-40 aspect-video rounded-xl border border-border overflow-hidden bg-black shadow-lg">
                         <img src={ph.photo_url} className="w-full h-full object-cover" />
                         <span className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] font-black text-white/70 uppercase">
                           Görsel {idx + 1}
@@ -982,28 +992,38 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
                 )}
               </div>
 
-              {role === 'admin' && (
-                <div className="flex gap-2 pt-4 border-t border-white/5">
-                  <button
-                    onClick={() => {
-                      setViewingRecordMobile(null);
-                      handleEditClick(viewingRecordMobile);
-                    }}
-                    className="flex-1 h-11 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Edit3 size={14} /> Güncelle
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      setViewingRecordMobile(null);
-                      handleDeleteRecord(viewingRecordMobile.id, e);
-                    }}
-                    className="flex-1 h-11 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Trash2 size={14} /> Sil
-                  </button>
-                </div>
-              )}
+              <div className="pt-4 border-t border-border flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleMobilePrint(viewingRecordMobile)}
+                  className="w-full h-11 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer hover:bg-black"
+                >
+                  <Printer size={14} /> PDF Rapor Al
+                </button>
+
+                {role === 'admin' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setViewingRecordMobile(null);
+                        handleEditClick(viewingRecordMobile);
+                      }}
+                      className="flex-1 h-11 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Edit3 size={14} /> Güncelle
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        setViewingRecordMobile(null);
+                        handleDeleteRecord(viewingRecordMobile.id, e);
+                      }}
+                      className="flex-1 h-11 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Trash2 size={14} /> Sil
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </MobileBottomSheet>
         )}
@@ -1011,8 +1031,9 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
 
       <style jsx global>{`
         @media print {
-          html, body, .min-h-screen, main { 
+          html, body, .min-h-screen, main, #print-area, .max-w-\[1400px\], .mx-auto, .animate-fade-in { 
             background: white !important; 
+            background-color: white !important;
             color: black !important;
             margin: 0 !important; 
             padding: 0 !important;
@@ -1028,7 +1049,8 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
             margin: 0 !important; 
             padding: 0 !important; 
             width: 100vw !important; 
-            background: transparent !important;
+            background: white !important;
+            background-color: white !important;
             border: none !important;
             box-shadow: none !important;
           }
@@ -1039,6 +1061,8 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
             visibility: visible !important;
             margin: 0 !important;
             width: 100% !important;
+            background: white !important;
+            background-color: white !important;
           }
           .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
           .shadow-2xl { box-shadow: none !important; }
