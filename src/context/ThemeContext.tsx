@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Theme, THEMES } from '@/lib/themes';
+import { Theme, THEMES, LEGACY_THEME_CLASSES } from '@/lib/themes';
 
 interface ThemeContextType {
   theme: Theme;
@@ -11,32 +11,32 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+function applyTheme(theme: Theme) {
+  document.documentElement.classList.remove(...LEGACY_THEME_CLASSES);
+  if (theme !== 'dark') {
+    document.documentElement.classList.add(theme);
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('ziva-theme') as Theme;
-    if (savedTheme && THEMES.some(t => t.id === savedTheme)) {
-      setThemeState(savedTheme);
-      document.documentElement.classList.remove('light', 'fluent', 'cyberpunk');
-      if (savedTheme !== 'dark') {
-        document.documentElement.classList.add(savedTheme);
-      }
-    }
+    // Kaldırılan temalar (fluent, cyberpunk) kayıtlıysa koyu temaya dön
+    const valid = THEMES.some(t => t.id === savedTheme) ? savedTheme : 'dark';
+    setThemeState(valid);
+    applyTheme(valid);
   }, []);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem('ziva-theme', newTheme);
-    document.documentElement.classList.remove('light', 'fluent', 'cyberpunk');
-    if (newTheme !== 'dark') {
-      document.documentElement.classList.add(newTheme);
-    }
+    applyTheme(newTheme);
   };
 
   const toggleTheme = () => {
-    const nextIndex = (THEMES.findIndex(t => t.id === theme) + 1) % THEMES.length;
-    setTheme(THEMES[nextIndex].id);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
   return (

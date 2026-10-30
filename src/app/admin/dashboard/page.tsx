@@ -1,20 +1,20 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Sidebar, Topbar, PageHeader, StatCard } from '@/components/DashboardShell';
+import { PanelLayout } from '@/components/DashboardShell';
+import {
+  Button, IconButton, Card, CardHeader, PageHeader, StatCard, IconTile, Badge, Field, Input, Select,
+  Textarea, SearchInput, EmptyState, ErrorBanner, Sheet,
+} from '@/components/ui';
 import RouteGuard from '@/components/RouteGuard';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, type Mall, type Business, type MaintenanceRecord } from '@/lib/supabase';
-import { 
-  Building2, PlusCircle, X, Loader2, Upload,
-  Edit3, Trash2, Store, Activity,
-  ChevronRight, ChevronLeft, Printer, FileText, UserCircle, RefreshCw, ShieldAlert,
-  Check, MapPin, Search, Camera, Wrench, ClipboardList
+import {
+  Building2, PlusCircle, X, Edit3, Trash2, Store, ChevronRight, ChevronLeft, FileText, RefreshCw,
+  Check, MapPin, Camera, ClipboardList, CalendarDays, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { MobileBottomSheet } from '@/components/MobileBottomSheet';
+import { useRouter } from 'next/navigation';
 
 
 export interface ParsedDescription {
@@ -41,7 +41,7 @@ const parseDescription = (desc: string): ParsedDescription => {
 };
 
 function DashboardContent() {
-  const isMobile = useIsMobile();
+  const router = useRouter();
   const { profile } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [malls, setMalls] = useState<Mall[]>([]);
@@ -386,829 +386,671 @@ function DashboardContent() {
     }
   };
 
+  const firstName = profile?.full_name?.split(' ')[0];
+  const recentPreview = records.slice(0, 6);
+
   return (
-    <div className="min-h-screen flex bg-amoled lg:bg-transparent">
-      <Sidebar role="admin" />
-      <main className="flex-1 lg:ml-72 pb-24 lg:pb-0 transition-all duration-300 w-full overflow-x-hidden">
-        <Topbar 
-          title="Operasyon Komuta Merkezi" 
-          subtitle={isRefreshing ? 'Yenileniyor...' : `Yönetici: ${profile?.full_name || 'Admin'}`} 
-        />
+    <PanelLayout
+      role="admin"
+      title="Özet"
+      subtitle={isRefreshing ? 'Yenileniyor…' : `Yönetici: ${profile?.full_name || 'Admin'}`}
+    >
+      <PageHeader
+        title={firstName ? `Merhaba, ${firstName}` : 'Genel bakış'}
+        description="Servis kayıtlarını izleyin, yeni iş emirleri oluşturun ve müşteri lokasyonlarını yönetin."
+        actions={
+          <>
+            <IconButton icon={RefreshCw} label="Yenile" variant="secondary" onClick={() => fetchData(true)} className={cn(isRefreshing && '[&_svg]:animate-spin')} />
+            <Button variant="secondary" icon={Building2} onClick={() => setShowAddMall(true)}>Yeni AVM</Button>
+            <Button icon={PlusCircle} onClick={handleOpenAddRecord}>Yeni servis kaydı</Button>
+          </>
+        }
+      />
 
-        <div className="p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
-          {/* Error Banner */}
-          {fetchError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 animate-fade-in shadow-lg shadow-red-500/5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
-                  <ShieldAlert size={20} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-red-400">Bağlantı Sorunu</p>
-                  <p className="text-xs text-red-400/70">{fetchError}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => fetchData(true)}
-                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
-              >
-                Tekrar Dene
-              </button>
-            </div>
-          )}
+      <div className="space-y-6">
+        {fetchError && <ErrorBanner message={fetchError} onRetry={() => fetchData(true)} />}
 
-          {/* Page Header */}
-          <PageHeader 
-            title="Saha Operasyonları"
-            description="Gerçek zamanlı servis biletlerini izleyin, yeni operasyonlar oluşturun ve müşteri kayıtlarını yönetin."
-            actions={
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => fetchData(true)}
-                  className="p-2 rounded-lg sm:rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground group"
-                  title="Yenile"
-                >
-                  <RefreshCw size={16} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
-                </button>
-                <div className="h-8 w-px bg-white/[0.06] mx-1" />
-                <button 
-                  onClick={() => setShowAddMall(true)} 
-                  className="btn-secondary h-10 px-4 text-xs font-semibold"
-                >
-                  <Building2 size={16} />
-                  <span className="hidden sm:inline">Yeni AVM</span>
-                </button>
-                 <button 
-                  onClick={handleOpenAddRecord} 
-                  className="btn-primary h-10 px-4 text-xs font-semibold"
-                >
-                  <PlusCircle size={16} />
-                  İş Emri Oluştur
-                </button>
-              </div>
-            }
-          />
-
-          {/* Horizontal Row Menu / Yatay Barlar */}
-          <div className="space-y-3 sm:space-y-4 pt-1 sm:pt-2">
-            {/* Row 1: İş Emri Oluştur */}
-            <button 
-              onClick={handleOpenAddRecord}
-              className="w-full flex items-center justify-between p-3.5 sm:p-5 lg:p-6 bg-gradient-to-r from-red-500/10 via-orange-500/5 to-transparent border border-red-500/20 hover:border-red-500/40 rounded-2xl sm:rounded-3xl transition-all duration-300 text-left group cursor-pointer"
-            >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-red-500/10 shrink-0">
-                  <PlusCircle size={20} className="sm:hidden" />
-                  <PlusCircle size={24} className="hidden sm:block" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">İş Emri Oluştur</h3>
-                  <p className="text-[10px] sm:text-xs text-white/40 font-medium mt-0.5 sm:mt-1 hidden sm:block">Saha teknik ekibi için hızlı şekilde yeni operasyon fişi tanımlayın</p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-white/20 group-hover:translate-x-1 group-hover:text-white/50 transition-all shrink-0" />
-            </button>
-
-            {/* Row 2: AVM'ler */}
-            <Link 
-              href="/admin/malls"
-              className="w-full flex items-center justify-between p-3.5 sm:p-5 lg:p-6 bg-white/[0.02] border border-white/[0.04] hover:border-white/10 hover:bg-white/[0.03] rounded-2xl sm:rounded-3xl transition-all duration-300 text-left group"
-            >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-violet-500/20 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-violet-500/10 shrink-0">
-                  <Building2 size={20} className="sm:hidden" />
-                  <Building2 size={24} className="hidden sm:block" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">AVM Yönetimi</h3>
-                  <p className="text-[10px] sm:text-xs text-white/40 font-medium mt-0.5 sm:mt-1 hidden sm:block">Sistemdeki kayıtlı AVM bölgelerini ve yerleşim planlarını yönetin</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                <span className="text-sm sm:text-xl font-black text-violet-400 tabular-nums">{malls.length} AVM</span>
-                <ChevronRight size={18} className="text-white/20 group-hover:translate-x-1 group-hover:text-white/50 transition-all" />
-              </div>
-            </Link>
-
-            {/* Row 3: İşletmeler */}
-            <Link 
-              href="/admin/businesses"
-              className="w-full flex items-center justify-between p-3.5 sm:p-5 lg:p-6 bg-white/[0.02] border border-white/[0.04] hover:border-white/10 hover:bg-white/[0.03] rounded-2xl sm:rounded-3xl transition-all duration-300 text-left group"
-            >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-cyan-500/10 shrink-0">
-                  <Store size={20} className="sm:hidden" />
-                  <Store size={24} className="hidden sm:block" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">İşletmeler</h3>
-                  <p className="text-[10px] sm:text-xs text-white/40 font-medium mt-0.5 sm:mt-1 hidden sm:block">AVM'lere bağlı aktif ticari işletmeleri ve mağaza kartlarını inceleyin</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                <span className="text-sm sm:text-xl font-black text-cyan-400 tabular-nums">{businesses.length} Mağaza</span>
-                <ChevronRight size={18} className="text-white/20 group-hover:translate-x-1 group-hover:text-white/50 transition-all" />
-              </div>
-            </Link>
-
-            {/* Row 4: Son İş Emirleri (Modal) */}
-            <button 
-              onClick={() => setShowRecentRecordsModal(true)}
-              className="w-full flex items-center justify-between p-3.5 sm:p-5 lg:p-6 bg-white/[0.02] border border-white/[0.04] hover:border-white/10 hover:bg-white/[0.03] rounded-2xl sm:rounded-3xl transition-all duration-300 text-left group cursor-pointer"
-            >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-amber-500/10 shrink-0">
-                  <FileText size={20} className="sm:hidden" />
-                  <FileText size={24} className="hidden sm:block" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">Son İş Emirleri</h3>
-                  <p className="text-[10px] sm:text-xs text-white/40 font-medium mt-0.5 sm:mt-1 hidden sm:block">Son oluşturulan operasyon fişlerini ve teknik detayları inceleyin</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                <span className="text-sm sm:text-xl font-black text-amber-400 tabular-nums">{records.length} Kayıt</span>
-                <ChevronRight size={18} className="text-white/20 group-hover:translate-x-1 group-hover:text-white/50 transition-all" />
-              </div>
-            </button>
-          </div>
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard label="AVM’ler" value={malls.length} icon={Building2} tone="primary" hint="Kayıtlı lokasyon" loading={loading} onClick={() => router.push('/admin/malls')} />
+          <StatCard label="İşletmeler" value={businesses.length} icon={Store} tone="info" hint="AVM’lere bağlı" loading={loading} onClick={() => router.push('/admin/businesses')} />
+          <StatCard label="Bu ay" value={thisMonthCount} icon={CalendarDays} tone="success" hint={`Son 7 günde ${last7Count} kayıt`} loading={loading} />
+          <StatCard label="Son kayıtlar" value={records.length} icon={FileText} tone="warning" hint="Tümünü görüntüle" loading={loading} onClick={() => setShowRecentRecordsModal(true)} />
         </div>
 
-        {/* Mobile FAB */}
-        {isMobile && (
-          <button
-            onClick={handleOpenAddRecord}
-            className="fixed bottom-24 right-6 w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-red-500/30 active:scale-95 transition-all z-40 cursor-pointer"
-            title="Yeni İş Emri"
-          >
-            <PlusCircle size={24} />
-          </button>
-        )}
-
-        {/* ═══ MODALS & SHEETS ═══ */}
-        
-        {/* Add Mall Sheet */}
-        <MobileBottomSheet
-          isOpen={showAddMall}
-          onClose={() => setShowAddMall(false)}
-          title="Yeni AVM Tanımla"
-        >
-          <form onSubmit={handleAddMall} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-white/40 ml-1">AVM Adı *</label>
-              <input value={mallForm.name} onChange={e => setMallForm({...mallForm, name: e.target.value})} required className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white placeholder-white/30" placeholder="Örn: Akasya AVM" />
+        {/* Recent records */}
+        <Card className="overflow-hidden">
+          <CardHeader
+            title="Son servis kayıtları"
+            description="En son oluşturulan iş emirleri"
+            actions={records.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setShowRecentRecordsModal(true)}>
+                Tümünü gör <ChevronRight size={14} />
+              </Button>
+            )}
+          />
+          {loading && !initialLoadDone.current ? (
+            <div className="px-5 pb-5 space-y-2">
+              {[0, 1, 2].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-white/40 ml-1">Lokasyon / Adres</label>
-              <input value={mallForm.address} onChange={e => setMallForm({...mallForm, address: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white placeholder-white/30" placeholder="Şehir, İlçe vs." />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-white/40 ml-1">Sorumlu Kişi</label>
-              <input value={mallForm.contact_person} onChange={e => setMallForm({...mallForm, contact_person: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white placeholder-white/30" placeholder="İsim Soyisim" />
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-              <button type="submit" disabled={saving} className="w-full h-12 bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer shadow-lg shadow-red-500/20 active:scale-95 transition-all">
-                {saving ? <Loader2 size={18} className="animate-spin" /> : 'AVM Kaydet'}
-              </button>
-            </div>
-          </form>
-        </MobileBottomSheet>
-
-        {/* ═══ ADD RECORD — FULL SCREEN WIZARD ═══ */}
-        {showAddRecord && (() => {
-          const WIZARD_STEPS = [
-            { num: 1, label: 'AVM', icon: Building2 },
-            { num: 2, label: 'İşletme', icon: Store },
-            { num: 3, label: 'Detaylar', icon: ClipboardList },
-            { num: 4, label: 'Onay', icon: Check },
-          ];
-          const selectedMall = malls.find(m => m.id === recordForm.mall_id);
-          const selectedBiz = businesses.find(b => b.id === recordForm.business_id);
-          const filteredMalls = malls.filter(m => m.name.toLowerCase().includes(mallSearch.toLowerCase()));
-          const filteredBiz = businesses.filter(b => b.mall_id === recordForm.mall_id && b.name.toLowerCase().includes(bizSearch.toLowerCase()));
-          const wizardAnimClass = wizardDirection === 'right' ? 'wizard-slide-right' : 'wizard-slide-left';
-
-          const goNext = () => { setWizardDirection('right'); setWizardStep(s => Math.min(s + 1, 4)); };
-          const goBack = () => { setWizardDirection('left'); setWizardStep(s => Math.max(s - 1, 1)); };
-
-          return (
-            <div className="fixed inset-0 z-[150] bg-background text-foreground flex flex-col animate-fade-in">
-              {/* ── Header ── */}
-              <div className="shrink-0 bg-card border-b border-border">
-                <div className="h-14 px-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {wizardStep > 1 ? (
-                      <button onClick={goBack} className="w-9 h-9 rounded-xl bg-secondary border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors">
-                        <ChevronLeft size={18} />
-                      </button>
-                    ) : (
-                      <button onClick={() => setShowAddRecord(false)} className="w-9 h-9 rounded-xl bg-secondary border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors">
-                        <X size={18} />
-                      </button>
-                    )}
-                    <div className="ml-1">
-                      <h3 className="font-black text-sm tracking-tight text-foreground">Yeni İş Emri</h3>
-                      <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Adım {wizardStep} / 4</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setShowAddRecord(false)} className="w-9 h-9 rounded-xl bg-secondary border border-border flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
-                    <X size={16} />
-                  </button>
-                </div>
-
-                {/* Progress bar */}
-                <div className="px-4 pb-3">
-                  <div className="wizard-progress">
-                    <div className="wizard-progress-bar" style={{ width: `${(wizardStep / 4) * 100}%` }} />
-                  </div>
-                  {/* Step indicators */}
-                  <div className="flex justify-between mt-2.5">
-                    {WIZARD_STEPS.map(s => {
-                      const StepIcon = s.icon;
-                      const isActive = wizardStep === s.num;
-                      const isDone = wizardStep > s.num;
+          ) : recentPreview.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="Henüz servis kaydı yok"
+              description="İlk iş emrini oluşturarak başlayın."
+              action={<Button icon={PlusCircle} onClick={handleOpenAddRecord}>Yeni servis kaydı</Button>}
+              className="border-t border-border"
+            />
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto border-t border-border">
+                <table className="p-table">
+                  <thead>
+                    <tr>
+                      <th>İşletme</th>
+                      <th>İşlem</th>
+                      <th>Durum</th>
+                      <th>Teknisyen</th>
+                      <th className="text-right">Tarih</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentPreview.map(rec => {
+                      const parsed = parseDescription(rec.description);
                       return (
-                        <div key={s.num} className="flex flex-col items-center gap-1">
-                          <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 text-xs font-black",
-                            isActive && "bg-primary text-white scale-110 shadow-lg shadow-primary/30",
-                            isDone && "bg-emerald-500/20 text-emerald-400",
-                            !isActive && !isDone && "bg-secondary text-muted-foreground/30"
-                          )}>
-                            {isDone ? <Check size={14} /> : <StepIcon size={14} />}
-                          </div>
-                          <span className={cn(
-                            "text-[8px] font-bold uppercase tracking-wider",
-                            isActive ? "text-foreground font-black" : isDone ? "text-emerald-400/60" : "text-muted-foreground/30"
-                          )}>{s.label}</span>
-                        </div>
+                        <tr key={rec.id} onClick={() => handleViewRecordDetail(rec)} className="cursor-pointer">
+                          <td>
+                            <p className="font-medium text-foreground truncate max-w-[220px]">{(rec as any).businesses?.name || '—'}</p>
+                            <p className="text-xs text-muted-foreground font-mono">#{rec.id.substring(0, 6).toUpperCase()}</p>
+                          </td>
+                          <td className="text-muted-foreground">{rec.service_type || 'Bakım'}</td>
+                          <td><Badge tone={statusTone(parsed.status)}>{parsed.status}</Badge></td>
+                          <td className="text-muted-foreground">{parsed.technician || '—'}</td>
+                          <td className="text-right text-muted-foreground tabular-nums">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
+                        </tr>
                       );
                     })}
-                  </div>
-                </div>
+                  </tbody>
+                </table>
               </div>
 
-              {/* ── Step Content ── */}
-              <div className="flex-1 overflow-y-auto pb-32">
-                <div className="max-w-lg mx-auto w-full p-4">
+              {/* Mobile rows */}
+              <div className="md:hidden border-t border-border divide-y divide-border">
+                {recentPreview.map(rec => {
+                  const parsed = parseDescription(rec.description);
+                  return (
+                    <button
+                      key={rec.id}
+                      type="button"
+                      onClick={() => handleViewRecordDetail(rec)}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-surface transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{(rec as any).businesses?.name || '—'}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                          {rec.service_type || 'Bakım'} · <span className="tabular-nums">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</span>
+                        </p>
+                      </div>
+                      <Badge tone={statusTone(parsed.status)}>{parsed.status}</Badge>
+                      <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
 
-                  {/* ════ STEP 1: AVM Seçimi ════ */}
+      {/* Add mall */}
+      <Sheet isOpen={showAddMall} onClose={() => setShowAddMall(false)} title="Yeni AVM" description="Sisteme yeni bir müşteri lokasyonu ekleyin.">
+        <form onSubmit={handleAddMall} className="space-y-4">
+          <Field label="AVM adı" required>
+            <Input value={mallForm.name} onChange={e => setMallForm({ ...mallForm, name: e.target.value })} required placeholder="Örn: Akasya AVM" />
+          </Field>
+          <Field label="Lokasyon / adres">
+            <Input value={mallForm.address} onChange={e => setMallForm({ ...mallForm, address: e.target.value })} placeholder="Şehir, ilçe vb." />
+          </Field>
+          <Field label="Sorumlu kişi">
+            <Input value={mallForm.contact_person} onChange={e => setMallForm({ ...mallForm, contact_person: e.target.value })} placeholder="Ad soyad" />
+          </Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setShowAddMall(false)}>Vazgeç</Button>
+            <Button type="submit" icon={Check} loading={saving}>AVM’yi kaydet</Button>
+          </div>
+        </form>
+      </Sheet>
+
+      {/* Add record — wizard */}
+      {showAddRecord && (() => {
+        const WIZARD_STEPS = [
+          { num: 1, label: 'AVM', icon: Building2 },
+          { num: 2, label: 'İşletme', icon: Store },
+          { num: 3, label: 'Detaylar', icon: ClipboardList },
+          { num: 4, label: 'Onay', icon: Check },
+        ];
+        const selectedMall = malls.find(m => m.id === recordForm.mall_id);
+        const selectedBiz = businesses.find(b => b.id === recordForm.business_id);
+        const filteredMalls = malls.filter(m => m.name.toLowerCase().includes(mallSearch.toLowerCase()));
+        const filteredBiz = businesses.filter(b => b.mall_id === recordForm.mall_id && b.name.toLowerCase().includes(bizSearch.toLowerCase()));
+        const wizardAnimClass = wizardDirection === 'right' ? 'wizard-slide-right' : 'wizard-slide-left';
+
+        const goNext = () => { setWizardDirection('right'); setWizardStep(s => Math.min(s + 1, 4)); };
+        const goBack = () => { setWizardDirection('left'); setWizardStep(s => Math.max(s - 1, 1)); };
+
+        const currentStep = WIZARD_STEPS[wizardStep - 1];
+
+        return (
+          <div className="fixed inset-0 z-[150] flex sm:items-center sm:justify-center sm:p-6 print:hidden" role="dialog" aria-modal="true">
+            <div className="hidden sm:block absolute inset-0 bg-background/80 backdrop-blur-sm p-anim-fade" onClick={() => setShowAddRecord(false)} />
+            <div className="relative flex flex-col w-full h-full bg-background text-foreground sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-border sm:bg-popover sm:shadow-xl p-anim-fade">
+              {/* Header */}
+              <div className="shrink-0 border-b border-border px-4 sm:px-6 pt-4 pb-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold text-foreground">Yeni servis kaydı</h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">Adım {wizardStep} / 4 · {currentStep.label}</p>
+                  </div>
+                  <IconButton icon={X} label="Kapat" size="sm" onClick={() => setShowAddRecord(false)} className="-mr-1.5" />
+                </div>
+
+                {/* Progress */}
+                <div className="mt-4 h-1 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${(wizardStep / 4) * 100}%` }} />
+                </div>
+                <ol className="mt-3 grid grid-cols-4 gap-2">
+                  {WIZARD_STEPS.map(s => {
+                    const isActive = wizardStep === s.num;
+                    const isDone = wizardStep > s.num;
+                    return (
+                      <li key={s.num} className="flex items-center gap-2 min-w-0">
+                        <span className={cn(
+                          'w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold tabular-nums transition-colors',
+                          isActive && 'bg-primary text-white',
+                          isDone && 'bg-primary/10 text-primary',
+                          !isActive && !isDone && 'bg-muted text-muted-foreground'
+                        )}>
+                          {isDone ? <Check size={12} /> : s.num}
+                        </span>
+                        <span className={cn('text-xs truncate', isActive ? 'font-medium text-foreground' : 'text-muted-foreground')}>{s.label}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+
+              {/* Step content */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="max-w-xl mx-auto w-full px-4 sm:px-6 py-6">
+
+                  {/* Step 1: mall */}
                   {wizardStep === 1 && (
                     <div key="step1" className={wizardAnimClass}>
-                      <div className="text-center mb-6 mt-2">
-                        <div className="w-16 h-16 rounded-2xl bg-violet-500/15 flex items-center justify-center text-violet-400 mx-auto mb-3">
-                          <Building2 size={30} />
-                        </div>
-                        <h2 className="text-xl font-black text-foreground tracking-tight">AVM Seçin</h2>
-                        <p className="text-sm text-muted-foreground mt-1">İş emrinin uygulanacağı AVM bölgesini belirleyin</p>
-                      </div>
-
-                      {/* Search */}
-                      <div className="relative mb-4">
-                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
-                        <input
-                          type="text"
-                          value={mallSearch}
-                          onChange={e => setMallSearch(e.target.value)}
-                          placeholder="AVM ara..."
-                          className="input-premium h-12 pl-11 pr-4 w-full"
-                          autoFocus
-                        />
-                      </div>
-
-                      {/* Mall cards */}
-                      <div className="space-y-3">
-                        {filteredMalls.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground/40">
-                            <Building2 size={36} className="mx-auto mb-2 opacity-30" />
-                            <p className="text-sm font-bold">AVM bulunamadı</p>
-                          </div>
-                        ) : (
-                          filteredMalls.map(mall => (
-                            <div
+                      <StepHeading icon={Building2} title="AVM seçin" description="İş emrinin uygulanacağı AVM’yi belirleyin." />
+                      <SearchInput value={mallSearch} onChange={setMallSearch} placeholder="AVM ara…" className="mb-4" />
+                      {filteredMalls.length === 0 ? (
+                        <Card><EmptyState icon={Building2} title="AVM bulunamadı" description="Farklı bir arama deneyin." className="py-10" /></Card>
+                      ) : (
+                        <div className="space-y-2">
+                          {filteredMalls.map(mall => (
+                            <SelectCard
                               key={mall.id}
-                              onClick={() => {
+                              icon={Building2}
+                              title={mall.name}
+                              meta={mall.address ? <><MapPin size={12} className="shrink-0" /> {mall.address}</> : undefined}
+                              selected={recordForm.mall_id === mall.id}
+                              onSelect={() => {
                                 setRecordForm(f => ({ ...f, mall_id: mall.id, business_id: '' }));
                                 setBizSearch('');
                                 setTimeout(goNext, 200);
                               }}
-                              className={cn('wizard-card bg-card border-border', recordForm.mall_id === mall.id && 'selected border-red-500')}
-                            >
-                              <div className="w-11 h-11 rounded-xl bg-violet-500/15 flex items-center justify-center text-violet-400 shrink-0">
-                                <Building2 size={20} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-foreground text-[15px] truncate">{mall.name}</p>
-                                {mall.address && (
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                                    <MapPin size={10} />
-                                    {mall.address}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="wizard-check">
-                                {recordForm.mall_id === mall.id && <Check size={12} className="text-white" />}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* ════ STEP 2: İşletme Seçimi ════ */}
+                  {/* Step 2: business */}
                   {wizardStep === 2 && (
                     <div key="step2" className={wizardAnimClass}>
-                      <div className="text-center mb-6 mt-2">
-                        <div className="w-16 h-16 rounded-2xl bg-cyan-500/15 flex items-center justify-center text-cyan-400 mx-auto mb-3">
-                          <Store size={30} />
-                        </div>
-                        <h2 className="text-xl font-black text-foreground tracking-tight">İşletme Seçin</h2>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {selectedMall ? <><span className="text-violet-400 font-bold">{selectedMall.name}</span> içindeki işletme</> : 'İşletme seçin'}
-                        </p>
-                      </div>
-
-                      {/* Search */}
-                      <div className="relative mb-4">
-                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
-                        <input
-                          type="text"
-                          value={bizSearch}
-                          onChange={e => setBizSearch(e.target.value)}
-                          placeholder="İşletme ara..."
-                          className="input-premium h-12 pl-11 pr-4 w-full"
-                          autoFocus
-                        />
-                      </div>
-
-                      {/* Business cards */}
-                      <div className="space-y-3">
-                        {filteredBiz.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground/40">
-                            <Store size={36} className="mx-auto mb-2 opacity-30" />
-                            <p className="text-sm font-bold">İşletme bulunamadı</p>
-                            <p className="text-xs mt-1 text-muted-foreground/30">Bu AVM'de kayıtlı işletme yok veya aramanız eşleşmedi</p>
-                          </div>
-                        ) : (
-                          filteredBiz.map(biz => (
-                            <div
+                      <StepHeading
+                        icon={Store}
+                        title="İşletme seçin"
+                        description={selectedMall ? <><span className="font-medium text-foreground">{selectedMall.name}</span> içindeki işletmeyi seçin.</> : 'İşletme seçin.'}
+                      />
+                      <SearchInput value={bizSearch} onChange={setBizSearch} placeholder="İşletme ara…" className="mb-4" />
+                      {filteredBiz.length === 0 ? (
+                        <Card><EmptyState icon={Store} title="İşletme bulunamadı" description="Bu AVM’de kayıtlı işletme yok veya aramanız eşleşmedi." className="py-10" /></Card>
+                      ) : (
+                        <div className="space-y-2">
+                          {filteredBiz.map(biz => (
+                            <SelectCard
                               key={biz.id}
-                              onClick={() => {
+                              icon={Store}
+                              title={biz.name}
+                              meta={biz.category || 'İşletme'}
+                              selected={recordForm.business_id === biz.id}
+                              onSelect={() => {
                                 setRecordForm(f => ({ ...f, business_id: biz.id }));
                                 setTimeout(goNext, 200);
                               }}
-                              className={cn('wizard-card bg-card border-border', recordForm.business_id === biz.id && 'selected border-red-500')}
-                            >
-                              <div className="w-11 h-11 rounded-xl bg-cyan-500/15 flex items-center justify-center text-cyan-400 shrink-0">
-                                <Store size={20} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-foreground text-[15px] truncate">{biz.name}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">{biz.category || 'İşletme'}</p>
-                              </div>
-                              <div className="wizard-check">
-                                {recordForm.business_id === biz.id && <Check size={12} className="text-white" />}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* ════ STEP 3: İşlem Detayları ════ */}
+                  {/* Step 3: details */}
                   {wizardStep === 3 && (
                     <div key="step3" className={wizardAnimClass}>
-                      <div className="text-center mb-6 mt-2">
-                        <div className="w-16 h-16 rounded-2xl bg-amber-500/15 flex items-center justify-center text-amber-400 mx-auto mb-3">
-                          <ClipboardList size={30} />
-                        </div>
-                        <h2 className="text-xl font-black text-foreground tracking-tight">İşlem Detayları</h2>
-                        <p className="text-sm text-muted-foreground mt-1">Servis bilgilerini doldurun</p>
-                      </div>
+                      <StepHeading icon={ClipboardList} title="İşlem detayları" description="Servis bilgilerini doldurun." />
 
-                      {/* Selected info summary */}
-                      <div className="flex gap-2 mb-5">
-                        <div className="flex-1 p-3 rounded-xl bg-violet-500/10 border border-violet-500/20">
-                          <p className="text-[9px] text-violet-400/60 font-bold uppercase tracking-wider">AVM</p>
-                          <p className="text-sm font-bold text-violet-600 dark:text-violet-300 truncate">{selectedMall?.name || '—'}</p>
-                        </div>
-                        <div className="flex-1 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                          <p className="text-[9px] text-cyan-400/60 font-bold uppercase tracking-wider">İşletme</p>
-                          <p className="text-sm font-bold text-cyan-600 dark:text-cyan-300 truncate">{selectedBiz?.name || '—'}</p>
-                        </div>
+                      <div className="grid grid-cols-2 gap-3 mb-5">
+                        <SummaryItem label="AVM" value={selectedMall?.name || '—'} boxed />
+                        <SummaryItem label="İşletme" value={selectedBiz?.name || '—'} boxed />
                       </div>
 
                       <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">İşlem Türü</label>
-                          <input list="svc" value={recordForm.service_type} onChange={e => setRecordForm({...recordForm, service_type: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Örn: Genel Bakım" />
+                        <Field label="İşlem türü">
+                          <Input list="svc" value={recordForm.service_type} onChange={e => setRecordForm({ ...recordForm, service_type: e.target.value })} placeholder="Örn: Genel bakım" />
                           <datalist id="svc">
                             <option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" /><option value="Baca Temizliği" /><option value="Arıza Tespiti & Onarım" />
                           </datalist>
-                        </div>
+                        </Field>
 
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">İşlem Durumu</label>
-                          <select value={recordForm.status} onChange={e => setRecordForm({...recordForm, status: e.target.value})} className="input-premium h-12 px-4 w-full">
+                        <Field label="İşlem durumu">
+                          <Select value={recordForm.status} onChange={e => setRecordForm({ ...recordForm, status: e.target.value })}>
                             <option value="Tamamlandı">Tamamlandı</option>
-                            <option value="Devam Ediyor">Devam Ediyor</option>
-                            <option value="İptal / Ertelendi">İptal / Ertelendi</option>
-                          </select>
+                            <option value="Devam Ediyor">Devam ediyor</option>
+                            <option value="İptal / Ertelendi">İptal / ertelendi</option>
+                          </Select>
+                        </Field>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <Field label="Teknisyen">
+                            <Input value={recordForm.technician} onChange={e => setRecordForm({ ...recordForm, technician: e.target.value })} placeholder="Personel adı" />
+                          </Field>
+                          <Field label="Maliyet">
+                            <Input value={recordForm.cost} onChange={e => setRecordForm({ ...recordForm, cost: e.target.value })} placeholder="₺ (opsiyonel)" />
+                          </Field>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Teknisyen</label>
-                            <input value={recordForm.technician} onChange={e => setRecordForm({...recordForm, technician: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Personel" />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Maliyet</label>
-                            <input value={recordForm.cost} onChange={e => setRecordForm({...recordForm, cost: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="₺ Opsiyonel" />
-                          </div>
-                        </div>
+                        <Field label="Kullanılan parçalar">
+                          <Input value={recordForm.materials} onChange={e => setRecordForm({ ...recordForm, materials: e.target.value })} placeholder="Örn: 2 tüp, 1 hortum" />
+                        </Field>
 
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Kullanılan Parçalar</label>
-                          <input value={recordForm.materials} onChange={e => setRecordForm({...recordForm, materials: e.target.value})} className="input-premium h-12 px-4 w-full" placeholder="Örn: 2 Tüp, 1 Hortum" />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Saha Notları *</label>
-                          <textarea value={recordForm.text} onChange={e => setRecordForm({...recordForm, text: e.target.value})} rows={4} className="input-premium p-4 w-full resize-none" placeholder="Yapılan işlemi detaylı şekilde özetleyin..." />
-                        </div>
+                        <Field label="Saha notları" required hint="Kaydı oluşturmak için zorunludur.">
+                          <Textarea value={recordForm.text} onChange={e => setRecordForm({ ...recordForm, text: e.target.value })} rows={4} className="resize-none" placeholder="Yapılan işlemi kısaca özetleyin…" />
+                        </Field>
                       </div>
                     </div>
                   )}
 
-                  {/* ════ STEP 4: Fotoğraf & Onay ════ */}
+                  {/* Step 4: photos & confirm */}
                   {wizardStep === 4 && (
                     <div key="step4" className={wizardAnimClass}>
-                      <div className="text-center mb-6 mt-2">
-                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400 mx-auto mb-3">
-                          <Check size={30} />
-                        </div>
-                        <h2 className="text-xl font-black text-foreground tracking-tight">Gözden Geçir & Gönder</h2>
-                        <p className="text-sm text-muted-foreground mt-1">Bilgileri kontrol edin, fotoğraf ekleyin</p>
-                      </div>
+                      <StepHeading icon={Check} title="Gözden geçirin ve kaydedin" description="Bilgileri kontrol edin, isterseniz fotoğraf ekleyin." />
 
-                      {/* Summary cards */}
-                      <div className="space-y-3 mb-6">
-                        <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-[9px] text-violet-400/60 font-bold uppercase tracking-wider">AVM</p>
-                              <p className="text-base font-black text-foreground">{selectedMall?.name || '—'}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[9px] text-cyan-400/60 font-bold uppercase tracking-wider">İşletme</p>
-                              <p className="text-base font-black text-foreground">{selectedBiz?.name || '—'}</p>
-                            </div>
-                          </div>
-                          <div className="h-px bg-border" />
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <p className="text-[9px] text-muted-foreground font-bold uppercase">İşlem</p>
-                              <p className="font-bold text-foreground/80">{recordForm.service_type || 'Genel Bakım'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] text-muted-foreground font-bold uppercase">Durum</p>
-                              <p className={cn("font-bold",
-                                recordForm.status === 'Tamamlandı' ? 'text-emerald-500' :
-                                recordForm.status === 'Devam Ediyor' ? 'text-blue-500' : 'text-red-500'
-                              )}>{recordForm.status}</p>
-                            </div>
-                            {recordForm.technician && (
-                              <div>
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase">Teknisyen</p>
-                                <p className="font-bold text-foreground/80">{recordForm.technician}</p>
-                              </div>
-                            )}
-                            {recordForm.cost && (
-                              <div>
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase">Maliyet</p>
-                                <p className="font-bold text-foreground/80">{recordForm.cost}</p>
-                              </div>
-                            )}
-                          </div>
-                          {recordForm.text && (
-                            <>
-                              <div className="h-px bg-border" />
-                              <div>
-                                <p className="text-[9px] text-muted-foreground font-bold uppercase mb-1">Saha Notları</p>
-                                <p className="text-sm text-muted-foreground italic leading-relaxed">"{recordForm.text}"</p>
-                              </div>
-                            </>
-                          )}
+                      <Card className="p-4 sm:p-5 mb-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <SummaryItem label="AVM" value={selectedMall?.name || '—'} />
+                          <SummaryItem label="İşletme" value={selectedBiz?.name || '—'} />
                         </div>
-                      </div>
-
-                      {/* Photo upload */}
-                      <div className="space-y-3">
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Görsel Kanıt</p>
-                        <label className="flex flex-col items-center justify-center gap-3 w-full py-10 rounded-2xl border-2 border-dashed border-border hover:border-primary/40 cursor-pointer transition-all bg-secondary/20 active:scale-[0.98]">
-                          <Camera size={32} className="text-muted-foreground/30" />
-                          <span className="text-sm font-bold text-muted-foreground">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Seçildi` : 'Fotoğraf Ekle'}</span>
-                          <span className="text-[10px] text-muted-foreground/40">Tıklayın veya sürükleyin</span>
-                          <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
-                        </label>
-                        {recordPhotos.length > 0 && (
-                          <div className="grid grid-cols-3 gap-2">
-                            {recordPhotos.map((file, i) => (
-                              <div key={i} className="aspect-square rounded-xl bg-secondary border border-border flex items-center justify-center overflow-hidden">
-                                <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
-                              </div>
-                            ))}
+                        <div className="h-px bg-border" />
+                        <div className="grid grid-cols-2 gap-4">
+                          <SummaryItem label="İşlem" value={recordForm.service_type || 'Genel Bakım'} />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Durum</p>
+                            <Badge tone={statusTone(recordForm.status)} className="mt-1">{recordForm.status}</Badge>
                           </div>
+                          {recordForm.technician && <SummaryItem label="Teknisyen" value={recordForm.technician} />}
+                          {recordForm.cost && <SummaryItem label="Maliyet" value={recordForm.cost} />}
+                        </div>
+                        {recordForm.text && (
+                          <>
+                            <div className="h-px bg-border" />
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Saha notları</p>
+                              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{recordForm.text}</p>
+                            </div>
+                          </>
                         )}
-                      </div>
+                      </Card>
+
+                      <Field label="Fotoğraflar">
+                        <PhotoDrop
+                          label={recordPhotos.length > 0 ? `${recordPhotos.length} dosya seçildi` : 'Fotoğraf ekle'}
+                          onFiles={files => setRecordPhotos(files)}
+                        />
+                      </Field>
+                      {recordPhotos.length > 0 && (
+                        <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {recordPhotos.map((file, i) => (
+                            <div key={i} className="aspect-square rounded-xl bg-muted border border-border overflow-hidden">
+                              <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* ── Bottom Action Bar ── */}
-              <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))] z-10">
-                <div className="max-w-lg mx-auto flex gap-3">
-                  {wizardStep > 1 && (
-                    <button
-                      type="button"
-                      onClick={goBack}
-                      className="flex-1 h-14 rounded-2xl bg-secondary border border-border text-foreground font-bold text-sm flex items-center justify-center gap-2 hover:bg-secondary/80 transition-colors active:scale-[0.97]"
-                    >
-                      <ChevronLeft size={18} />
-                      Geri
-                    </button>
+              {/* Footer */}
+              <div className="shrink-0 border-t border-border bg-background sm:bg-transparent px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <div className="flex items-center justify-between gap-2">
+                  {wizardStep > 1 ? (
+                    <Button variant="secondary" icon={ChevronLeft} onClick={goBack}>Geri</Button>
+                  ) : (
+                    <Button variant="ghost" onClick={() => setShowAddRecord(false)}>Vazgeç</Button>
                   )}
                   {wizardStep < 4 ? (
-                    <button
-                      type="button"
+                    <Button
                       onClick={goNext}
                       disabled={
                         (wizardStep === 1 && !recordForm.mall_id) ||
                         (wizardStep === 2 && !recordForm.business_id)
                       }
-                      className={cn(
-                        "flex-[2] h-14 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.97]",
-                        ((wizardStep === 1 && !recordForm.mall_id) || (wizardStep === 2 && !recordForm.business_id))
-                          ? "bg-secondary text-muted-foreground/30 cursor-not-allowed"
-                          : "bg-primary text-white shadow-lg shadow-primary/30 hover:brightness-110"
-                      )}
+                      className="min-w-32"
                     >
-                      Devam Et
-                      <ChevronRight size={18} />
-                    </button>
+                      Devam <ChevronRight size={16} />
+                    </Button>
                   ) : (
-                    <button
-                      type="button"
+                    <Button
+                      icon={Check}
+                      loading={saving}
                       onClick={e => { handleAddRecord(e as any); }}
                       disabled={saving || !recordForm.text}
-                      className={cn(
-                        "flex-[2] h-14 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.97] uppercase tracking-wider",
-                        (saving || !recordForm.text)
-                          ? "bg-secondary text-muted-foreground/30 cursor-not-allowed"
-                          : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 hover:brightness-110"
-                      )}
+                      className="min-w-32"
                     >
-                      {saving ? <Loader2 size={20} className="animate-spin" /> : <><Check size={18} /> İş Emri Oluştur</>}
-                    </button>
+                      Kaydet
+                    </Button>
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Edit record */}
+      <Sheet
+        isOpen={showEditRecord}
+        onClose={() => setShowEditRecord(false)}
+        title="Servis kaydını düzenle"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowEditRecord(false)}>Vazgeç</Button>
+            <Button type="submit" form="edit-record-form" loading={saving}>Güncelle</Button>
+          </>
+        }
+      >
+        <form id="edit-record-form" onSubmit={handleUpdateRecord} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="İşlem türü">
+              <Input list="svc2" value={editRecordForm.service_type} onChange={e => setEditRecordForm({ ...editRecordForm, service_type: e.target.value })} />
+              <datalist id="svc2"><option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" /></datalist>
+            </Field>
+            <Field label="Teknisyen">
+              <Input value={editRecordForm.technician} onChange={e => setEditRecordForm({ ...editRecordForm, technician: e.target.value })} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="İşlem durumu">
+              <Select value={editRecordForm.status} onChange={e => setEditRecordForm({ ...editRecordForm, status: e.target.value })}>
+                <option value="Tamamlandı">Tamamlandı</option>
+                <option value="Devam Ediyor">Devam ediyor</option>
+                <option value="İptal / Ertelendi">İptal / ertelendi</option>
+              </Select>
+            </Field>
+            <Field label="Maliyet">
+              <Input value={editRecordForm.cost} onChange={e => setEditRecordForm({ ...editRecordForm, cost: e.target.value })} />
+            </Field>
+          </div>
+
+          <Field label="Açıklama / saha notları">
+            <Textarea value={editRecordForm.text} onChange={e => setEditRecordForm({ ...editRecordForm, text: e.target.value })} rows={3} className="resize-none" />
+          </Field>
+
+          <Field label="Kullanılan parçalar">
+            <Input value={editRecordForm.materials} onChange={e => setEditRecordForm({ ...editRecordForm, materials: e.target.value })} />
+          </Field>
+
+          {editingPhotos.length > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {editingPhotos.map(p => (
+                <div key={p.id} className="relative group aspect-square rounded-xl overflow-hidden border border-border bg-muted">
+                  <img src={p.photo_url} alt="Ek" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePhoto(p)}
+                    aria-label="Fotoğrafı sil"
+                    className="absolute top-1.5 right-1.5 w-7 h-7 rounded-lg bg-destructive text-destructive-foreground flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Field label="Ek görsel">
+            <PhotoDrop
+              compact
+              label={recordPhotos.length > 0 ? `${recordPhotos.length} dosya seçildi` : 'Görsel seç'}
+              onFiles={files => setRecordPhotos(files)}
+            />
+          </Field>
+        </form>
+      </Sheet>
+
+      {/* Recent records list */}
+      <Sheet
+        isOpen={showRecentRecordsModal}
+        onClose={() => setShowRecentRecordsModal(false)}
+        title="Son servis kayıtları"
+        description={`${records.length} kayıt`}
+        size="lg"
+      >
+        {records.length === 0 ? (
+          <EmptyState icon={FileText} title="Kayıt bulunamadı" className="py-10" />
+        ) : (
+          <div className="space-y-2">
+            {records.map(rec => {
+              const parsed = parseDescription(rec.description);
+              return (
+                <Card
+                  key={rec.id}
+                  interactive
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setShowRecentRecordsModal(false);
+                    handleViewRecordDetail(rec);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setShowRecentRecordsModal(false);
+                      handleViewRecordDetail(rec);
+                    }
+                  }}
+                  className="p-4 cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{(rec as any).businesses?.name || '—'}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground font-mono">#{rec.id.substring(0, 6).toUpperCase()}</p>
+                    </div>
+                    <Badge tone={statusTone(parsed.status)}>{parsed.status}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{parsed.text || 'Açıklama belirtilmemiş'}</p>
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{rec.service_type || 'Bakım'}</span>
+                    <span className="tabular-nums">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</span>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </Sheet>
+
+      {/* Record detail */}
+      <Sheet
+        isOpen={!!viewingRecordDetail}
+        onClose={() => setViewingRecordDetail(null)}
+        title="Servis raporu"
+        description={viewingRecordDetail ? `Belge no #${viewingRecordDetail.id.substring(0, 8).toUpperCase()} · ${new Date(viewingRecordDetail.created_at).toLocaleDateString('tr-TR')}` : undefined}
+        size="lg"
+        footer={viewingRecordDetail && (
+          <>
+            <Button
+              variant="danger"
+              icon={Trash2}
+              onClick={() => {
+                setViewingRecordDetail(null);
+                handleDeleteRecord(viewingRecordDetail.id);
+              }}
+            >
+              Sil
+            </Button>
+            <Button
+              variant="secondary"
+              icon={Edit3}
+              onClick={() => {
+                setViewingRecordDetail(null);
+                handleEditClick(viewingRecordDetail);
+              }}
+            >
+              Düzenle
+            </Button>
+          </>
+        )}
+      >
+        {viewingRecordDetail && (() => {
+          const parsed = parseDescription(viewingRecordDetail.description);
+          return (
+            <div className="space-y-5">
+              <div className="flex items-start gap-3">
+                <IconTile icon={Store} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-foreground truncate">{(viewingRecordDetail as any).businesses?.name || '—'}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <Badge tone="primary">{viewingRecordDetail.service_type || 'Servis'}</Badge>
+                    <Badge tone={statusTone(parsed.status)}>{parsed.status}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">Saha notları</p>
+                <div className="rounded-xl border border-border bg-surface p-3.5 text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {parsed.text || 'Açıklama belirtilmemiş.'}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <SummaryItem label="Teknisyen" value={parsed.technician || 'Ziva teknik ekibi'} boxed />
+                <SummaryItem label="Kullanılan parçalar" value={parsed.materials || 'Ekipman kullanılmadı'} boxed />
+                {parsed.cost && <SummaryItem label="Maliyet" value={parsed.cost} boxed />}
+              </div>
+
+              {detailPhotos.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">Fotoğraflar ({detailPhotos.length})</p>
+                  <div className="flex gap-2.5 overflow-x-auto pb-1">
+                    {detailPhotos.map((ph, idx) => (
+                      <a key={idx} href={ph.photo_url} target="_blank" rel="noreferrer" className="shrink-0 w-40 aspect-video rounded-xl border border-border overflow-hidden bg-muted">
+                        <img src={ph.photo_url} alt={`Fotoğraf ${idx + 1}`} className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
+      </Sheet>
+    </PanelLayout>
+  );
+}
 
-        {/* Edit Record Sheet / Modal */}
-        <MobileBottomSheet
-          isOpen={showEditRecord}
-          onClose={() => setShowEditRecord(false)}
-          title="İş Emrini Düzenle"
-        >
-          <form onSubmit={handleUpdateRecord} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">İşlem Türü</label>
-                <input list="svc2" value={editRecordForm.service_type} onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-                <datalist id="svc2"><option value="Genel Bakım" /><option value="Yangın Sistemi Kontrolü" /></datalist>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Teknisyen</label>
-                <input value={editRecordForm.technician} onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-              </div>
-            </div>
+/* ─── Local presentation helpers ─── */
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">İşlem Durumu</label>
-                <select value={editRecordForm.status} onChange={e => setEditRecordForm({...editRecordForm, status: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white select-premium">
-                  <option value="Tamamlandı">Tamamlandı</option><option value="Devam Ediyor">Devam Ediyor</option><option value="İptal / Ertelendi">İptal / Ertelendi</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Maliyet</label>
-                <input value={editRecordForm.cost} onChange={e => setEditRecordForm({...editRecordForm, cost: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-              </div>
-            </div>
+function statusTone(status: string): 'success' | 'primary' | 'danger' | 'neutral' {
+  switch (status) {
+    case 'Tamamlandı': return 'success';
+    case 'Devam Ediyor': return 'primary';
+    case 'İptal / Ertelendi': return 'danger';
+    default: return 'neutral';
+  }
+}
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Açıklama / Saha Notları</label>
-              <textarea value={editRecordForm.text} onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white leading-relaxed resize-none" />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Kullanılan Parçalar</label>
-              <input value={editRecordForm.materials} onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-            </div>
-
-            {editingPhotos.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 pt-2">
-                {editingPhotos.map(p => (
-                  <div key={p.id} className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black">
-                    <img src={p.photo_url} alt="Ek" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => handleDeletePhoto(p)} className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[1px]"><Trash2 size={16} /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Ek Görsel Ekle</label>
-              <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-xl border border-dashed border-white/10 cursor-pointer transition-all bg-white/[0.02] hover:border-red-500/50 hover:bg-red-500/5">
-                <span className="text-xs font-bold text-white/40">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya` : '+ Görsel Seç'}</span>
-                <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
-              </label>
-            </div>
-            
-            <div className="flex justify-end pt-4 border-t border-white/5">
-              <button type="submit" disabled={saving} className="bg-red-500 text-white w-full h-12 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-red-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer">
-                {saving ? <Loader2 size={18} className="animate-spin" /> : 'Güncelle'}
-              </button>
-            </div>
-          </form>
-        </MobileBottomSheet>
-
-        {/* Recent Records Sheet / Modal */}
-        <MobileBottomSheet
-          isOpen={showRecentRecordsModal}
-          onClose={() => setShowRecentRecordsModal(false)}
-          title="Son İş Emirleri"
-        >
-          <div className="space-y-3 pb-8 text-white">
-            {records.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-white/30">
-                <FileText size={36} className="mb-2 opacity-20" />
-                <p className="text-xs font-bold uppercase tracking-widest">Kayıt Bulunamadı</p>
-              </div>
-            ) : (
-              records.map((rec) => {
-                const parsed = parseDescription(rec.description);
-                return (
-                  <div 
-                    key={rec.id}
-                    onClick={() => {
-                      setShowRecentRecordsModal(false);
-                      handleViewRecordDetail(rec);
-                    }}
-                    className="bg-white/[0.02] border border-white/5 rounded-xl p-4 active:scale-[0.98] transition-all cursor-pointer relative overflow-hidden"
-                  >
-                    <div className="flex justify-between items-start gap-4 mb-2">
-                      <div className="min-w-0">
-                        <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest font-mono">#{rec.id.substring(0, 6).toUpperCase()}</p>
-                        <h4 className="text-xs font-black text-white uppercase tracking-tight truncate mt-0.5">{(rec as any).businesses?.name || '—'}</h4>
-                      </div>
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border shrink-0",
-                        parsed.status === 'Tamamlandı' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                      )}>
-                        {parsed.status}
-                      </span>
-                    </div>
-
-                    <div className="py-2 border-y border-white/5 mb-2 text-[11px] text-white/50 leading-relaxed italic truncate">
-                      "{parsed.text || 'Açıklama belirtilmemiş'}"
-                    </div>
-
-                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-widest text-white/40">
-                      <span>{rec.service_type || 'BAKIM'}</span>
-                      <span>{new Date(rec.created_at).toLocaleDateString('tr-TR')}</span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </MobileBottomSheet>
-
-        {/* Record Detail Sheet / Modal */}
-        <MobileBottomSheet
-          isOpen={!!viewingRecordDetail}
-          onClose={() => setViewingRecordDetail(null)}
-          title="Operasyon Raporu"
-        >
-          {viewingRecordDetail && (() => {
-            const parsed = parseDescription(viewingRecordDetail.description);
-            return (
-              <div className="space-y-5 text-white pb-8">
-                <div className="border-b border-white/5 pb-3">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
-                      {viewingRecordDetail.service_type || 'Servis'}
-                    </span>
-                    <span className={cn(
-                      "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border",
-                      parsed.status === 'Tamamlandı' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                    )}>
-                      {parsed.status}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-black uppercase tracking-tight text-white leading-tight">
-                    {(viewingRecordDetail as any).businesses?.name || '—'}
-                  </h3>
-                  <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest flex items-center gap-1.5 mt-1">
-                    <MapPin size={9} className="text-red-500" />
-                    Belge No: #{viewingRecordDetail.id.substring(0,8).toUpperCase()}
-                    <span className="text-white/20">•</span>
-                    {new Date(viewingRecordDetail.created_at).toLocaleDateString('tr-TR')}
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Saha Notları</h4>
-                    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3.5 text-xs text-white/80 leading-relaxed font-serif italic whitespace-pre-wrap">
-                      "{parsed.text || 'Açıklama belirtilmemiş.'}"
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Teknisyen</h4>
-                      <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/80 font-bold truncate">
-                        {parsed.technician || 'Ziva Teknik Ekibi'}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Kullanılan Parçalar</h4>
-                      <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/80 font-bold truncate">
-                        {parsed.materials || 'Ekipman Kullanılmadı'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {parsed.cost && (
-                    <div className="space-y-1">
-                      <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Maliyet</h4>
-                      <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/80 font-bold">
-                        {parsed.cost}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {detailPhotos.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-white/40">Görsel Belgeler ({detailPhotos.length})</h4>
-                    <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-                      {detailPhotos.map((ph, idx) => (
-                        <div key={idx} className="relative shrink-0 w-40 aspect-video rounded-xl border border-white/10 overflow-hidden bg-black shadow-lg">
-                          <img src={ph.photo_url} className="w-full h-full object-cover" />
-                          <span className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] font-black text-white/70 uppercase">
-                            FOTO_{idx + 1}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-4 border-t border-white/5">
-                  <button
-                    onClick={() => {
-                      setViewingRecordDetail(null);
-                      handleEditClick(viewingRecordDetail);
-                    }}
-                    className="flex-1 h-11 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Edit3 size={14} /> Düzenle
-                  </button>
-                  <button
-                    onClick={() => {
-                      setViewingRecordDetail(null);
-                      handleDeleteRecord(viewingRecordDetail.id);
-                    }}
-                    className="flex-1 h-11 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Trash2 size={14} /> Sil
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-        </MobileBottomSheet>
-      </main>
+function StepHeading({ icon, title, description }: { icon: LucideIcon; title: string; description?: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 mb-5">
+      <IconTile icon={icon} />
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+        {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+      </div>
     </div>
+  );
+}
+
+function SelectCard({ icon, title, meta, selected, onSelect }: { icon: LucideIcon; title: string; meta?: React.ReactNode; selected: boolean; onSelect: () => void }) {
+  return (
+    <Card
+      interactive
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      onClick={onSelect}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
+      className={cn('flex items-center gap-3 p-4 cursor-pointer', selected && 'border-primary bg-primary/5')}
+    >
+      <IconTile icon={icon} tone={selected ? 'primary' : 'neutral'} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-medium text-foreground truncate">{title}</p>
+        {meta && <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1 truncate">{meta}</p>}
+      </div>
+      <span className={cn(
+        'w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors',
+        selected ? 'bg-primary border-primary text-white' : 'border-border-strong'
+      )}>
+        {selected && <Check size={12} />}
+      </span>
+    </Card>
+  );
+}
+
+function SummaryItem({ label, value, boxed }: { label: string; value: React.ReactNode; boxed?: boolean }) {
+  return (
+    <div className={cn('min-w-0', boxed && 'rounded-xl border border-border bg-surface px-3.5 py-3')}>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-sm font-medium text-foreground truncate">{value}</p>
+    </div>
+  );
+}
+
+function PhotoDrop({ label, onFiles, compact }: { label: string; onFiles: (files: File[]) => void; compact?: boolean }) {
+  return (
+    <label className={cn(
+      'flex flex-col items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed border-border bg-surface/40 text-center cursor-pointer transition-colors hover:border-primary hover:bg-primary/5',
+      compact ? 'py-6' : 'py-10'
+    )}>
+      <Camera size={compact ? 20 : 26} className="text-muted-foreground" />
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      {!compact && <span className="text-xs text-muted-foreground">Seçmek için tıklayın</span>}
+      <input type="file" multiple accept="image/*" className="hidden" onChange={e => onFiles(Array.from(e.target.files || []))} />
+    </label>
   );
 }
 

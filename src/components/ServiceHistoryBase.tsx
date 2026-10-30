@@ -1,18 +1,21 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Sidebar, Topbar } from '@/components/DashboardShell';
+import { PanelLayout } from '@/components/DashboardShell';
+import {
+  Button, IconButton, Card, PageHeader, StatCard, Badge, Field, Input, Select, Textarea,
+  SearchInput, LoadingState, EmptyState, ErrorBanner, Sheet, Segmented,
+} from '@/components/ui';
 import { supabase, type MaintenanceRecord } from '@/lib/supabase';
-import { 
-  Search, Loader2, Calendar, ChevronRight, MapPin, 
-  Printer, ArrowLeft, Flame, LayoutGrid, List, Trash2, Edit3, Upload, X, Clock, Store,
-  RefreshCw, ShieldAlert, CheckCircle2, Download, TrendingUp, Package, UserCheck, ImageIcon
+import {
+  ChevronRight, MapPin, Printer, ArrowLeft, Flame, Trash2, Edit3, Upload, Clock,
+  RefreshCw, ShieldAlert, CheckCircle2, Download, TrendingUp, Package, UserCheck, ImageIcon, FileText, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { MobileBottomSheet } from '@/components/MobileBottomSheet';
+
+const statusTone = (status: string) => (status === 'Tamamlandı' ? 'success' : 'info');
 
 export interface ParsedDescription {
   text: string;
@@ -45,7 +48,6 @@ interface ServiceHistoryBaseProps {
 }
 
 export default function ServiceHistoryBase({ role, businessId, targetId, mallId }: ServiceHistoryBaseProps) {
-  const isMobile = useIsMobile();
   const [viewingRecordMobile, setViewingRecordMobile] = useState<MaintenanceRecord | null>(null);
   const [mobilePhotos, setMobilePhotos] = useState<any[]>([]);
   const [activePrintRecordId, setActivePrintRecordId] = useState<string | null>(null);
@@ -325,393 +327,279 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
     document.body.removeChild(link);
   };
 
+  const hasActiveFilters = search !== '' || selectedMall !== 'all' || selectedBusiness !== 'all';
+  const archiveHref = role === 'admin' ? '/admin/history' : '/client/history';
+
   return (
-    <div className="min-h-screen flex bg-amoled lg:bg-[hsl(var(--background))] print:bg-white print:text-black">
-      <Sidebar role={role} />
-      <main className="flex-1 lg:ml-72 pb-24 lg:pb-0 w-full overflow-x-hidden pb-20 sm:pb-8 transition-all duration-500">
-        <div className="print:hidden">
-          <Topbar 
-            title={role === 'admin' ? "Operasyon Arşivi" : "Hizmet Dökümü"} 
-            subtitle={isRefreshing ? 'Yenileniyor...' : (role === 'admin' ? "Tüm zamanların servis kayıtları" : "Sistemdeki dijital karneniz")} 
+    <PanelLayout
+      role={role}
+      width="wide"
+      title={targetId ? 'Servis raporu' : 'Servis arşivi'}
+      subtitle={isRefreshing ? 'Yenileniyor…' : (role === 'admin' ? 'Tüm zamanların servis kayıtları' : 'Hizmet dökümünüz')}
+    >
+      <div className="space-y-6">
+        {targetId ? (
+          <PageHeader
+            className="mb-0 print:hidden"
+            title="Servis raporu"
+            description="Raporu inceleyin, yazdırın veya PDF olarak kaydedin."
+            actions={
+              <>
+                <Link href={archiveHref} className="p-btn p-btn-secondary">
+                  <ArrowLeft size={16} /> Arşive dön
+                </Link>
+                {role === 'admin' && filteredRecords[0] && (
+                  <Button variant="secondary" icon={Edit3} onClick={() => handleEditClick(filteredRecords[0])}>Düzenle</Button>
+                )}
+                <Button icon={Printer} onClick={() => window.print()}>PDF rapor al</Button>
+              </>
+            }
           />
-        </div>
+        ) : (
+          <PageHeader
+            className="mb-0 print:hidden"
+            title="Servis arşivi"
+            description={role === 'admin' ? 'Tüm işletmelerin servis kayıtlarını filtreleyin, inceleyin ve dışa aktarın.' : 'İşletmenize yapılan tüm servislerin dijital kaydı.'}
+            actions={
+              <>
+                <IconButton icon={RefreshCw} label="Yenile" variant="secondary" onClick={() => fetchData(true)} className={cn(isRefreshing && '[&_svg]:animate-spin')} />
+                <Button variant="secondary" icon={Download} onClick={handleExportCSV} disabled={filteredRecords.length === 0}>CSV indir</Button>
+              </>
+            }
+          />
+        )}
 
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto print:p-0">
-          {/* Error Banner */}
-          {fetchError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 animate-fade-in shadow-lg shadow-red-500/5 print:hidden">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
-                  <ShieldAlert size={20} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-red-400 font-black uppercase tracking-tight">Veri Arşivi Modu</p>
-                  <p className="text-xs text-red-400/70">{fetchError}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => fetchData(true)}
-                className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20 active:scale-95"
-              >
-                Tekrar Dene
-              </button>
+        {fetchError && <ErrorBanner message={fetchError} onRetry={() => fetchData(true)} className="print:hidden" />}
+
+        {!targetId && (
+          <div className="space-y-6 print:hidden">
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <StatCard label="Toplam iş" value={filteredRecords.length} icon={Package} tone="neutral" />
+              <StatCard
+                label="Tamamlanan"
+                value={filteredRecords.filter(r => parseDescription(r.description).status === 'Tamamlandı').length}
+                icon={UserCheck}
+                tone="success"
+              />
+              <StatCard
+                label="Tamamlanma oranı"
+                value={filteredRecords.length > 0
+                  ? `%${Math.round((filteredRecords.filter(r => parseDescription(r.description).status === 'Completed' || parseDescription(r.description).status === 'Tamamlandı').length / filteredRecords.length) * 100)}`
+                  : '%0'}
+                icon={TrendingUp}
+                tone="primary"
+              />
+              <StatCard
+                label="Son 30 gün"
+                value={filteredRecords.filter(r => {
+                  const thirtyDaysAgo = new Date();
+                  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                  return new Date(r.created_at) > thirtyDaysAgo;
+                }).length}
+                icon={Clock}
+                tone="info"
+              />
             </div>
-          )}
 
-          {/* DESKTOP SEARCH & STATS BAR */}
-          {!isMobile && !targetId && (
-            <div className="space-y-6">
-              <div className="flex flex-col xl:flex-row items-center gap-4 print:hidden">
-                  <div className="flex-1 relative w-full">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tarih, işletme veya servis türü ara..." className="w-full h-12 input-premium pl-11 pr-4 text-sm" />
-                  </div>
-                  
-                  <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                    {role === 'admin' && (
-                      <>
-                        <select 
-                          value={selectedMall} 
-                          onChange={e => { setSelectedMall(e.target.value); setSelectedBusiness('all'); }} 
-                          className="h-12 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none cursor-pointer flex-1 sm:flex-none min-w-[140px]"
-                        >
-                          <option value="all">Tüm Konumlar</option>
-                          {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                        </select>
-
-                        <select 
-                          value={selectedBusiness} 
-                          onChange={e => setSelectedBusiness(e.target.value)} 
-                          className="h-12 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-4 text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none cursor-pointer flex-1 sm:flex-none min-w-[140px]"
-                        >
-                          <option value="all">Tüm İşletmeler</option>
-                          {allBusinesses
-                            .filter(b => selectedMall === 'all' || b.mall_id === selectedMall)
-                            .map(b => <option key={b.id} value={b.id}>{b.name}</option>)
-                          }
-                        </select>
-                      </>
-                    )}
-                    
-                    <div className="flex bg-white/[0.03] border border-white/[0.06] rounded-2xl p-1 gap-1 shrink-0 h-12">
-                      <button onClick={() => setViewMode('grid')} className={cn("px-4 rounded-xl transition-all", viewMode === 'grid' ? "bg-primary text-white shadow-lg shadow-red-500/20" : "text-muted-foreground")}><LayoutGrid size={18} /></button>
-                      <button onClick={() => setViewMode('table')} className={cn("px-4 rounded-xl transition-all", viewMode === 'table' ? "bg-primary text-white shadow-lg shadow-red-500/20" : "text-muted-foreground")}><List size={18} /></button>
-                    </div>
-
-                    <button 
-                      onClick={handleExportCSV}
-                      className="h-12 px-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-emerald-500/10 hover:border-emerald-500/20 hover:text-emerald-500 transition-all text-muted-foreground flex items-center gap-2 group"
-                      title="CSV İşle"
-                    >
-                      <Download size={18} className="group-hover:-translate-y-0.5 transition-transform" />
-                      <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">CSV İndir</span>
-                    </button>
-
-                    <button 
-                      onClick={() => fetchData(true)}
-                      className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors text-muted-foreground h-12 w-12 flex items-center justify-center"
-                      title="Yenile"
-                    >
-                      <RefreshCw size={20} className={cn("transition-transform duration-500", isRefreshing && "animate-spin")} />
-                    </button>
-                  </div>
-              </div>
-
-              {/* STATS BAR */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:hidden">
-                <div className="glass p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Package size={40} />
-                  </div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Toplam İş</p>
-                  <p className="text-2xl font-black tabular-nums">{filteredRecords.length}</p>
-                </div>
-                
-                <div className="glass p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity text-emerald-500">
-                    <UserCheck size={40} />
-                  </div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Tamamlanan</p>
-                  <p className="text-2xl font-black tabular-nums text-emerald-500">
-                    {filteredRecords.filter(r => parseDescription(r.description).status === 'Tamamlandı').length}
-                  </p>
-                </div>
-
-                <div className="glass p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity text-primary">
-                    <TrendingUp size={40} />
-                  </div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Tamamlanma Oranı</p>
-                  <p className="text-2xl font-black tabular-nums">
-                    {filteredRecords.length > 0 
-                      ? `%${Math.round((filteredRecords.filter(r => parseDescription(r.description).status === 'Completed' || parseDescription(r.description).status === 'Tamamlandı').length / filteredRecords.length) * 100)}` 
-                      : '-%0'
-                    }
-                  </p>
-                </div>
-
-                <div className="glass p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity text-blue-500">
-                    <Clock size={40} />
-                  </div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Son 30 Gün</p>
-                  <p className="text-2xl font-black tabular-nums">
-                    {filteredRecords.filter(r => {
-                      const thirtyDaysAgo = new Date();
-                      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                      return new Date(r.created_at) > thirtyDaysAgo;
-                    }).length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* MOBILE HISTORY LIST & SEARCH / STATS */}
-          {isMobile && !targetId && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                  <input 
-                    type="text" 
-                    value={search} 
-                    onChange={e => setSearch(e.target.value)} 
-                    placeholder="İşletme, servis türü veya detay ara..." 
-                    className="w-full h-11 bg-card border border-border rounded-xl pl-10 pr-4 text-xs text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:ring-0 outline-none" 
-                  />
-                </div>
-
+            {/* Filters */}
+            <Card className="p-4 sm:p-5">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="İşletme, servis türü veya açıklama ara…"
+                  className="flex-1 min-w-0"
+                />
                 {role === 'admin' && (
-                  <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
-                    <select 
-                      value={selectedMall} 
-                      onChange={e => { setSelectedMall(e.target.value); setSelectedBusiness('all'); }} 
-                      className="h-10 bg-card border border-border rounded-xl px-3 text-[10px] font-bold text-foreground/80 outline-none shrink-0"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:w-[26rem] shrink-0">
+                    <Select
+                      aria-label="AVM"
+                      value={selectedMall}
+                      onChange={e => { setSelectedMall(e.target.value); setSelectedBusiness('all'); }}
                     >
-                      <option value="all">Tüm AVM'ler</option>
+                      <option value="all">Tüm AVM’ler</option>
                       {malls.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-
-                    <select 
-                      value={selectedBusiness} 
-                      onChange={e => setSelectedBusiness(e.target.value)} 
-                      className="h-10 bg-card border border-border rounded-xl px-3 text-[10px] font-bold text-foreground/80 outline-none shrink-0"
+                    </Select>
+                    <Select
+                      aria-label="İşletme"
+                      value={selectedBusiness}
+                      onChange={e => setSelectedBusiness(e.target.value)}
                     >
-                      <option value="all">Tüm Mağazalar</option>
+                      <option value="all">Tüm işletmeler</option>
                       {allBusinesses
                         .filter(b => selectedMall === 'all' || b.mall_id === selectedMall)
                         .map(b => <option key={b.id} value={b.id}>{b.name}</option>)
                       }
-                    </select>
+                    </Select>
                   </div>
                 )}
               </div>
-
-              <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
-                <div className="bg-card p-3 rounded-xl border border-border min-w-[100px] flex-1">
-                  <p className="text-[8px] font-black text-muted-foreground/55 uppercase tracking-widest mb-0.5">Toplam</p>
-                  <p className="text-sm font-black text-foreground">{filteredRecords.length}</p>
-                </div>
-                <div className="bg-card p-3 rounded-xl border border-border min-w-[100px] flex-1">
-                  <p className="text-[8px] font-black text-muted-foreground/55 uppercase tracking-widest mb-0.5">Biten</p>
-                  <p className="text-sm font-black text-emerald-500">
-                    {filteredRecords.filter(r => parseDescription(r.description).status === 'Tamamlandı').length}
-                  </p>
-                </div>
-                <div className="bg-card p-3 rounded-xl border border-border min-w-[100px] flex-1">
-                  <p className="text-[8px] font-black text-muted-foreground/55 uppercase tracking-widest mb-0.5">Oran</p>
-                  <p className="text-sm font-black text-red-500">
-                    {filteredRecords.length > 0 
-                      ? `%${Math.round((filteredRecords.filter(r => parseDescription(r.description).status === 'Completed' || parseDescription(r.description).status === 'Tamamlandı').length / filteredRecords.length) * 100)}` 
-                      : '%0'
-                    }
-                  </p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground tabular-nums">{filteredRecords.length}</span> kayıt listeleniyor
+                </p>
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={X}
+                      onClick={() => { setSearch(''); setSelectedMall('all'); setSelectedBusiness('all'); }}
+                    >
+                      Filtreleri temizle
+                    </Button>
+                  )}
+                  <Segmented
+                    className="hidden md:inline-flex"
+                    value={viewMode}
+                    onChange={setViewMode}
+                    options={[{ value: 'table', label: 'Tablo' }, { value: 'grid', label: 'Kartlar' }]}
+                  />
                 </div>
               </div>
+            </Card>
+          </div>
+        )}
 
-              {filteredRecords.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 bg-card rounded-2xl border border-border text-center">
-                  <ShieldAlert size={36} className="text-muted-foreground/30 mb-2" />
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Kayıt Bulunamadı</p>
+        {loading && !initialLoadDone.current ? (
+          <LoadingState label="Arşiv yükleniyor…" className="print:hidden" />
+        ) : (
+          <div className="animate-fade-in">
+            {!targetId && filteredRecords.length === 0 && (
+              <Card className="print:hidden">
+                <EmptyState
+                  icon={ShieldAlert}
+                  title={hasActiveFilters ? 'Eşleşen kayıt yok' : 'Henüz servis kaydı yok'}
+                  description={hasActiveFilters ? 'Filtreleri değiştirmeyi veya temizlemeyi deneyin.' : 'Yapılan servisler burada listelenecek.'}
+                />
+              </Card>
+            )}
+
+            {/* Desktop table */}
+            {!targetId && filteredRecords.length > 0 && viewMode === 'table' && (
+              <Card className="hidden md:block overflow-hidden print:hidden">
+                <div className="overflow-x-auto">
+                  <table className="p-table">
+                    <thead>
+                      <tr>
+                        <th>Tarih</th>
+                        <th>AVM</th>
+                        <th>İşletme</th>
+                        <th>Hizmet türü</th>
+                        <th>Durum</th>
+                        <th>Teknisyen / not</th>
+                        <th className="text-right">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRecords.map(rec => {
+                        const p = parseDescription(rec.description);
+                        return (
+                          <tr key={rec.id} className="cursor-pointer" onClick={() => router.push(`?id=${rec.id}`)}>
+                            <td className="whitespace-nowrap tabular-nums text-muted-foreground">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
+                            <td className="text-muted-foreground max-w-[10rem] truncate">{(rec as any).businesses?.mall?.name || '—'}</td>
+                            <td className="font-medium text-foreground max-w-[12rem] truncate">{(rec as any).businesses?.name}</td>
+                            <td><Badge tone="primary" className="whitespace-nowrap">{rec.service_type || 'Periyodik'}</Badge></td>
+                            <td><Badge tone={statusTone(p.status)} className="whitespace-nowrap">{p.status}</Badge></td>
+                            <td className="max-w-[16rem]">
+                              <p className="truncate text-foreground">{p.technician || 'Ziva teknik birimi'}</p>
+                              {p.text && <p className="truncate text-xs text-muted-foreground">{p.text}</p>}
+                            </td>
+                            <td>
+                              <div className="flex justify-end items-center gap-1">
+                                {role === 'admin' && (
+                                  <>
+                                    <IconButton icon={Edit3} label="Kaydı düzenle" size="sm" onClick={(e) => { e.stopPropagation(); handleEditClick(rec); }} />
+                                    <IconButton icon={Trash2} label="Kaydı sil" size="sm" className="hover:!text-destructive" onClick={(e) => handleDeleteRecord(rec.id, e)} />
+                                  </>
+                                )}
+                                <ChevronRight size={16} className="text-muted-foreground ml-1" />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {filteredRecords.map(rec => {
-                    const p = parseDescription(rec.description);
-                    return (
-                      <div
-                        key={rec.id}
-                        onClick={() => handleViewMobileRecord(rec)}
-                        className="bg-card p-4 rounded-xl border border-border active:scale-[0.98] transition-all flex items-center justify-between gap-3 cursor-pointer"
-                      >
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[8px] font-black uppercase tracking-wider text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
-                              {rec.service_type || 'Periyodik'}
-                            </span>
-                            <span className={cn(
-                              "text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded border",
-                              p.status === 'Tamamlandı' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                            )}>
-                              {p.status}
-                            </span>
-                          </div>
-                          <h4 className="text-xs font-black uppercase text-foreground truncate">
-                            {(rec as any).businesses?.name}
-                          </h4>
-                          <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wide flex items-center gap-1.5">
-                            <MapPin size={9} className="text-red-500" />
-                            {(rec as any).businesses?.mall?.name || 'Vizyon'}
-                            <span className="text-muted-foreground/30">•</span>
-                            {new Date(rec.created_at).toLocaleDateString('tr-TR')}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground/80 truncate italic mt-1 font-medium">
-                            "{p.text || 'Operasyonel detay bulunmuyor.'}"
+              </Card>
+            )}
+
+            {/* Desktop card grid */}
+            {!targetId && filteredRecords.length > 0 && viewMode === 'grid' && (
+              <div className="hidden md:grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 print:hidden">
+                {filteredRecords.map(rec => {
+                  const p = parseDescription(rec.description);
+                  return (
+                    <Card
+                      key={rec.id}
+                      interactive
+                      className="p-4 sm:p-5 cursor-pointer flex flex-col gap-3"
+                      onClick={() => router.push(`?id=${rec.id}`)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[15px] font-semibold text-foreground truncate">{(rec as any).businesses?.name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1.5 truncate">
+                            <MapPin size={12} className="shrink-0" /> {(rec as any).businesses?.mall?.name || 'AVM belirtilmemiş'}
                           </p>
                         </div>
-                        <ChevronRight size={16} className="text-muted-foreground/45 shrink-0" />
+                        {role === 'admin' && (
+                          <div className="flex items-center gap-0.5 -mr-1.5 -mt-1 shrink-0">
+                            <IconButton icon={Edit3} label="Kaydı düzenle" size="sm" onClick={(e) => { e.stopPropagation(); handleEditClick(rec); }} />
+                            <IconButton icon={Trash2} label="Kaydı sil" size="sm" className="hover:!text-destructive" onClick={(e) => handleDeleteRecord(rec.id, e)} />
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {(targetId || activePrintRecordId) && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 print:hidden">
-              <Link href={role === 'admin' ? "/admin/history" : "/client/history"} className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 group">
-                <div className="p-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] group-hover:bg-primary/10 group-hover:border-primary/20">
-                  <ArrowLeft size={16} />
-                </div>
-                Arşive Dön
-              </Link>
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                {role === 'admin' && filteredRecords[0] && (
-                  <button onClick={() => handleEditClick(filteredRecords[0])} className="h-12 px-6 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] flex items-center gap-2 shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95">
-                    <Edit3 size={16} /> Güncelle
-                  </button>
-                )}
-                <button onClick={() => window.print()} className="h-12 px-6 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] flex items-center gap-2 shadow-xl hover:bg-black transition-all active:scale-95">
-                  <Printer size={16} /> PDF Rapor Al
-                </button>
+                      <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{p.text || 'Açıklama girilmemiş.'}</p>
+                      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
+                        <Badge tone="primary">{rec.service_type || 'Periyodik'}</Badge>
+                        <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+                        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                          {new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
-            </div>
-          )}
-          
-          {loading && !initialLoadDone.current ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground italic">Arşiv Taranıyor</p>
-            </div>
-          ) : (
-            <div className="animate-fade-in">
-              {/* DESKTOP TABLE VIEW */}
-              {!isMobile && !targetId && viewMode === 'table' && (
-                <div className="glass rounded-3xl overflow-hidden border border-white/[0.04] shadow-2xl print:hidden">
-                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-black/40 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                        <tr>
-                          <th className="p-5">Tarih</th>
-                          <th className="p-5">İşletme / Kurum</th>
-                          <th className="p-5">Hizmet Türü</th>
-                          <th className="p-5">Durum</th>
-                          <th className="p-5 text-right">Erişim</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-xs font-bold divide-y divide-white/[0.04]">
-                        {filteredRecords.map(rec => {
-                          const p = parseDescription(rec.description);
-                          return (
-                            <tr key={rec.id} className="hover:bg-white/[0.02] transition-colors cursor-pointer group" onClick={() => router.push(`?id=${rec.id}`)}>
-                              <td className="p-5 tabular-nums text-muted-foreground group-hover:text-primary transition-colors">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</td>
-                              <td className="p-5 uppercase tracking-tight text-sm font-black group-hover:translate-x-1 transition-transform">{(rec as any).businesses?.name}</td>
-                              <td className="p-5"><span className="bg-primary/10 text-primary px-3 py-1 rounded-lg border border-primary/20 text-[10px] font-black uppercase tracking-widest">{rec.service_type}</span></td>
-                              <td className="p-5">
-                                <span className={cn(
-                                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                                  p.status === 'Tamamlandı' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                                )}>
-                                  {p.status}
-                                </span>
-                              </td>
-                              <td className="p-5">
-                                <div className="flex justify-end gap-3">
-                                  {role === 'admin' && (
-                                    <button onClick={(e) => { e.stopPropagation(); handleEditClick(rec); }} className="p-2 rounded-xl hover:bg-white/5 text-muted-foreground hover:text-white transition-colors">
-                                      <Edit3 size={16} />
-                                    </button>
-                                  )}
-                                  <div className="p-2 rounded-xl bg-white/5 opacity-40 group-hover:opacity-100 group-hover:bg-primary/20 group-hover:text-primary transition-all">
-                                    <ChevronRight size={16} />
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                   </div>
-                </div>
-              )}
+            )}
 
-              {/* DESKTOP GRID VIEW */}
-              {!isMobile && !targetId && viewMode === 'grid' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 print:hidden">
-                    {filteredRecords.map((rec, i) => {
-                      const p = parseDescription(rec.description);
-                      return (
-                        <div 
-                          key={rec.id} 
-                          className="glass group hover:bg-white/[0.03] transition-all duration-500 rounded-3xl p-8 border border-white/[0.04] shadow-xl cursor-pointer relative overflow-hidden" 
-                          style={{ animationDelay: `${i * 0.04}s` }}
-                          onClick={() => router.push(`?id=${rec.id}`)}
-                        >
-                          <div className="absolute -top-4 -right-4 opacity-[0.02] group-hover:scale-125 group-hover:rotate-12 transition-transform duration-700">
-                            <Store size={100} />
-                          </div>
-
-                          <div className="flex justify-between items-start mb-6">
-                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-500/10 border border-white/[0.06] flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                              <Flame size={24} />
-                             </div>
-                             <div className="text-right">
-                                <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] mb-1">DOC_ID: #{rec.id.substring(0,6).toUpperCase()}</p>
-                                <p className="text-xs font-black uppercase tracking-widest">{new Date(rec.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                             </div>
-                          </div>
-                          <div className="space-y-1 mb-6">
-                             <h4 className="font-black uppercase text-lg tracking-tight group-hover:text-red-500 transition-colors line-clamp-1">{(rec as any).businesses?.name}</h4>
-                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2"><MapPin size={12} className="text-primary" /> {(rec as any).businesses?.mall?.name || 'VİZYON ARŞİV'}</p>
-                          </div>
-                          <div className="py-4 border-y border-white/[0.04] mb-6">
-                             <p className="text-xs font-medium text-foreground/70 line-clamp-2 leading-relaxed">
-                               "{p.text || 'Operasyonel detay bulunmuyor.'}"
-                             </p>
-                          </div>
-                          <div className="flex justify-between items-center">
-                             <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20">{rec.service_type}</span>
-                             <span className={cn(
-                               "text-[9px] font-black uppercase tracking-widest",
-                               p.status === 'Tamamlandı' ? "text-emerald-500" : "text-blue-500"
-                             )}>
-                              {p.status}
-                             </span>
-                          </div>
-                          {role === 'admin' && (
-                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 p-2">
-                               <button onClick={(e) => { e.stopPropagation(); handleEditClick(rec); }} className="p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 hover:bg-blue-600 transition-all"><Edit3 size={14} /></button>
-                               <button onClick={(e) => handleDeleteRecord(rec.id, e)} className="p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 hover:bg-red-600 transition-all"><Trash2 size={14} /></button>
-                            </div>
-                          )}
+            {/* Mobile cards */}
+            {!targetId && filteredRecords.length > 0 && (
+              <div className="md:hidden space-y-2.5 print:hidden">
+                {filteredRecords.map(rec => {
+                  const p = parseDescription(rec.description);
+                  return (
+                    <Card
+                      key={rec.id}
+                      interactive
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleViewMobileRecord(rec)}
+                      className="p-4 flex items-center gap-3 cursor-pointer"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge tone="primary">{rec.service_type || 'Periyodik'}</Badge>
+                          <Badge tone={statusTone(p.status)}>{p.status}</Badge>
                         </div>
-                      );
-                    })}
-                </div>
-              )}
+                        <p className="mt-2 font-semibold text-foreground truncate">{(rec as any).businesses?.name}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1.5 truncate">
+                          <MapPin size={12} className="shrink-0" />
+                          <span className="truncate">{(rec as any).businesses?.mall?.name || 'AVM belirtilmemiş'}</span>
+                          <span aria-hidden>·</span>
+                          <span className="tabular-nums shrink-0">{new Date(rec.created_at).toLocaleDateString('tr-TR')}</span>
+                        </p>
+                        {p.text && <p className="mt-1.5 text-sm text-muted-foreground truncate">{p.text}</p>}
+                      </div>
+                      <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
 
               {/* SINGLE REPORT / PDF VIEW */}
               {(targetId || activePrintRecordId) && filteredRecords.filter(rec => targetId ? rec.id === targetId : rec.id === activePrintRecordId).map(rec => {
@@ -812,222 +700,212 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
                 );
               })}
 
-              {targetId && filteredRecords.length === 0 && !loading && (
-                <div className="flex flex-col items-center justify-center py-32 bg-white/[0.02] rounded-3xl border-2 border-dashed border-white/5">
-                  <ShieldAlert size={48} className="text-muted-foreground mb-4 opacity-20" />
-                  <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Kayıt Bulunamadı</p>
-                  <p className="text-[10px] text-muted-foreground/50 mt-2 font-bold uppercase tracking-widest">ID: {targetId}</p>
-                  <button onClick={() => router.push(role === 'admin' ? '/admin/history' : '/client/history')} className="mt-8 px-6 h-10 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Arşive Dön</button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            {targetId && filteredRecords.length === 0 && !loading && (
+              <Card className="print:hidden">
+                <EmptyState
+                  icon={ShieldAlert}
+                  title="Kayıt bulunamadı"
+                  description={`Bu kayda erişilemiyor veya kayıt silinmiş olabilir. (ID: ${targetId})`}
+                  action={<Button variant="secondary" icon={ArrowLeft} onClick={() => router.push(archiveHref)}>Arşive dön</Button>}
+                />
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
 
-        {/* EDIT SHEET / MODAL */}
-        <MobileBottomSheet
-          isOpen={showEditRecord}
-          onClose={() => { setShowEditRecord(false); setEditingRecord(null); }}
-          title="Arşiv Kaydı Güncelle"
-        >
-          <form onSubmit={handleUpdateRecord} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Hizmet Sınıfı</label>
-                <input value={editRecordForm.service_type} onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Teknisyen</label>
-                <input value={editRecordForm.technician} onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-              </div>
-            </div>
+      {/* Edit record */}
+      <Sheet
+        isOpen={showEditRecord}
+        onClose={() => { setShowEditRecord(false); setEditingRecord(null); }}
+        title="Kaydı düzenle"
+        description={(editingRecord as any)?.businesses?.name}
+        size="lg"
+      >
+        <form onSubmit={handleUpdateRecord} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Hizmet türü">
+              <Input value={editRecordForm.service_type} onChange={e => setEditRecordForm({...editRecordForm, service_type: e.target.value})} />
+            </Field>
+            <Field label="Teknisyen">
+              <Input value={editRecordForm.technician} onChange={e => setEditRecordForm({...editRecordForm, technician: e.target.value})} />
+            </Field>
+          </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Detaylı Rapor</label>
-              <textarea value={editRecordForm.text} onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} rows={4} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white leading-relaxed resize-none" />
-            </div>
+          <Field label="Detaylı rapor">
+            <Textarea value={editRecordForm.text} onChange={e => setEditRecordForm({...editRecordForm, text: e.target.value})} rows={4} className="resize-none leading-relaxed" />
+          </Field>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Malzemeler</label>
-                <input value={editRecordForm.materials} onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Maliyet</label>
-                <input value={editRecordForm.cost} onChange={e => setEditRecordForm({...editRecordForm, cost: e.target.value})} className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm text-white" />
-              </div>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Malzemeler">
+              <Input value={editRecordForm.materials} onChange={e => setEditRecordForm({...editRecordForm, materials: e.target.value})} />
+            </Field>
+            <Field label="Maliyet">
+              <Input value={editRecordForm.cost} onChange={e => setEditRecordForm({...editRecordForm, cost: e.target.value})} />
+            </Field>
+          </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Durum</label>
-              <div className="flex gap-2">
-                {['Tamamlandı', 'Devam Ediyor', 'İptal / Ertelendi'].map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setEditRecordForm({...editRecordForm, status: s})}
-                    className={cn(
-                      "flex-1 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all cursor-pointer",
-                      editRecordForm.status === s ? "bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
-                    )}
-                  >
-                    {s}
-                  </button>
+          <div>
+            <span className="p-label">Durum</span>
+            <div className="grid grid-cols-3 gap-2">
+              {['Tamamlandı', 'Devam Ediyor', 'İptal / Ertelendi'].map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setEditRecordForm({...editRecordForm, status: s})}
+                  aria-pressed={editRecordForm.status === s}
+                  className={cn(
+                    'min-h-10 px-2 py-2 rounded-[10px] border text-xs sm:text-sm font-medium transition-colors',
+                    editRecordForm.status === s
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'bg-card border-border text-muted-foreground hover:bg-surface hover:text-foreground'
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Field label="Fotoğraf ekle">
+            <label className="flex flex-col items-center gap-2 p-6 rounded-xl border border-dashed border-border-strong bg-surface/40 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors text-muted-foreground hover:text-primary">
+              <Upload size={22} />
+              <span className="text-sm font-medium">{recordPhotos.length > 0 ? `${recordPhotos.length} dosya hazır` : 'Fotoğraf seçin'}</span>
+              <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
+            </label>
+          </Field>
+
+          {existingPhotos.length > 0 && (
+            <div className="pt-4 border-t border-border">
+              <p className="mb-2 text-xs text-muted-foreground">Mevcut fotoğraflar</p>
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                {existingPhotos.map(ph => (
+                  <div key={ph.id} className="relative aspect-square rounded-xl border border-border overflow-hidden bg-muted">
+                    <img src={ph.photo_url} alt="" className="w-full h-full object-cover" />
+                    <IconButton
+                      icon={Trash2}
+                      label="Fotoğrafı sil"
+                      variant="danger"
+                      size="sm"
+                      className="absolute top-1 right-1 bg-card/90"
+                      onClick={() => handleDeletePhoto(ph.id, ph.photo_url)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
+          )}
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Görsel Ekle</label>
-              <label className="flex flex-col items-center p-6 border border-dashed border-white/10 rounded-xl cursor-pointer hover:border-red-500/50 hover:bg-red-500/5 transition-all group">
-                <Upload size={24} className="mb-2 text-white/40 group-hover:text-red-500 transition-colors" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/40 group-hover:text-red-500">{recordPhotos.length > 0 ? `${recordPhotos.length} Dosya Hazır` : 'Fotoğraf Seç'}</span>
-                <input type="file" multiple accept="image/*" className="hidden" onChange={e => setRecordPhotos(Array.from(e.target.files || []))} />
-              </label>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => { setShowEditRecord(false); setEditingRecord(null); }}>Vazgeç</Button>
+            <Button type="submit" icon={CheckCircle2} loading={saving}>Değişiklikleri kaydet</Button>
+          </div>
+        </form>
+      </Sheet>
+
+      {/* Record detail (phones) */}
+      {viewingRecordMobile && (
+        <Sheet
+          isOpen={!!viewingRecordMobile}
+          onClose={() => setViewingRecordMobile(null)}
+          title={(viewingRecordMobile as any).businesses?.name || 'Servis detayı'}
+          description={
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin size={13} className="shrink-0" />
+              {(viewingRecordMobile as any).businesses?.mall?.name || 'AVM belirtilmemiş'}
+              <span aria-hidden>·</span>
+              <span className="tabular-nums">{new Date(viewingRecordMobile.created_at).toLocaleDateString('tr-TR')}</span>
+            </span>
+          }
+          size="lg"
+          footer={
+            <div className="w-full flex flex-wrap gap-2 sm:justify-end">
+              {role === 'admin' && (
+                <>
+                  <Button
+                    variant="danger"
+                    icon={Trash2}
+                    className="flex-1 sm:flex-none"
+                    onClick={(e) => {
+                      setViewingRecordMobile(null);
+                      handleDeleteRecord(viewingRecordMobile.id, e);
+                    }}
+                  >
+                    Sil
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    icon={Edit3}
+                    className="flex-1 sm:flex-none"
+                    onClick={() => {
+                      setViewingRecordMobile(null);
+                      handleEditClick(viewingRecordMobile);
+                    }}
+                  >
+                    Düzenle
+                  </Button>
+                </>
+              )}
+              <Button icon={Printer} className="w-full sm:w-auto" onClick={() => handleMobilePrint(viewingRecordMobile)}>PDF rapor al</Button>
             </div>
-            
-            {existingPhotos.length > 0 && (
-              <div className="pt-4 border-t border-white/5">
-                <p className="mb-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Mevcut Görseller (Silmek için tıklayın)</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                  {existingPhotos.map(ph => (
-                    <div key={ph.id} className="relative shrink-0 w-20 h-20 rounded-xl border border-white/10 group overflow-hidden bg-black shadow-xl">
-                      <img src={ph.photo_url} className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => handleDeletePhoto(ph.id, ph.photo_url)} className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[1px]"><Trash2 size={16}/></button>
-                    </div>
+          }
+        >
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge tone="primary">{viewingRecordMobile.service_type || 'Servis'}</Badge>
+              <Badge tone={statusTone(parseDescription(viewingRecordMobile.description).status)}>
+                {parseDescription(viewingRecordMobile.description).status}
+              </Badge>
+            </div>
+
+            <div>
+              <p className="p-label flex items-center gap-1.5"><FileText size={14} /> Yapılan müdahale</p>
+              <div className="rounded-xl border border-border bg-surface/50 p-3.5 text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                {parseDescription(viewingRecordMobile.description).text || 'Detaylı açıklama bulunmuyor.'}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl border border-border bg-surface/50 p-3">
+                <p className="text-xs text-muted-foreground">Teknisyen</p>
+                <p className="mt-0.5 text-sm font-medium text-foreground truncate">{parseDescription(viewingRecordMobile.description).technician || 'Ziva teknik birimi'}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface/50 p-3">
+                <p className="text-xs text-muted-foreground">Malzemeler</p>
+                <p className="mt-0.5 text-sm font-medium text-foreground truncate">{parseDescription(viewingRecordMobile.description).materials || 'Standart ekipman'}</p>
+              </div>
+              {role === 'admin' && parseDescription(viewingRecordMobile.description).cost && (
+                <div className="rounded-xl border border-border bg-surface/50 p-3 sm:col-span-2">
+                  <p className="text-xs text-muted-foreground">Operasyon maliyeti</p>
+                  <p className="mt-0.5 text-sm font-medium text-foreground tabular-nums">{parseDescription(viewingRecordMobile.description).cost}</p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="p-label flex items-center gap-1.5"><ImageIcon size={14} /> Fotoğraflar</p>
+              {mobilePhotos.length === 0 ? (
+                <p className="py-5 text-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">Fotoğraf bulunmuyor.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {mobilePhotos.map((ph, idx) => (
+                    <a
+                      key={idx}
+                      href={ph.photo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative block aspect-video rounded-xl border border-border overflow-hidden bg-muted"
+                    >
+                      <img src={ph.photo_url} alt={`Fotoğraf ${idx + 1}`} className="w-full h-full object-cover" />
+                      <span className="absolute bottom-1 left-1"><Badge tone="neutral" className="bg-card/90">Fotoğraf {idx + 1}</Badge></span>
+                    </a>
                   ))}
                 </div>
-              </div>
-            )}
-
-            <div className="flex justify-end pt-4 border-t border-white/5">
-              <button type="submit" disabled={saving} className="bg-red-500 text-white w-full h-12 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-red-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer">
-                {saving ? <Loader2 className="animate-spin" size={16} /> : <><CheckCircle2 size={16} /> Güncelle</>}
-              </button>
+              )}
             </div>
-          </form>
-        </MobileBottomSheet>
-
-        {/* MOBILE VIEW RECORD SHEET */}
-        {viewingRecordMobile && (
-          <MobileBottomSheet
-            isOpen={!!viewingRecordMobile}
-            onClose={() => setViewingRecordMobile(null)}
-            title="Servis Detayı"
-          >
-            <div className="space-y-5 text-foreground">
-              <div className="border-b border-border pb-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
-                    {viewingRecordMobile.service_type || 'Servis'}
-                  </span>
-                  <span className={cn(
-                    "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border",
-                    parseDescription(viewingRecordMobile.description).status === 'Tamamlandı' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                  )}>
-                    {parseDescription(viewingRecordMobile.description).status}
-                  </span>
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-tight text-foreground leading-tight">
-                  {(viewingRecordMobile as any).businesses?.name}
-                </h3>
-                <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest flex items-center gap-1.5 mt-1">
-                  <MapPin size={9} className="text-red-500" />
-                  {(viewingRecordMobile as any).businesses?.mall?.name || 'ZIVA'}
-                  <span className="text-muted-foreground/30">•</span>
-                  {new Date(viewingRecordMobile.created_at).toLocaleDateString('tr-TR')}
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Yapılan Müdahale</h4>
-                  <div className="bg-muted/30 border border-border rounded-xl p-3.5 text-xs text-foreground leading-relaxed font-serif italic whitespace-pre-wrap">
-                    "{parseDescription(viewingRecordMobile.description).text || 'Detaylı açıklama bulunmuyor.'}"
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Teknisyen</h4>
-                    <div className="bg-muted/30 border border-border rounded-xl p-3 text-[11px] text-foreground font-bold truncate">
-                      {parseDescription(viewingRecordMobile.description).technician || 'Ziva Teknik Birimi'}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Malzemeler</h4>
-                    <div className="bg-muted/30 border border-border rounded-xl p-3 text-[11px] text-foreground font-bold truncate">
-                      {parseDescription(viewingRecordMobile.description).materials || 'Standart Ekipman'}
-                    </div>
-                  </div>
-                </div>
-
-                {role === 'admin' && parseDescription(viewingRecordMobile.description).cost && (
-                  <div className="space-y-1">
-                    <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Operasyon Maliyeti</h4>
-                    <div className="bg-muted/30 border border-border rounded-xl p-3 text-[11px] text-foreground font-bold">
-                      {parseDescription(viewingRecordMobile.description).cost}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Görsel Eklentiler</h4>
-                {mobilePhotos.length === 0 ? (
-                  <div className="bg-muted/30 border border-border rounded-xl p-5 text-center text-[10px] text-muted-foreground/60 font-bold uppercase tracking-wider">
-                    Fotoğraf bulunmuyor.
-                  </div>
-                ) : (
-                  <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-                    {mobilePhotos.map((ph, idx) => (
-                      <div key={idx} className="relative shrink-0 w-40 aspect-video rounded-xl border border-border overflow-hidden bg-black shadow-lg">
-                        <img src={ph.photo_url} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] font-black text-white/70 uppercase">
-                          Görsel {idx + 1}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-4 border-t border-border flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => handleMobilePrint(viewingRecordMobile)}
-                  className="w-full h-11 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer hover:bg-black"
-                >
-                  <Printer size={14} /> PDF Rapor Al
-                </button>
-
-                {role === 'admin' && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setViewingRecordMobile(null);
-                        handleEditClick(viewingRecordMobile);
-                      }}
-                      className="flex-1 h-11 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <Edit3 size={14} /> Güncelle
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        setViewingRecordMobile(null);
-                        handleDeleteRecord(viewingRecordMobile.id, e);
-                      }}
-                      className="flex-1 h-11 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <Trash2 size={14} /> Sil
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </MobileBottomSheet>
-        )}
-      </main>
+          </div>
+        </Sheet>
+      )}
 
       <style jsx global>{`
         @media print {
@@ -1069,6 +947,6 @@ export default function ServiceHistoryBase({ role, businessId, targetId, mallId 
           .glass-strong, .glass { background: white !important; border: 1px solid #eee !important; box-shadow: none !important; }
         }
       `}</style>
-    </div>
+    </PanelLayout>
   );
 }

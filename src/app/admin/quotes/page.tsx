@@ -1,16 +1,15 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Sidebar, Topbar } from '@/components/DashboardShell';
+import { PanelLayout } from '@/components/DashboardShell';
+import {
+  Button, IconButton, Card, CardHeader, PageHeader, Badge, Field, Input, Select, Textarea, Segmented, Sheet,
+} from '@/components/ui';
 import RouteGuard from '@/components/RouteGuard';
-import { 
-  Plus, Trash2, Printer, Settings, ChevronRight, ChevronLeft,
-  FileText, User, MapPin, Phone, Mail, Calendar, Hash,
-  Check, Eye, Edit3, ArrowUpRight, Download, Copy, Sparkles,
-  GripVertical, ArrowDown, ArrowUp, Info, AlertCircle
+import {
+  Plus, Minus, Trash2, Printer, ChevronRight, ChevronLeft,
+  FileText, User, Phone, Mail, Hash, Eye, Copy, ArrowDown, ArrowUp,
 } from 'lucide-react';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { MobileBottomSheet } from '@/components/MobileBottomSheet';
 import { cn } from '@/lib/utils';
 
 interface QuoteItem {
@@ -25,25 +24,53 @@ interface QuoteItem {
 
 type QuoteStep = 'client' | 'items' | 'preview';
 
+const UNIT_OPTIONS = ['Adet', 'm²', 'm', 'kg', 'lt', 'Paket', 'Set'];
+
+/* Input with a leading icon */
+function IconInput({ icon: Icon, className, ...rest }: React.InputHTMLAttributes<HTMLInputElement> & { icon: React.ComponentType<{ size?: number; className?: string }> }) {
+  return (
+    <div className="relative">
+      <Icon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      <Input className={cn('pl-9', className)} {...rest} />
+    </div>
+  );
+}
+
+/* Subtotal / discount / VAT / grand total rows */
+function TotalsList({ subtotal, totalDiscount, isTaxIncluded, taxRate, taxAmount, grandTotal }: {
+  subtotal: number; totalDiscount: number; isTaxIncluded: boolean; taxRate: number; taxAmount: number; grandTotal: number;
+}) {
+  return (
+    <dl className="space-y-2.5 text-sm">
+      <div className="flex items-center justify-between gap-4">
+        <dt className="text-muted-foreground">Ara toplam</dt>
+        <dd className="font-medium text-foreground tabular-nums">{subtotal.toLocaleString('tr-TR')} ₺</dd>
+      </div>
+      {totalDiscount > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-success flex items-center gap-1"><ArrowDown size={13} /> İndirim</dt>
+          <dd className="font-medium text-success tabular-nums">-{totalDiscount.toLocaleString('tr-TR')} ₺</dd>
+        </div>
+      )}
+      {isTaxIncluded && (
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-muted-foreground">KDV (%{taxRate})</dt>
+          <dd className="font-medium text-foreground tabular-nums">{taxAmount.toLocaleString('tr-TR')} ₺</dd>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-4 pt-3 border-t border-border">
+        <dt className="font-semibold text-foreground">Genel toplam</dt>
+        <dd className="text-2xl font-bold tracking-tight text-foreground tabular-nums">{grandTotal.toLocaleString('tr-TR')} ₺</dd>
+      </div>
+    </dl>
+  );
+}
+
 export default function QuoteBuilderPage() {
-  const isMobile = useIsMobile();
   const [showMobilePreviewSheet, setShowMobilePreviewSheet] = useState(false);
   const [currentStep, setCurrentStep] = useState<QuoteStep>('client');
   const [isGenerating, setIsGenerating] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
-
-  // Styling helpers based on viewport
-  const cardClass = isMobile ? 'bg-card border border-border rounded-2xl overflow-hidden' : 'bg-white rounded-2xl border border-slate-100 overflow-hidden';
-  const inputClass = isMobile 
-    ? 'w-full px-4 py-3 bg-muted border border-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-foreground placeholder-muted-foreground/50 transition-all'
-    : 'w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all text-slate-900 placeholder-slate-400';
-  const textareaClass = isMobile
-    ? 'w-full px-4 py-3 bg-muted border border-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 text-foreground placeholder-muted-foreground/50 transition-all resize-none'
-    : 'w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all text-slate-900 placeholder-slate-400 resize-none';
-  const labelClass = isMobile ? 'text-[10px] font-bold text-muted-foreground uppercase tracking-widest' : 'text-xs font-semibold text-slate-500 uppercase tracking-wider';
-  const headerTextClass = isMobile ? 'font-bold text-foreground' : 'font-bold text-slate-900';
-  const sublabelTextClass = isMobile ? 'text-xs text-muted-foreground' : 'text-xs text-slate-400';
-  const borderClass = isMobile ? 'border-border' : 'border-slate-50';
 
   // Form State
   const [quoteData, setQuoteData] = useState({
@@ -136,767 +163,443 @@ export default function QuoteBuilderPage() {
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep);
 
+  const totalsProps = { subtotal, totalDiscount, isTaxIncluded, taxRate, taxAmount, grandTotal };
+
   return (
     <RouteGuard requiredRole="admin">
-      <div className="min-h-screen flex bg-[hsl(var(--background))] print:bg-white">
-        <Sidebar role="admin" />
-        <main className="flex-1 lg:ml-72 pb-24 lg:pb-0 w-full overflow-hidden print:ml-0">
-          <div className="print:hidden">
-            <Topbar title="Teklif Oluşturucu" subtitle="Profesyonel fiyat teklifleri hazırlayın" />
+      <PanelLayout role="admin" title="Teklif oluşturucu" subtitle="Profesyonel fiyat teklifleri hazırlayın" width="wide">
+        {/* Editor header + step switcher */}
+        <div className="print:hidden">
+          <PageHeader
+            title="Teklif oluşturucu"
+            description="Müşteri bilgilerini girin, kalemleri ekleyin ve teklifi PDF olarak indirin."
+            actions={
+              <Button icon={Printer} loading={isGenerating} onClick={handlePrint}>
+                {isGenerating ? 'Hazırlanıyor…' : 'Yazdır / PDF indir'}
+              </Button>
+            }
+          />
+
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <Segmented
+              value={currentStep}
+              onChange={setCurrentStep}
+              options={steps.map(s => ({ value: s.id, label: s.label }))}
+              className="w-full sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none sm:[&>button]:px-5"
+            />
+            <p className="text-xs text-muted-foreground">
+              Adım {currentStepIndex + 1} / {steps.length} · {items.length} kalem · Genel toplam{' '}
+              <span className="font-semibold text-foreground tabular-nums">{grandTotal.toLocaleString('tr-TR')} ₺</span>
+            </p>
           </div>
+        </div>
 
-          <div className="p-4 lg:p-6 max-w-[1400px] mx-auto print:p-0">
-            
-            {/* Mobile Step Indicator */}
-            <div className="lg:hidden mb-6 print:hidden animate-fade-in">
-              <div className={cn(
-                "flex items-center justify-between p-2 rounded-2xl border transition-all",
-                isMobile ? "bg-muted border border-border" : "bg-white border-slate-100"
-              )}>
-                {steps.map((step, index) => {
-                  const Icon = step.icon;
-                  const isActive = step.id === currentStep;
-                  const isCompleted = index < currentStepIndex;
-                  return (
-                    <button
-                      key={step.id}
-                      onClick={() => setCurrentStep(step.id)}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
-                        isActive 
-                          ? isMobile ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-slate-900 text-white shadow-lg' 
-                          : isCompleted
-                            ? isMobile ? 'bg-secondary text-foreground' : 'bg-slate-100 text-slate-600'
-                            : isMobile ? 'text-muted-foreground/45' : 'text-slate-400'
-                      )}
-                    >
-                      <Icon size={14} />
-                      <span className="hidden sm:inline">{step.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Desktop Progress Bar */}
-            <div className="hidden lg:flex items-center justify-center mb-8 print:hidden">
-              <div className="flex items-center gap-0">
-                {steps.map((step, index) => {
-                  const Icon = step.icon;
-                  const isActive = step.id === currentStep;
-                  const isCompleted = index < currentStepIndex;
-                  return (
-                    <React.Fragment key={step.id}>
-                      <button
-                        onClick={() => setCurrentStep(step.id)}
-                        className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all ${
-                          isActive 
-                            ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20' 
-                            : isCompleted
-                              ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                              : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                          isActive ? 'bg-white/20' : isCompleted ? 'bg-slate-900 text-white' : 'bg-slate-200'
-                        }`}>
-                          {isCompleted ? <Check size={14} /> : <Icon size={14} />}
-                        </div>
-                        <span className="text-sm font-bold">{step.label}</span>
-                      </button>
-                      {index < steps.length - 1 && (
-                        <div className={`w-16 h-0.5 mx-2 ${
-                          isCompleted ? 'bg-slate-900' : 'bg-slate-200'
-                        }`} />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* STEP 1: CLIENT INFO */}
-            {currentStep === 'client' && (
-              <div className="animate-fade-in print:hidden">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Main Form */}
-                  <div className="lg:col-span-2 space-y-6">
-                    {/* Teklif Bilgileri */}
-                    <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
-                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-blue-500/10 text-blue-400" : "bg-blue-55 text-blue-600 bg-blue-50")}>
-                          <FileText size={18} />
-                        </div>
-                        <div>
-                          <h3 className={cn("font-bold", headerTextClass)}>Teklif Bilgileri</h3>
-                          <p className={sublabelTextClass}>Teklif numarası ve tarih bilgileri</p>
-                        </div>
-                      </div>
-                      <div className="p-5 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className={labelClass}>Form Başlığı</label>
-                            <input
-                              value={quoteData.title}
-                              onChange={e => setQuoteData({...quoteData, title: e.target.value})}
-                              className={inputClass}
-                              placeholder="TEKLİF FORMU"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className={labelClass}>Teklif No</label>
-                            <input
-                              value={quoteData.quoteNo}
-                              onChange={e => setQuoteData({...quoteData, quoteNo: e.target.value})}
-                              className={inputClass}
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className={labelClass}>Tarih</label>
-                            <input
-                              type="date"
-                              value={quoteData.date}
-                              onChange={e => setQuoteData({...quoteData, date: e.target.value})}
-                              className={inputClass}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className={labelClass}>Geçerlilik Tarihi</label>
-                            <input
-                              type="date"
-                              value={quoteData.validUntil}
-                              onChange={e => setQuoteData({...quoteData, validUntil: e.target.value})}
-                              className={inputClass}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Müşteri Bilgileri */}
-                    <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
-                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600")}>
-                          <User size={18} />
-                        </div>
-                        <div>
-                          <h3 className={cn("font-bold", headerTextClass)}>Müşteri Bilgileri</h3>
-                          <p className={sublabelTextClass}>Teklif yapılacak müşteri detayları</p>
-                        </div>
-                      </div>
-                      <div className="p-5 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2 sm:col-span-2">
-                            <label className={labelClass}>Firma / Ad Soyad</label>
-                            <input
-                              value={quoteData.clientName}
-                              onChange={e => setQuoteData({...quoteData, clientName: e.target.value})}
-                              className={inputClass}
-                              placeholder="Müşteri firma adı veya kişi adı"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className={labelClass}>Telefon</label>
-                            <div className="relative">
-                              <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
-                              <input
-                                value={quoteData.clientPhone}
-                                onChange={e => setQuoteData({...quoteData, clientPhone: e.target.value})}
-                                className={cn(inputClass, "pl-11")}
-                                placeholder="0(5XX) XXX XX XX"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className={labelClass}>E-posta</label>
-                            <div className="relative">
-                              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
-                              <input
-                                type="email"
-                                value={quoteData.clientEmail}
-                                onChange={e => setQuoteData({...quoteData, clientEmail: e.target.value})}
-                                className={cn(inputClass, "pl-11")}
-                                placeholder="ornek@email.com"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2 sm:col-span-2">
-                            <label className={labelClass}>Adres</label>
-                            <div className="relative">
-                              <MapPin size={16} className="absolute left-4 top-4 text-slate-400/80" />
-                              <textarea
-                                value={quoteData.clientAddress}
-                                onChange={e => setQuoteData({...quoteData, clientAddress: e.target.value})}
-                                className={cn(textareaClass, "pl-11 h-24")}
-                                placeholder="Müşteri adresi..."
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className={labelClass}>Vergi No</label>
-                            <div className="relative">
-                              <Hash size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
-                              <input
-                                value={quoteData.clientTaxNo}
-                                onChange={e => setQuoteData({...quoteData, clientTaxNo: e.target.value})}
-                                className={cn(inputClass, "pl-11")}
-                                placeholder="Vergi numarası"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+        {/* STEP 1: CLIENT INFO */}
+        {currentStep === 'client' && (
+          <div className="print:hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader title="Teklif bilgileri" description="Teklif numarası ve tarih bilgileri" className="px-4 sm:px-5 pt-4 sm:pt-5" />
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <Field label="Form başlığı">
+                      <Input
+                        value={quoteData.title}
+                        onChange={e => setQuoteData({...quoteData, title: e.target.value})}
+                        placeholder="TEKLİF FORMU"
+                      />
+                    </Field>
+                    <Field label="Teklif no">
+                      <Input
+                        value={quoteData.quoteNo}
+                        onChange={e => setQuoteData({...quoteData, quoteNo: e.target.value})}
+                        className="tabular-nums"
+                      />
+                    </Field>
+                    <Field label="Tarih">
+                      <Input
+                        type="date"
+                        value={quoteData.date}
+                        onChange={e => setQuoteData({...quoteData, date: e.target.value})}
+                      />
+                    </Field>
+                    <Field label="Geçerlilik tarihi">
+                      <Input
+                        type="date"
+                        value={quoteData.validUntil}
+                        onChange={e => setQuoteData({...quoteData, validUntil: e.target.value})}
+                      />
+                    </Field>
                   </div>
+                </Card>
 
-                  {/* Sidebar */}
-                  <div className="space-y-6">
-                    {/* KDV Ayarları */}
-                    <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
-                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-600")}>
-                          <Settings size={18} />
-                        </div>
-                        <div>
-                          <h3 className={cn("font-bold", headerTextClass)}>Vergi Ayarları</h3>
-                          <p className={sublabelTextClass}>KDV oranı ve uygulama</p>
-                        </div>
-                      </div>
-                      <div className="p-5 space-y-4">
-                        <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-muted border border-border" : "bg-slate-50")}>
-                          <div>
-                            <p className={cn("text-sm font-semibold", isMobile ? "text-foreground" : "text-slate-700")}>KDV Uygula</p>
-                            <p className="text-xs text-muted-foreground">Fiyatlara KDV dahil mi?</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setIsTaxIncluded(!isTaxIncluded)}
-                            className={cn(
-                              "w-12 h-7 rounded-full transition-all relative cursor-pointer",
-                              isTaxIncluded ? 'bg-red-500' : 'bg-slate-300 dark:bg-white/10'
-                            )}
-                          >
-                            <div className={cn(
-                              "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                              isTaxIncluded ? 'left-6' : 'left-1'
-                            )} />
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          <label className={labelClass}>KDV Oranı (%)</label>
-                          <div className="flex items-center gap-3">
-                            <button 
-                              type="button"
-                              onClick={() => setTaxRate(Math.max(0, taxRate - 1))}
-                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-muted border border-border text-foreground hover:bg-secondary" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              value={taxRate}
-                              onChange={e => setTaxRate(Number(e.target.value))}
-                              className={cn(
-                                "flex-1 px-4 py-3 text-center text-lg font-bold focus:outline-none focus:ring-2 transition-all rounded-xl",
-                                isMobile ? "bg-muted border border-border text-foreground focus:ring-red-500/50" : "bg-slate-50 border border-slate-100 focus:ring-slate-900/10 focus:border-slate-900"
-                              )}
-                            />
-                            <button 
-                              type="button"
-                              onClick={() => setTaxRate(taxRate + 1)}
-                              className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer", isMobile ? "bg-muted border border-border text-foreground hover:bg-secondary" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Notlar */}
-                    <div className={cardClass}>
-                      <div className={cn("p-5 border-b flex items-center gap-3", borderClass, isMobile && "bg-muted/10")}>
-                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-purple-500/10 text-purple-400" : "bg-purple-50 text-purple-600")}>
-                          <FileText size={18} />
-                        </div>
-                        <div>
-                          <h3 className={cn("font-bold", headerTextClass)}>Notlar & Şartlar</h3>
-                          <p className={sublabelTextClass}>Teklif alt bilgisi</p>
-                        </div>
-                      </div>
-                      <div className="p-5 space-y-4">
-                        <div className="space-y-2">
-                          <label className={labelClass}>Notlar</label>
-                          <textarea
-                            value={quoteData.notes}
-                            onChange={e => setQuoteData({...quoteData, notes: e.target.value})}
-                            className={cn(textareaClass, "h-20")}
-                            placeholder="Ek notlar..."
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className={labelClass}>Şartlar</label>
-                          <textarea
-                            value={quoteData.terms}
-                            onChange={e => setQuoteData({...quoteData, terms: e.target.value})}
-                            className={cn(textareaClass, "h-20")}
-                            placeholder="Teklif şartları..."
-                          />
-                        </div>
-                      </div>
-                    </div>
+                <Card>
+                  <CardHeader title="Müşteri bilgileri" description="Teklif yapılacak müşteri detayları" className="px-4 sm:px-5 pt-4 sm:pt-5" />
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <Field label="Firma / ad soyad" className="sm:col-span-2">
+                      <Input
+                        value={quoteData.clientName}
+                        onChange={e => setQuoteData({...quoteData, clientName: e.target.value})}
+                        placeholder="Müşteri firma adı veya kişi adı"
+                      />
+                    </Field>
+                    <Field label="Telefon">
+                      <IconInput
+                        icon={Phone}
+                        value={quoteData.clientPhone}
+                        onChange={e => setQuoteData({...quoteData, clientPhone: e.target.value})}
+                        placeholder="0(5XX) XXX XX XX"
+                      />
+                    </Field>
+                    <Field label="E-posta">
+                      <IconInput
+                        icon={Mail}
+                        type="email"
+                        value={quoteData.clientEmail}
+                        onChange={e => setQuoteData({...quoteData, clientEmail: e.target.value})}
+                        placeholder="ornek@email.com"
+                      />
+                    </Field>
+                    <Field label="Adres" className="sm:col-span-2">
+                      <Textarea
+                        value={quoteData.clientAddress}
+                        onChange={e => setQuoteData({...quoteData, clientAddress: e.target.value})}
+                        placeholder="Müşteri adresi…"
+                        rows={3}
+                      />
+                    </Field>
+                    <Field label="Vergi no">
+                      <IconInput
+                        icon={Hash}
+                        value={quoteData.clientTaxNo}
+                        onChange={e => setQuoteData({...quoteData, clientTaxNo: e.target.value})}
+                        placeholder="Vergi numarası"
+                      />
+                    </Field>
                   </div>
-                </div>
-
-                {/* Navigation */}
-                <div className="mt-6 flex justify-end print:hidden">
-                  <button
-                    onClick={() => setCurrentStep('items')}
-                    className={cn(
-                      "flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] cursor-pointer shadow-xl",
-                      isMobile 
-                        ? "bg-red-500 text-white hover:bg-red-600 shadow-red-500/20 w-full justify-center" 
-                        : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/10"
-                    )}
-                  >
-                    Devam Et <ChevronRight size={18} />
-                  </button>
-                </div>
+                </Card>
               </div>
-            )}
 
-            {/* STEP 2: ITEMS */}
-            {currentStep === 'items' && (
-              <div className="animate-fade-in print:hidden">
-                <div className={cardClass}>
-                  {/* Header */}
-                  <div className={cn("p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4", borderClass, isMobile && "bg-muted/10")}>
-                    <div className="flex items-center gap-3">
-                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isMobile ? "bg-red-500/10 text-red-500" : "bg-slate-900 text-white")}>
-                        <FileText size={18} />
-                      </div>
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader title="Vergi ayarları" description="KDV oranı ve uygulama" className="px-4 sm:px-5 pt-4 sm:pt-5" />
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-4">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3">
                       <div>
-                        <h3 className={cn("font-bold", headerTextClass)}>Teklif Kalemleri</h3>
-                        <p className={sublabelTextClass}>{items.length} kalem • Toplam: {grandTotal.toLocaleString('tr-TR')} ₺</p>
+                        <p className="text-sm font-medium text-foreground">KDV uygula</p>
+                        <p className="text-xs text-muted-foreground">Fiyatlara KDV eklensin mi?</p>
                       </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isTaxIncluded}
+                        aria-label="KDV uygula"
+                        onClick={() => setIsTaxIncluded(!isTaxIncluded)}
+                        className={cn(
+                          'relative w-11 h-6 shrink-0 rounded-full border transition-colors cursor-pointer',
+                          isTaxIncluded ? 'bg-primary border-primary' : 'bg-muted border-border-strong'
+                        )}
+                      >
+                        <span className={cn(
+                          'absolute top-0.5 w-[18px] h-[18px] rounded-full shadow-sm transition-all',
+                          isTaxIncluded ? 'left-[22px] bg-primary-foreground' : 'left-0.5 bg-muted-foreground'
+                        )} />
+                      </button>
                     </div>
-                    <button
-                      onClick={addItem}
-                      className={cn(
-                        "flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 cursor-pointer",
-                        isMobile
-                          ? "bg-red-500 text-white shadow-lg shadow-red-500/20 w-full sm:w-auto justify-center"
-                          : "bg-slate-900 text-white hover:bg-slate-800"
-                      )}
-                    >
-                      <Plus size={16} /> Yeni Kalem
-                    </button>
+                    <Field label="KDV oranı (%)">
+                      <div className="flex items-center gap-2">
+                        <IconButton icon={Minus} label="Oranı azalt" variant="secondary" onClick={() => setTaxRate(Math.max(0, taxRate - 1))} />
+                        <Input
+                          type="number"
+                          value={taxRate}
+                          onChange={e => setTaxRate(Number(e.target.value))}
+                          className="flex-1 text-center font-semibold tabular-nums"
+                        />
+                        <IconButton icon={Plus} label="Oranı artır" variant="secondary" onClick={() => setTaxRate(taxRate + 1)} />
+                      </div>
+                    </Field>
                   </div>
+                </Card>
 
-                  {/* Desktop Table Header */}
-                  <div className="hidden lg:grid grid-cols-12 gap-3 px-5 py-3 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    <div className="col-span-1 text-center">Sıra</div>
-                    <div className="col-span-4">Ürün / Hizmet</div>
-                    <div className="col-span-1 text-center">Adet</div>
-                    <div className="col-span-1 text-center">Birim</div>
-                    <div className="col-span-2 text-right">Birim Fiyat</div>
-                    <div className="col-span-1 text-center">İndirim</div>
-                    <div className="col-span-2 text-right">Toplam</div>
+                <Card>
+                  <CardHeader title="Notlar ve şartlar" description="Teklifin alt bilgisi" className="px-4 sm:px-5 pt-4 sm:pt-5" />
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-4">
+                    <Field label="Notlar">
+                      <Textarea
+                        value={quoteData.notes}
+                        onChange={e => setQuoteData({...quoteData, notes: e.target.value})}
+                        placeholder="Ek notlar…"
+                        rows={3}
+                      />
+                    </Field>
+                    <Field label="Şartlar">
+                      <Textarea
+                        value={quoteData.terms}
+                        onChange={e => setQuoteData({...quoteData, terms: e.target.value})}
+                        placeholder="Teklif şartları…"
+                        rows={3}
+                      />
+                    </Field>
                   </div>
+                </Card>
+              </div>
+            </div>
 
-                  {/* Items List */}
-                  <div className={cn("divide-y", isMobile ? "divide-border" : "divide-slate-50")}>
+            <div className="mt-6 flex justify-end">
+              <Button size="lg" onClick={() => setCurrentStep('items')} className="w-full sm:w-auto">
+                Devam et <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: ITEMS */}
+        {currentStep === 'items' && (
+          <div className="print:hidden space-y-6">
+            <Card className="overflow-hidden">
+              <CardHeader
+                title="Teklif kalemleri"
+                description={<span className="tabular-nums">{items.length} kalem · Toplam: {grandTotal.toLocaleString('tr-TR')} ₺</span>}
+                actions={<Button size="sm" icon={Plus} onClick={addItem}>Kalem ekle</Button>}
+                className="px-4 sm:px-5 pt-4 sm:pt-5"
+              />
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto border-t border-border">
+                <table className="p-table min-w-[820px]">
+                  <thead>
+                    <tr>
+                      <th className="w-[104px]">Sıra</th>
+                      <th>Ürün / hizmet</th>
+                      <th className="w-[88px] !text-center">Adet</th>
+                      <th className="w-[112px]">Birim</th>
+                      <th className="w-[132px] !text-right">Birim fiyat (₺)</th>
+                      <th className="w-[92px] !text-center">İndirim %</th>
+                      <th className="w-[124px] !text-right">Toplam</th>
+                      <th className="w-[84px]"><span className="sr-only">İşlemler</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {items.map((item, index) => (
-                      <div key={item.id} className={cn("group p-4 lg:px-5 lg:py-4 transition-colors", isMobile ? "hover:bg-muted/10" : "hover:bg-slate-50/50")}>
-                        {/* Mobile Layout */}
-                        <div className="lg:hidden space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <button 
-                                  onClick={() => moveItem(index, 'up')}
-                                  disabled={index === 0}
-                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-foreground disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
-                                >
-                                  <ArrowUp size={14} />
-                                </button>
-                                <button 
-                                  onClick={() => moveItem(index, 'down')}
-                                  disabled={index === items.length - 1}
-                                  className={cn("w-7 h-7 flex items-center justify-center transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-foreground disabled:opacity-20" : "text-slate-300 hover:text-slate-600 disabled:opacity-30")}
-                                >
-                                  <ArrowDown size={14} />
-                                </button>
-                              </div>
-                              <span className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold", isMobile ? "bg-muted text-foreground border border-border" : "bg-slate-100 text-slate-500")}>
-                                {index + 1}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => duplicateItem(item.id)}
-                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-blue-400 hover:bg-muted" : "text-slate-300 hover:text-blue-500")}
-                              >
-                                <Copy size={14} />
-                              </button>
-                              <button 
-                                onClick={() => removeItem(item.id)}
-                                className={cn("w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer", isMobile ? "text-muted-foreground hover:text-red-400 hover:bg-muted" : "text-slate-300 hover:text-red-500")}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                      <tr key={item.id} className="align-top">
+                        <td>
+                          <div className="flex items-center gap-0.5">
+                            <IconButton icon={ArrowUp} label="Yukarı taşı" size="sm" onClick={() => moveItem(index, 'up')} disabled={index === 0} />
+                            <IconButton icon={ArrowDown} label="Aşağı taşı" size="sm" onClick={() => moveItem(index, 'down')} disabled={index === items.length - 1} />
+                            <span className="ml-1 text-xs font-semibold text-muted-foreground tabular-nums">{index + 1}</span>
                           </div>
-                          
-                          <input
-                            placeholder="Ürün / Hizmet adı"
-                            className={inputClass}
+                        </td>
+                        <td className="space-y-2">
+                          <Input
+                            placeholder="Ürün / hizmet adı"
                             value={item.name}
                             onChange={e => updateItem(item.id, 'name', e.target.value)}
                           />
-                          <input
+                          <Input
                             placeholder="Açıklama (opsiyonel)"
-                            className={inputClass}
                             value={item.description}
                             onChange={e => updateItem(item.id, 'description', e.target.value)}
+                            className="h-9 text-xs"
                           />
-                          
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <label className={labelClass}>Adet</label>
-                              <input
-                                type="number"
-                                className={inputClass}
-                                value={item.quantity}
-                                onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Birim</label>
-                              <select
-                                className={cn(
-                                  "w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all",
-                                  isMobile 
-                                    ? "bg-muted border border-border text-foreground focus:ring-red-500/50 select-premium" 
-                                    : "bg-slate-50 border border-slate-100 focus:ring-slate-900/10 focus:border-slate-900 text-slate-900"
-                                )}
-                                value={item.unit}
-                                onChange={e => updateItem(item.id, 'unit', e.target.value)}
-                              >
-                                <option value="Adet">Adet</option>
-                                <option value="m²">m²</option>
-                                <option value="m">m</option>
-                                <option value="kg">kg</option>
-                                <option value="lt">lt</option>
-                                <option value="Paket">Paket</option>
-                                <option value="Set">Set</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className={labelClass}>İndirim %</label>
-                              <input
-                                type="number"
-                                className={inputClass}
-                                value={item.discount}
-                                onChange={e => updateItem(item.id, 'discount', Number(e.target.value))}
-                              />
-                            </div>
+                        </td>
+                        <td>
+                          <Input
+                            type="number"
+                            aria-label="Adet"
+                            value={item.quantity}
+                            onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
+                            className="text-center tabular-nums"
+                          />
+                        </td>
+                        <td>
+                          <Select aria-label="Birim" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
+                            {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                          </Select>
+                        </td>
+                        <td>
+                          <Input
+                            type="number"
+                            aria-label="Birim fiyat"
+                            value={item.price}
+                            onChange={e => updateItem(item.id, 'price', Number(e.target.value))}
+                            className="text-right tabular-nums"
+                          />
+                        </td>
+                        <td>
+                          <Input
+                            type="number"
+                            aria-label="İndirim yüzdesi"
+                            value={item.discount}
+                            onChange={e => updateItem(item.id, 'discount', Number(e.target.value))}
+                            className="text-center tabular-nums"
+                          />
+                        </td>
+                        <td className="text-right">
+                          <p className="h-10 flex items-center justify-end font-semibold text-foreground tabular-nums whitespace-nowrap">
+                            {getItemTotal(item).toLocaleString('tr-TR')} ₺
+                          </p>
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-end gap-0.5 pt-1">
+                            <IconButton icon={Copy} label="Kalemi çoğalt" size="sm" onClick={() => duplicateItem(item.id)} />
+                            <IconButton icon={Trash2} label="Kalemi sil" size="sm" className="hover:!text-destructive" onClick={() => removeItem(item.id)} disabled={items.length <= 1} />
                           </div>
-                          
-                          <div>
-                            <label className={labelClass}>Birim Fiyat (₺)</label>
-                            <input
-                              type="number"
-                              className={inputClass}
-                              value={item.price}
-                              onChange={e => updateItem(item.id, 'price', Number(e.target.value))}
-                            />
-                          </div>
-                          
-                          <div className={cn("flex items-center justify-between p-4 rounded-xl", isMobile ? "bg-muted border border-border" : "bg-slate-50 border border-slate-100")}>
-                            <span className={cn("text-xs font-semibold", isMobile ? "text-muted-foreground" : "text-slate-500")}>Satır Toplamı</span>
-                            <span className={cn("text-xl font-black", isMobile ? "text-foreground" : "text-slate-900")}>{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
-                          </div>
-                        </div>
-
-                        {/* Desktop Layout */}
-                        <div className="hidden lg:grid grid-cols-12 gap-3 items-center">
-                          <div className="col-span-1 flex items-center justify-center gap-1">
-                            <button 
-                              onClick={() => moveItem(index, 'up')}
-                              disabled={index === 0}
-                              className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
-                            >
-                              <ArrowUp size={14} />
-                            </button>
-                            <button 
-                              onClick={() => moveItem(index, 'down')}
-                              disabled={index === items.length - 1}
-                              className="w-7 h-7 flex items-center justify-center text-slate-300 disabled:opacity-30 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
-                            >
-                              <ArrowDown size={14} />
-                            </button>
-                            <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 ml-1">
-                              {index + 1}
-                            </span>
-                          </div>
-                          <div className="col-span-4 space-y-2">
-                            <input
-                              placeholder="Ürün / Hizmet adı"
-                              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                              value={item.name}
-                              onChange={e => updateItem(item.id, 'name', e.target.value)}
-                            />
-                            <input
-                              placeholder="Açıklama"
-                              className="w-full px-3 py-2 bg-slate-50/50 border border-slate-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                              value={item.description}
-                              onChange={e => updateItem(item.id, 'description', e.target.value)}
-                            />
-                          </div>
-                          <div className="col-span-1">
-                            <input
-                              type="number"
-                              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                              value={item.quantity}
-                              onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
-                            />
-                          </div>
-                          <div className="col-span-1">
-                            <select
-                              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                              value={item.unit}
-                              onChange={e => updateItem(item.id, 'unit', e.target.value)}
-                            >
-                              <option value="Adet">Adet</option>
-                              <option value="m²">m²</option>
-                              <option value="m">m</option>
-                              <option value="kg">kg</option>
-                              <option value="lt">lt</option>
-                              <option value="Paket">Paket</option>
-                              <option value="Set">Set</option>
-                            </select>
-                          </div>
-                          <div className="col-span-2">
-                            <input
-                              type="number"
-                              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                              value={item.price}
-                              onChange={e => updateItem(item.id, 'price', Number(e.target.value))}
-                            />
-                          </div>
-                          <div className="col-span-1">
-                            <input
-                              type="number"
-                              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-                              value={item.discount}
-                              onChange={e => updateItem(item.id, 'discount', Number(e.target.value))}
-                            />
-                          </div>
-                          <div className="col-span-2 flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-900">
-                              {getItemTotal(item).toLocaleString('tr-TR')} ₺
-                            </span>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                onClick={() => duplicateItem(item.id)}
-                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <Copy size={14} />
-                              </button>
-                              <button 
-                                onClick={() => removeItem(item.id)}
-                                className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-
-                  {/* Summary */}
-                  <div className={cn("p-5 border-t", isMobile ? "bg-muted/10 border-border" : "bg-slate-50 border-slate-100")}>
-                    <div className="max-w-sm ml-auto space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className={isMobile ? "text-muted-foreground" : "text-slate-500"}>Ara Toplam</span>
-                        <span className={cn("font-bold", isMobile ? "text-foreground" : "text-slate-900")}>{subtotal.toLocaleString('tr-TR')} ₺</span>
-                      </div>
-                      {totalDiscount > 0 && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-emerald-600 flex items-center gap-1 font-bold">
-                            <ArrowDown size={12} /> İndirim
-                          </span>
-                          <span className="font-bold text-emerald-600">-{totalDiscount.toLocaleString('tr-TR')} ₺</span>
-                        </div>
-                      )}
-                      {isTaxIncluded && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className={isMobile ? "text-muted-foreground" : "text-slate-500"}>KDV (%{taxRate})</span>
-                          <span className={cn("font-bold", isMobile ? "text-foreground" : "text-slate-900")}>{taxAmount.toLocaleString('tr-TR')} ₺</span>
-                        </div>
-                      )}
-                      <div className={cn("flex items-center justify-between pt-3 border-t", isMobile ? "border-border" : "border-slate-200")}>
-                        <span className={cn("text-base font-bold", isMobile ? "text-muted-foreground" : "text-slate-700")}>Genel Toplam</span>
-                        <span className={cn("text-3xl font-black", isMobile ? "text-foreground font-black" : "text-slate-900 font-black")}>{grandTotal.toLocaleString('tr-TR')} ₺</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Navigation */}
-                <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4 print:hidden">
-                  <button
-                    onClick={() => setCurrentStep('client')}
-                    className={cn(
-                      "flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all cursor-pointer",
-                      isMobile 
-                        ? "bg-muted border border-border text-foreground hover:bg-secondary w-full" 
-                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    )}
-                  >
-                    <ChevronLeft size={18} /> Geri
-                  </button>
-                  <button
-                    onClick={() => setCurrentStep('preview')}
-                    className={cn(
-                      "flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-sm transition-all shadow-xl cursor-pointer",
-                      isMobile 
-                        ? "bg-red-500 text-white hover:bg-red-600 shadow-red-500/20 w-full" 
-                        : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/10"
-                    )}
-                  >
-                    Önizle <Eye size={18} />
-                  </button>
-                </div>
+                  </tbody>
+                </table>
               </div>
-            )}
 
-            {/* STEP 3: PREVIEW */}
-            {currentStep === 'preview' && (
-              <div className="animate-fade-in print:hidden">
-                {/* Navigation */}
-                <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-                  <button
-                    onClick={() => setCurrentStep('items')}
-                    className={cn(
-                      "flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer",
-                      isMobile 
-                        ? "bg-muted border border-border text-foreground hover:bg-secondary w-full" 
-                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    )}
-                  >
-                    <ChevronLeft size={18} /> Düzenle
-                  </button>
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
-                    {isMobile && (
-                      <button
-                        type="button"
-                        onClick={() => setShowMobilePreviewSheet(true)}
-                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-500/20 transition-all active:scale-[0.98] cursor-pointer"
-                      >
-                        <Eye size={18} /> A4 Belgeyi Önizle
-                      </button>
-                    )}
-                    <button
-                      onClick={handlePrint}
-                      disabled={isGenerating}
-                      className={cn(
-                        "flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 cursor-pointer",
-                        isMobile 
-                          ? "flex-1 bg-red-500 text-white shadow-red-500/20" 
-                          : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/10"
-                      )}
-                    >
-                      {isGenerating ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <Printer size={18} />
-                      )}
-                      {isGenerating ? 'Hazırlanıyor...' : 'PDF İndir / Yazdır'}
-                    </button>
-                  </div>
-                </div>
-
-                {isMobile ? (
-                  /* AMOLED Mobile Summary Card */
-                  <div className="space-y-4 animate-fade-in">
-                    <div className={cardClass}>
-                      <div className="p-5 border-b border-border bg-muted/20">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-red-500">Özet Rapor</p>
-                        <h3 className="text-lg font-black text-foreground mt-1 uppercase">{quoteData.title}</h3>
-                        <div className="flex justify-between items-center text-xs text-muted-foreground mt-2">
-                          <span>No: {quoteData.quoteNo}</span>
-                          <span>Tarih: {new Date(quoteData.date).toLocaleDateString('tr-TR')}</span>
-                        </div>
+              {/* Mobile stacked rows */}
+              <div className="md:hidden divide-y divide-border border-t border-border">
+                {items.map((item, index) => (
+                  <div key={item.id} className="p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        <Badge tone="neutral" className="tabular-nums">Kalem {index + 1}</Badge>
+                        <IconButton icon={ArrowUp} label="Yukarı taşı" size="sm" onClick={() => moveItem(index, 'up')} disabled={index === 0} />
+                        <IconButton icon={ArrowDown} label="Aşağı taşı" size="sm" onClick={() => moveItem(index, 'down')} disabled={index === items.length - 1} />
                       </div>
-                      
-                      <div className="p-5 space-y-4">
-                        {/* Client details summary */}
-                        <div className="space-y-1">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Müşteri</p>
-                          <p className="text-base font-black text-foreground">{quoteData.clientName || '—'}</p>
-                          {quoteData.clientAddress && <p className="text-sm text-muted-foreground">{quoteData.clientAddress}</p>}
-                          {(quoteData.clientPhone || quoteData.clientEmail) && (
-                            <div className="text-xs text-muted-foreground space-y-0.5 mt-2">
-                              {quoteData.clientPhone && <p>Tel: {quoteData.clientPhone}</p>}
-                              {quoteData.clientEmail && <p>E-posta: {quoteData.clientEmail}</p>}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="h-px bg-border" />
-
-                        {/* Items list summary */}
-                        <div className="space-y-3">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Kalemler ({items.length})</p>
-                          <div className="space-y-2">
-                            {items.map((item, idx) => (
-                              <div key={item.id} className="bg-muted/30 border border-border rounded-xl p-3 flex justify-between items-center text-sm">
-                                <div className="min-w-0 flex-1 pr-3">
-                                  <p className="font-bold text-foreground truncate">{item.name || `Kalem #${idx+1}`}</p>
-                                  <p className="text-xs text-muted-foreground truncate">{item.quantity} {item.unit} x {item.price.toLocaleString('tr-TR')} ₺ {item.discount > 0 && `( -%${item.discount} )`}</p>
-                                </div>
-                                <span className="font-black text-foreground shrink-0">{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="h-px bg-border" />
-
-                        {/* Totals summary */}
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between text-muted-foreground">
-                            <span>Ara Toplam</span>
-                            <span>{subtotal.toLocaleString('tr-TR')} ₺</span>
-                          </div>
-                          {totalDiscount > 0 && (
-                            <div className="flex justify-between text-emerald-500 font-bold">
-                              <span>İndirim</span>
-                              <span>-{totalDiscount.toLocaleString('tr-TR')} ₺</span>
-                            </div>
-                          )}
-                          {isTaxIncluded && (
-                            <div className="flex justify-between text-muted-foreground">
-                              <span>KDV (%{taxRate})</span>
-                              <span>{taxAmount.toLocaleString('tr-TR')} ₺</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between items-center pt-2 border-t border-border text-foreground font-black text-lg">
-                            <span>Genel Toplam</span>
-                            <span className="text-2xl text-red-500">{grandTotal.toLocaleString('tr-TR')} ₺</span>
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-0.5">
+                        <IconButton icon={Copy} label="Kalemi çoğalt" size="sm" onClick={() => duplicateItem(item.id)} />
+                        <IconButton icon={Trash2} label="Kalemi sil" size="sm" className="hover:!text-destructive" onClick={() => removeItem(item.id)} disabled={items.length <= 1} />
                       </div>
                     </div>
+
+                    <Field label="Ürün / hizmet adı">
+                      <Input
+                        placeholder="Ürün / hizmet adı"
+                        value={item.name}
+                        onChange={e => updateItem(item.id, 'name', e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Açıklama">
+                      <Input
+                        placeholder="Açıklama (opsiyonel)"
+                        value={item.description}
+                        onChange={e => updateItem(item.id, 'description', e.target.value)}
+                      />
+                    </Field>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field label="Adet">
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
+                          className="tabular-nums"
+                        />
+                      </Field>
+                      <Field label="Birim">
+                        <Select value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
+                          {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                        </Select>
+                      </Field>
+                      <Field label="İndirim %">
+                        <Input
+                          type="number"
+                          value={item.discount}
+                          onChange={e => updateItem(item.id, 'discount', Number(e.target.value))}
+                          className="tabular-nums"
+                        />
+                      </Field>
+                    </div>
+
+                    <Field label="Birim fiyat (₺)">
+                      <Input
+                        type="number"
+                        value={item.price}
+                        onChange={e => updateItem(item.id, 'price', Number(e.target.value))}
+                        className="tabular-nums"
+                      />
+                    </Field>
+
+                    <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+                      <span className="text-sm text-muted-foreground">Satır toplamı</span>
+                      <span className="text-lg font-bold text-foreground tabular-nums">{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
+                    </div>
                   </div>
-                ) : (
-                  /* Preview Card */
+                ))}
+              </div>
+
+              <div className="border-t border-border p-3 sm:px-5">
+                <Button variant="ghost" size="sm" icon={Plus} onClick={addItem} className="w-full sm:w-auto">Kalem ekle</Button>
+              </div>
+            </Card>
+
+            <div className="flex flex-col-reverse lg:flex-row lg:items-end justify-between gap-6">
+              <Button variant="secondary" size="lg" icon={ChevronLeft} onClick={() => setCurrentStep('client')} className="w-full sm:w-auto">
+                Geri
+              </Button>
+              <div className="w-full lg:max-w-sm space-y-3">
+                <Card className="p-4 sm:p-5">
+                  <TotalsList {...totalsProps} />
+                </Card>
+                <Button size="lg" onClick={() => setCurrentStep('preview')} className="w-full">
+                  Önizle <Eye size={16} />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: PREVIEW */}
+        {currentStep === 'preview' && (
+          <div className="print:hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+              <Button variant="secondary" icon={ChevronLeft} onClick={() => setCurrentStep('items')} className="w-full sm:w-auto">
+                Düzenle
+              </Button>
+              <Button variant="secondary" icon={Eye} onClick={() => setShowMobilePreviewSheet(true)} className="w-full md:hidden">
+                A4 belgeyi önizle
+              </Button>
+            </div>
+
+            {/* Mobile summary */}
+            <Card className="md:hidden">
+              <CardHeader
+                title={quoteData.title}
+                description={<span className="tabular-nums">No: {quoteData.quoteNo} · {new Date(quoteData.date).toLocaleDateString('tr-TR')}</span>}
+                className="px-4 pt-4"
+              />
+              <div className="px-4 pb-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5"><User size={13} /> Müşteri</p>
+                  <p className="font-semibold text-foreground">{quoteData.clientName || '—'}</p>
+                  {quoteData.clientAddress && <p className="text-sm text-muted-foreground">{quoteData.clientAddress}</p>}
+                  {(quoteData.clientPhone || quoteData.clientEmail) && (
+                    <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
+                      {quoteData.clientPhone && <p>Tel: {quoteData.clientPhone}</p>}
+                      {quoteData.clientEmail && <p>E-posta: {quoteData.clientEmail}</p>}
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-px bg-border" />
+
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5"><FileText size={13} /> Kalemler ({items.length})</p>
+                  {items.map((item, idx) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground truncate">{item.name || `Kalem #${idx+1}`}</p>
+                        <p className="text-xs text-muted-foreground truncate tabular-nums">{item.quantity} {item.unit} × {item.price.toLocaleString('tr-TR')} ₺ {item.discount > 0 && `(-%${item.discount})`}</p>
+                      </div>
+                      <span className="font-semibold text-foreground shrink-0 tabular-nums">{getItemTotal(item).toLocaleString('tr-TR')} ₺</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="h-px bg-border" />
+
+                <TotalsList {...totalsProps} />
+              </div>
+            </Card>
+
+            {/* Desktop A4 preview: paper on a muted desk surface */}
+            <div className="hidden md:block rounded-2xl border border-border bg-muted/50 p-6 lg:p-10">
+              <div className="mx-auto max-w-[900px]">
                   <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden text-slate-900">
                     <div ref={printRef} id="quote-preview" className="p-8 md:p-12 lg:p-16">
                       {/* Header */}
@@ -1023,16 +726,17 @@ export default function QuoteBuilderPage() {
                       </div>
                     </div>
                   </div>
-                )}
+              </div>
+            </div>
 
-                {/* Mobile Preview Bottom Sheet */}
-                {isMobile && (
-                  <MobileBottomSheet
-                    isOpen={showMobilePreviewSheet}
-                    onClose={() => setShowMobilePreviewSheet(false)}
-                    title="A4 Fatura Önizlemesi"
-                  >
-                    <div className="overflow-auto max-h-[70vh] bg-white text-slate-900 p-4 rounded-2xl border border-white/10 scrollbar-none shadow-2xl scale-[0.98] origin-top">
+            {/* Mobile A4 preview */}
+            <Sheet
+              isOpen={showMobilePreviewSheet}
+              onClose={() => setShowMobilePreviewSheet(false)}
+              title="A4 belge önizlemesi"
+              size="xl"
+            >
+                    <div className="overflow-auto max-h-[70vh] bg-white text-slate-900 p-4 rounded-2xl border border-border scrollbar-none shadow-2xl scale-[0.98] origin-top">
                       <div ref={printRef} id="quote-preview-mobile" className="p-4 md:p-8 text-[10px] sm:text-xs">
                         {/* Header */}
                         <div className="flex justify-between items-start pb-4 border-b-2 border-slate-900 mb-4">
@@ -1105,12 +809,11 @@ export default function QuoteBuilderPage() {
                         </table>
                       </div>
                     </div>
-                  </MobileBottomSheet>
-                )}
-              </div>
-            )}
+            </Sheet>
+          </div>
+        )}
 
-            {/* PRINT STYLES */}
+        {/* PRINT STYLES */}
             <div className="hidden print:block">
               <div id="print-area" className="p-8">
                 {/* Header */}
@@ -1226,8 +929,6 @@ export default function QuoteBuilderPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </main>
 
         <style jsx global>{`
           @media print {
@@ -1259,7 +960,7 @@ export default function QuoteBuilderPage() {
             animation: fade-in 0.3s ease-out;
           }
         `}</style>
-      </div>
+      </PanelLayout>
     </RouteGuard>
   );
 }

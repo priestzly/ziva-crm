@@ -5,447 +5,298 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, ClipboardList, Settings, LogOut, Flame,
-  Menu, X, Bell, Users, Store, Search,
-  Sun, Moon, ChevronRight, RefreshCw, UserCircle, ArrowLeft, FileText, Palette, Zap
+  Users, Store, Search, Sun, Moon, ArrowLeft, FileText, MoreHorizontal, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { THEMES } from '@/lib/themes';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { MobileBottomSheet } from './MobileBottomSheet';
-import { CommandPalette } from './CommandPalette';
+import { Sheet } from '@/components/ui/Sheet';
+import { CommandPalette, openCommandPalette } from './CommandPalette';
 
-export function Sidebar({ role }: { role: 'admin' | 'client' }) {
-  const pathname = usePathname();
-  const isMobile = useIsMobile();
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-  const { signOut, profile, refreshProfile } = useAuth();
+export type PanelRole = 'admin' | 'client';
 
-  const adminLinks = [
-    { name: 'Özet', href: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'AVM\'ler', href: '/admin/malls', icon: Building2 },
-    { name: 'İşletmeler', href: '/admin/businesses', icon: Store },
-    { name: 'Arşiv', href: '/admin/history', icon: ClipboardList },
-    { name: 'Teklif', href: '/admin/quotes', icon: FileText },
-    { name: 'Kullanıcılar', href: '/admin/users', icon: Users },
-    { name: 'Ayarlar', href: '/admin/settings', icon: Settings },
-  ];
+export interface NavItem { name: string; href: string; icon: LucideIcon }
 
-  const clientLinks = [
-    { name: 'Özet', href: '/client/dashboard', icon: LayoutDashboard },
-    { name: 'İşletmeler', href: '/client/businesses', icon: Store },
-    { name: 'Arşiv', href: '/client/history', icon: ClipboardList },
-  ];
-
-  const links = role === 'admin' ? adminLinks : clientLinks;
-
-  // Primary links for mobile bottom tab bar (max 4 links)
-  const mobileTabLinks = role === 'admin'
-    ? [
-        { name: 'Özet', href: '/admin/dashboard', icon: LayoutDashboard },
-        { name: 'AVM\'ler', href: '/admin/malls', icon: Building2 },
+export const NAV: Record<PanelRole, { title?: string; items: NavItem[] }[]> = {
+  admin: [
+    { items: [{ name: 'Özet', href: '/admin/dashboard', icon: LayoutDashboard }] },
+    {
+      title: 'Kayıtlar',
+      items: [
+        { name: 'AVM’ler', href: '/admin/malls', icon: Building2 },
         { name: 'İşletmeler', href: '/admin/businesses', icon: Store },
-        { name: 'Arşiv', href: '/admin/history', icon: ClipboardList },
-      ]
-    : clientLinks; // 3 tabs for client
-
-  // Secondary links for mobile bottom sheet menu
-  const mobileMenuLinks = role === 'admin'
-    ? [
-        { name: 'Teklif Oluştur', href: '/admin/quotes', icon: FileText },
+        { name: 'Servis arşivi', href: '/admin/history', icon: ClipboardList },
+      ],
+    },
+    {
+      title: 'Yönetim',
+      items: [
+        { name: 'Teklifler', href: '/admin/quotes', icon: FileText },
         { name: 'Kullanıcılar', href: '/admin/users', icon: Users },
         { name: 'Ayarlar', href: '/admin/settings', icon: Settings },
-      ]
-    : [];
+      ],
+    },
+  ],
+  client: [
+    {
+      items: [
+        { name: 'Özet', href: '/client/dashboard', icon: LayoutDashboard },
+        { name: 'İşletmelerim', href: '/client/businesses', icon: Store },
+        { name: 'Servis arşivi', href: '/client/history', icon: ClipboardList },
+      ],
+    },
+  ],
+};
 
-  if (isMobile) {
-    return (
-      <>
-        <CommandPalette />
+// Mobil alt menüde doğrudan görünen sekmeler; kalanlar "Daha fazla" altında
+const MOBILE_TABS: Record<PanelRole, string[]> = {
+  admin: ['/admin/dashboard', '/admin/malls', '/admin/businesses', '/admin/history'],
+  client: ['/client/dashboard', '/client/businesses', '/client/history'],
+};
 
-        {/* Mobile Bottom Floating Tab Bar */}
-        <div className="fixed bottom-4 left-4 right-4 z-40 mobile-tab-bar backdrop-blur-2xl rounded-[1.8rem] px-2 py-2.5 flex justify-around items-center pb-safe transition-all duration-300">
-          {mobileTabLinks.map((link) => {
-            const Icon = link.icon;
-            const isActive = pathname === link.href || (link.href !== '/admin/dashboard' && link.href !== '/client/dashboard' && pathname?.startsWith(link.href));
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "relative flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all duration-300",
-                  isActive 
-                    ? "text-primary font-bold scale-105" 
-                    : "text-muted-foreground/60 font-semibold hover:text-foreground"
-                )}
-              >
-                <Icon size={20} className={cn("transition-transform duration-300", isActive && "scale-110")} />
-                <span className="text-[10px] tracking-tight">{link.name}</span>
-                {isActive && (
-                  <span className="absolute -bottom-1 w-5 h-1 bg-primary rounded-full shadow-glow" />
-                )}
-              </Link>
-            );
-          })}
-          {/* Menu Tab Button */}
-          <button
-            onClick={() => setIsMenuOpen(true)}
-            className={cn(
-              "flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all duration-300 cursor-pointer",
-              isMenuOpen ? "text-primary font-bold scale-105" : "text-muted-foreground/60 font-semibold hover:text-foreground"
-            )}
-          >
-            <Menu size={20} />
-            <span className="text-[10px] tracking-tight">Menü</span>
-          </button>
-        </div>
+const allItems = (role: PanelRole) => NAV[role].flatMap(g => g.items);
 
-        {/* Mobile Menu Bottom Sheet */}
-        <MobileBottomSheet
-          isOpen={isMenuOpen}
-          onClose={() => setIsMenuOpen(false)}
-          title="Menü İşlemleri"
-        >
-          <div className="space-y-4">
-            {mobileMenuLinks.length > 0 && (
-              <div className="space-y-1.5 pb-2">
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-2.5 mb-2">Hızlı Erişim</p>
-                {mobileMenuLinks.map((link) => {
-                  const Icon = link.icon;
-                  const isActive = pathname === link.href;
+function isActivePath(pathname: string | null, href: string) {
+  if (!pathname) return false;
+  if (href.endsWith('/dashboard')) return pathname === href;
+  return pathname === href || pathname.startsWith(href + '/');
+}
+
+function initials(name?: string | null) {
+  if (!name) return 'Z';
+  return name.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(p => p[0]!.toLocaleUpperCase('tr')).join('');
+}
+
+function BrandMark({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  const box = size === 'sm' ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-[10px]';
+  return (
+    <span className={cn(box, 'flex items-center justify-center bg-gradient-to-br from-[#e8361c] to-[#ff6a2b] shadow-md shadow-[#e8361c]/25 shrink-0')}>
+      <Flame size={size === 'sm' ? 15 : 17} className="text-white" fill="currentColor" />
+    </span>
+  );
+}
+
+function UserAvatar({ name, className }: { name?: string | null; className?: string }) {
+  return (
+    <span className={cn('w-9 h-9 rounded-full bg-primary/12 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold shrink-0', className)}>
+      {initials(name)}
+    </span>
+  );
+}
+
+function ThemeToggle({ className }: { className?: string }) {
+  const { theme, toggleTheme } = useTheme();
+  const Icon = theme === 'dark' ? Sun : Moon;
+  const label = theme === 'dark' ? 'Açık temaya geç' : 'Koyu temaya geç';
+  return (
+    <button type="button" onClick={toggleTheme} aria-label={label} title={label} className={cn('p-btn p-btn-ghost p-btn-icon', className)}>
+      <Icon size={17} />
+    </button>
+  );
+}
+
+/* ═══ Sidebar (desktop) + bottom tab bar (mobile) ═══ */
+export function Sidebar({ role }: { role: PanelRole }) {
+  const pathname = usePathname();
+  const { signOut, profile } = useAuth();
+  const [moreOpen, setMoreOpen] = React.useState(false);
+
+  const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'Kullanıcı';
+  const roleLabel = role === 'admin' ? 'Yönetici' : 'Müşteri';
+  const tabs = allItems(role).filter(i => MOBILE_TABS[role].includes(i.href));
+  const moreItems = allItems(role).filter(i => !MOBILE_TABS[role].includes(i.href));
+  const moreActive = moreItems.some(i => isActivePath(pathname, i.href));
+
+  return (
+    <>
+      <CommandPalette role={role} />
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex print:!hidden fixed inset-y-0 left-0 z-40 w-64 flex-col bg-sidebar border-r border-border">
+        <Link href={role === 'admin' ? '/admin/dashboard' : '/client/dashboard'} className="flex items-center gap-3 h-16 px-5 border-b border-border">
+          <BrandMark />
+          <span className="leading-tight">
+            <span className="block text-sm font-bold tracking-tight text-foreground">Ziva Yangın</span>
+            <span className="block text-xs text-muted-foreground">{role === 'admin' ? 'Yönetim paneli' : 'Müşteri portalı'}</span>
+          </span>
+        </Link>
+
+        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6" aria-label="Panel menüsü">
+          {NAV[role].map((group, gi) => (
+            <div key={gi}>
+              {group.title && <p className="px-3 mb-2 text-xs font-medium text-muted-foreground/80">{group.title}</p>}
+              <div className="space-y-0.5">
+                {group.items.map(item => {
+                  const Icon = item.icon;
+                  const active = isActivePath(pathname, item.href);
                   return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setIsMenuOpen(false)}
-                      className={cn(
-                        "flex items-center gap-3.5 px-4 py-3.5 rounded-2xl border border-transparent transition-all text-sm font-bold",
-                        isActive
-                          ? "bg-primary/10 border-primary/20 text-foreground"
-                          : "bg-muted/30 border-border/30 text-muted-foreground hover:bg-muted/50"
-                      )}
-                    >
-                      <Icon size={18} className={isActive ? "text-primary" : "text-muted-foreground/60"} />
-                      <span>{link.name}</span>
+                    <Link key={item.href} href={item.href} className={cn('p-nav-link', active && 'active')} aria-current={active ? 'page' : undefined}>
+                      <Icon size={18} className="shrink-0" />
+                      {item.name}
                     </Link>
                   );
                 })}
               </div>
-            )}
-
-            {/* User Info Panel in Menu Sheet */}
-            <div className="bg-white/[0.02] border border-white/[0.04] p-4 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
-                  <UserCircle size={20} className="text-white/50" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-white/80 truncate uppercase tracking-tight">{profile?.full_name || profile?.email?.split('@')[0] || 'Kullanıcı'}</p>
-                  <p className="text-[9px] text-white/30 font-black uppercase tracking-widest mt-0.5">{profile?.role || role}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => { refreshProfile(); setIsMenuOpen(false); }}
-                className="p-2.5 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 cursor-pointer active:scale-95 transition-all text-white/50 hover:text-white"
-                title="Yenile"
-              >
-                <RefreshCw size={14} />
-              </button>
             </div>
+          ))}
+        </nav>
 
-            {/* Logout Action */}
-            <button
-              onClick={() => { signOut(); setIsMenuOpen(false); }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-red-500/15 border border-red-500/20 text-red-500 hover:bg-red-500/20 font-bold text-xs uppercase tracking-widest cursor-pointer transition-all active:scale-95"
-            >
+        <div className="p-3 border-t border-border">
+          <div className="flex items-center gap-3 p-2 rounded-xl">
+            <UserAvatar name={displayName} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{roleLabel}</p>
+            </div>
+            <button type="button" onClick={() => signOut()} aria-label="Çıkış yap" title="Çıkış yap" className="p-btn p-btn-ghost p-btn-icon p-btn-sm hover:!text-destructive">
               <LogOut size={16} />
-              <span>Çıkış Yap</span>
             </button>
           </div>
-        </MobileBottomSheet>
-      </>
-    );
-  }
-
-  // Desktop Sidebar
-  return (
-    <>
-      <CommandPalette />
-      <aside className="fixed inset-y-0 left-0 z-50 w-72 desktop-sidebar backdrop-blur-2xl transition-transform duration-500 lg:translate-x-0 flex flex-col">
-        {/* Subtle glowing dots in sidebar */}
-        <div className="absolute top-20 left-10 w-24 h-24 bg-primary/[0.03] rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute bottom-20 right-10 w-32 h-32 bg-primary/[0.02] rounded-full blur-3xl pointer-events-none" />
-
-        {/* Logo Section */}
-        <div className="p-6 border-b border-border/30 relative z-10">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg shadow-red-500/20 group-hover:scale-105 group-hover:rotate-6 transition-all duration-500">
-                <Flame size={22} className="text-white" fill="currentColor" />
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-950 shadow-[0_0_8px_#10b981]" />
-            </div>
-            <div>
-              <span className="font-black text-sm tracking-tight block leading-tight text-foreground uppercase italic">ZIVA <span className="text-primary not-italic tracking-normal">YANGIN</span></span>
-              <span className="text-[9px] text-muted-foreground/60 uppercase tracking-[0.15em] font-bold block mt-0.5">
-                {role === 'admin' ? 'Yönetim Merkezi' : 'Müşteri Portalı'}
-              </span>
-            </div>
-          </Link>
         </div>
+      </aside>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto relative z-10">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 px-4 mb-4">
-            Ana Menü
-          </p>
-          {links.map((link) => {
-            const Icon = link.icon;
-            const isActive = pathname === link.href || (link.href !== '/admin/dashboard' && link.href !== '/client/dashboard' && pathname?.startsWith(link.href));
+      {/* Mobile bottom tab bar */}
+      <nav
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border pb-[env(safe-area-inset-bottom)] print:hidden"
+        aria-label="Panel menüsü"
+      >
+        <div className="flex">
+          {tabs.map(item => {
+            const Icon = item.icon;
+            const active = isActivePath(pathname, item.href);
             return (
               <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "sidebar-link-premium",
-                  isActive && "active"
-                )}
+                key={item.href}
+                href={item.href}
+                className={cn('flex-1 flex flex-col items-center gap-1 pt-2.5 pb-2 text-[11px] font-medium transition-colors', active ? 'text-primary' : 'text-muted-foreground')}
+                aria-current={active ? 'page' : undefined}
               >
-                <Icon size={18} className={cn("shrink-0 transition-transform duration-300 group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground/60")} />
-                <span className="font-semibold text-[13px] tracking-tight">{link.name}</span>
+                <Icon size={21} strokeWidth={active ? 2.25 : 1.75} />
+                {item.name}
               </Link>
             );
           })}
-        </nav>
-        <div className="p-4 border-t border-border/30 space-y-3 relative z-10 bg-muted/10">
-          {/* Sync Status */}
-          <div
-            onClick={() => refreshProfile()}
-            className="px-4 py-3 rounded-2xl bg-muted/20 border border-border/30 flex items-center justify-between cursor-pointer hover:bg-muted/30 hover:border-border/50 transition-all duration-300 group"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-hover:text-foreground transition-colors">Sistem Canlı</span>
-            </div>
-            <RefreshCw size={13} className="text-muted-foreground/60 group-hover:text-primary group-hover:rotate-180 transition-all duration-700" />
-          </div>
-
-          {/* User Card */}
-          <div className="px-4 py-3.5 rounded-2xl bg-muted/20 border border-border/30">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center shrink-0">
-                <UserCircle size={20} className="text-muted-foreground/60" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-foreground/80 truncate leading-tight uppercase tracking-tight">{profile?.full_name || profile?.email?.split('@')[0] || 'Kullanıcı'}</p>
-                <p className="text-[9px] text-muted-foreground/40 font-black uppercase tracking-widest mt-0.5">{profile?.role || role}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Logout */}
           <button
-            onClick={() => signOut()}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-2xl text-muted-foreground/60 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 border border-transparent transition-all duration-300 font-bold text-xs uppercase tracking-widest cursor-pointer"
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            className={cn('flex-1 flex flex-col items-center gap-1 pt-2.5 pb-2 text-[11px] font-medium', moreActive ? 'text-primary' : 'text-muted-foreground')}
           >
-            <LogOut size={16} className="shrink-0" />
-            <span>Çıkış Yap</span>
+            <MoreHorizontal size={21} />
+            Daha fazla
           </button>
         </div>
-      </aside>
+      </nav>
+
+      <Sheet isOpen={moreOpen} onClose={() => setMoreOpen(false)} title="Menü">
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <UserAvatar name={displayName} className="w-11 h-11 text-sm" />
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground truncate">{displayName}</p>
+              <p className="text-sm text-muted-foreground">{roleLabel}</p>
+            </div>
+          </div>
+          {moreItems.length > 0 && (
+            <div className="p-card overflow-hidden divide-y divide-border">
+              {moreItems.map(item => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn('flex items-center gap-3 px-4 h-12 text-sm font-medium', isActivePath(pathname, item.href) ? 'text-primary' : 'text-foreground')}
+                  >
+                    <Icon size={18} className="text-muted-foreground" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => { setMoreOpen(false); signOut(); }}
+            className="p-btn p-btn-danger p-btn-lg w-full"
+          >
+            <LogOut size={17} /> Çıkış yap
+          </button>
+        </div>
+      </Sheet>
     </>
   );
 }
 
+/* ═══ Top bar ═══ */
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const { theme, toggleTheme } = useTheme();
-  const isMobile = useIsMobile();
   const pathname = usePathname();
   const router = useRouter();
+  const role: PanelRole = pathname?.startsWith('/client') ? 'client' : 'admin';
+  const isRoot = MOBILE_TABS[role].includes(pathname || '') || allItems(role).some(i => i.href === pathname);
 
-  const activeThemeConfig = THEMES.find(t => t.id === theme);
-  const ThemeIcon = activeThemeConfig?.icon || Sun;
-
-  const getThemeIconColor = (themeId: string) => {
-    switch (themeId) {
-      case 'dark': return 'text-amber-400';
-      case 'light': return 'text-slate-500 dark:text-slate-400';
-      case 'fluent': return 'text-blue-500';
-      case 'cyberpunk': return 'text-pink-500';
-      default: return 'text-white/70';
-    }
-  };
-
-  const rootPaths = [
-    '/admin/dashboard', '/admin/malls', '/admin/businesses', '/admin/history',
-    '/client/dashboard', '/client/businesses', '/client/history'
-  ];
-
-  const showBackButton = isMobile && !rootPaths.includes(pathname);
-
-  if (isMobile) {
-    return (
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40 h-14">
-        <div className="px-4 h-full flex items-center justify-between relative">
-          {/* Left Area (Back Button or Branding icon) */}
-          <div className="w-10 flex items-center">
-            {showBackButton ? (
-              <button
-                onClick={() => router.back()}
-                className="w-9 h-9 rounded-xl bg-muted/20 border border-border/30 flex items-center justify-center text-foreground active:scale-90 transition-all cursor-pointer"
-              >
-                <ArrowLeft size={16} />
-              </button>
-            ) : (
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg shadow-red-500/20 shrink-0">
-                <Flame size={14} className="text-white" fill="currentColor" />
-              </div>
-            )}
-          </div>
-
-          {/* Centered Title */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none max-w-[200px]">
-            <h2 className="text-xs font-black tracking-widest text-foreground uppercase truncate">{title}</h2>
-            {subtitle && <p className="text-[7px] font-bold text-muted-foreground/60 uppercase tracking-[0.15em] mt-0.5 truncate">{subtitle}</p>}
-          </div>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-2">
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-xl bg-muted/20 border border-border/30 flex items-center justify-center active:scale-90 transition-all cursor-pointer"
-            >
-              <ThemeIcon size={14} className={getThemeIconColor(theme)} />
-            </button>
-            <button className="relative w-9 h-9 rounded-xl bg-muted/20 border border-border/30 flex items-center justify-center active:scale-90 transition-all">
-              <Bell size={14} className="text-muted-foreground/80" />
-              <span className="absolute top-2.5 right-2.5 w-1 h-1 bg-red-500 rounded-full" />
-            </button>
-          </div>
-        </div>
-      </header>
-    );
-  }
-
-  // Desktop Topbar
   return (
-    <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40">
-      <div className="px-8 h-16 flex items-center justify-between">
-        {/* Title & Brand */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="min-w-0">
-            <h2 className="text-sm lg:text-base font-black tracking-tight text-foreground uppercase italic leading-none truncate">{title}</h2>
-            {subtitle && <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-0.5 truncate">{subtitle}</p>}
-          </div>
+    <header className="sticky top-0 z-30 h-16 bg-background/85 backdrop-blur-xl border-b border-border print:hidden">
+      <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
+        <div className="lg:hidden">
+          {isRoot ? (
+            <BrandMark size="sm" />
+          ) : (
+            <button type="button" onClick={() => router.back()} aria-label="Geri" className="p-btn p-btn-ghost p-btn-icon -ml-2">
+              <ArrowLeft size={18} />
+            </button>
+          )}
         </div>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-3">
-          {/* Search Shortcut - Desktop */}
-          <button
-            className="flex items-center gap-2.5 px-4 h-10 rounded-xl bg-muted/20 border border-border/30 text-xs text-muted-foreground/60 hover:border-border/60 hover:text-foreground transition-all duration-300 group"
-            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
-          >
-            <Search size={14} className="group-hover:scale-105 transition-transform" />
-            <span className="font-semibold">Sistemde Ara</span>
-            <kbd className="ml-2 px-2 py-0.5 text-[9px] bg-muted/30 rounded-lg font-mono border border-border/30 text-muted-foreground/40">⌘K</kbd>
-          </button>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="w-10 h-10 rounded-xl bg-muted/20 border border-border/30 hover:bg-muted/30 hover:border-border/60 transition-all duration-300 flex items-center justify-center"
-            title="Temayı Değiştir"
-          >
-            <ThemeIcon size={16} className={getThemeIconColor(theme)} />
-          </button>
-
-          <button className="relative w-10 h-10 rounded-xl bg-muted/20 border border-border/30 hover:bg-muted/30 hover:border-border/60 transition-all duration-300 flex items-center justify-center">
-            <Bell size={16} className="text-muted-foreground/60" />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444]" />
-          </button>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[15px] font-semibold text-foreground truncate leading-tight">{title}</h1>
+          {subtitle && <p className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</p>}
         </div>
+
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className="hidden md:flex items-center gap-2 h-9 pl-3 pr-2 w-56 rounded-[10px] border border-border bg-card text-sm text-muted-foreground hover:border-border-strong transition-colors"
+        >
+          <Search size={15} />
+          <span className="flex-1 text-left">Sayfalarda ara</span>
+          <span className="p-kbd">Ctrl K</span>
+        </button>
+        <button type="button" onClick={openCommandPalette} aria-label="Ara" className="md:hidden p-btn p-btn-ghost p-btn-icon">
+          <Search size={17} />
+        </button>
+        <ThemeToggle />
       </div>
     </header>
   );
 }
 
-// Page Header Component
-export function PageHeader({ 
-  title, 
-  description, 
-  actions,
-  breadcrumb 
-}: { 
-  title: string; 
-  description?: string; 
-  actions?: React.ReactNode;
-  breadcrumb?: { label: string; href: string }[];
+/* ═══ Page layout ═══ */
+export function PanelLayout({
+  role,
+  title,
+  subtitle,
+  width = 'default',
+  children,
+}: {
+  role: PanelRole;
+  title: string;
+  subtitle?: string;
+  width?: 'default' | 'wide' | 'narrow';
+  children: React.ReactNode;
 }) {
-  const isMobile = useIsMobile();
-
+  const max = { default: 'max-w-6xl', wide: 'max-w-7xl', narrow: 'max-w-3xl' }[width];
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-      <div className="min-w-0">
-        {!isMobile && breadcrumb && breadcrumb.length > 0 && (
-          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
-            {breadcrumb.map((item, i) => (
-              <React.Fragment key={item.href}>
-                {i > 0 && <ChevronRight size={10} />}
-                <Link href={item.href} className="hover:text-foreground transition-colors truncate">
-                  {item.label}
-                </Link>
-              </React.Fragment>
-            ))}
-          </nav>
-        )}
-        <h1 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight truncate">{title}</h1>
-        {description && <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 hidden sm:block">{description}</p>}
+    <div className="min-h-screen bg-background print:bg-white">
+      <Sidebar role={role} />
+      <div className="lg:pl-64 print:!pl-0">
+        <Topbar title={title} subtitle={subtitle} />
+        <main className={cn('mx-auto w-full px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8 pb-28 lg:pb-12 print:p-0 print:max-w-none', max)}>
+          {children}
+        </main>
       </div>
-      {actions && (
-        <div className="flex items-center gap-2 shrink-0">
-          {actions}
-        </div>
-      )}
     </div>
   );
 }
 
-// Stat Card Component
-export function StatCard({ 
-  label, 
-  value, 
-  icon: Icon, 
-  color = 'text-primary',
-  trend,
-  loading = false 
-}: { 
-  label: string; 
-  value: number | string; 
-  icon: React.ElementType; 
-  color?: string;
-  trend?: string;
-  loading?: boolean;
-}) {
-  return (
-    <div className="stat-card">
-      <div className="flex items-center justify-between mb-3">
-        <div className={cn("p-2 rounded-lg bg-[hsl(var(--muted))]", color)}>
-          <Icon size={18} />
-        </div>
-        {trend && (
-          <span className="text-[10px] font-medium text-muted-foreground">{trend}</span>
-        )}
-      </div>
-      <p className="text-lg sm:text-2xl lg:text-3xl font-bold tabular-nums">
-        {loading ? '—' : value}
-      </p>
-      <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 sm:mt-2 font-medium">{label}</p>
-    </div>
-  );
-}
+// Eski içe aktarmalar için
+export { PageHeader, StatCard } from '@/components/ui';

@@ -3,6 +3,7 @@
 import React, { Suspense } from 'react';
 import RouteGuard from '@/components/RouteGuard';
 import ServiceHistoryBase from '@/components/ServiceHistoryBase';
+import { LoadingState } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams } from 'next/navigation';
 
@@ -26,7 +27,7 @@ function ClientHistoryContent() {
 export default function ClientHistoryPage() {
   return (
     <RouteGuard requiredRole="client">
-      <Suspense fallback={<div className="p-20 text-center text-xs font-black uppercase tracking-widest animate-pulse">Servis Geçmişi Yükleniyor...</div>}>
+      <Suspense fallback={<LoadingState label="Servis geçmişi yükleniyor…" />}>
          <ClientHistoryContent />
       </Suspense>
     </RouteGuard>

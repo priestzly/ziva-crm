@@ -3,6 +3,7 @@
 import React, { Suspense } from 'react';
 import RouteGuard from '@/components/RouteGuard';
 import ServiceHistoryBase from '@/components/ServiceHistoryBase';
+import { LoadingState } from '@/components/ui';
 import { useSearchParams } from 'next/navigation';
 
 function AdminHistoryContent() {
@@ -22,7 +23,7 @@ function AdminHistoryContent() {
 export default function AdminHistoryPage() {
   return (
     <RouteGuard requiredRole="admin">
-      <Suspense fallback={<div className="p-20 text-center text-xs font-black uppercase tracking-widest animate-pulse">Operasyon Arşivi Yükleniyor...</div>}>
+      <Suspense fallback={<LoadingState label="Servis arşivi yükleniyor…" />}>
          <AdminHistoryContent />
       </Suspense>
     </RouteGuard>
