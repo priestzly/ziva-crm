@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -9,8 +10,23 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Ziva Yangın | Servis Takip & CRM",
-  description: "Ziva Yangın profesyonel bakım, onarım ve yangın sistemi takip platformu.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Ziva Yangın | Baca Temizliği ve Yangın Söndürme Sistemleri – İstanbul",
+    template: "%s | Ziva Yangın",
+  },
+  description: SITE_DESCRIPTION,
+  keywords: ["baca temizliği", "yangın söndürme sistemleri", "itfaiye raporu", "İSG eğitimi", "Arnavutköy", "İstanbul"],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "tr_TR",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: "Ziva Yangın | Baca Temizliği ve Yangın Söndürme Sistemleri",
+    description: SITE_DESCRIPTION,
+    images: [{ url: "/logo.png", alt: SITE_NAME }],
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

@@ -48,6 +48,27 @@ const nextConfig: NextConfig = {
         destination: '/#hizmetler',
         permanent: true,
       },
+      // Eski WordPress sitesinden kalan ve Google'da indekslenmiş adresler
+      {
+        source: '/services/:slug*',
+        destination: '/#hizmetler',
+        permanent: true,
+      },
+      {
+        source: '/our-team',
+        destination: '/#hakkimizda',
+        permanent: true,
+      },
+      {
+        source: '/:page(faqs|blog|sample-page|home-slider|home-video|feed)',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/:year(\\d{4})/:path*',
+        destination: '/',
+        permanent: true,
+      },
     ];
   },
 };
